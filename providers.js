@@ -163,12 +163,12 @@ async function getJSON(url, opts = {}, retry = true) {
     ...opts,
     headers: { 'User-Agent': UA, Accept: 'application/json', ...(opts.headers || {}) },
   });
-  // 400は原因が本文に書かれていることが多いので、拾って表に出す
-  if (res.status === 400) {
+  // 400や403は原因が本文に書かれていることが多いので、拾って表に出す
+  if (res.status === 400 || res.status === 403) {
     const body = await res.text().catch(() => '');
     let detail = '';
     try { const j = JSON.parse(body); detail = j.error_description || j.error || ''; } catch {}
-    throw new Error(`${new URL(url).hostname} が 400 を返しました${detail ? '：' + detail : ''}`);
+    throw new Error(`${new URL(url).hostname} が ${res.status} を返しました${detail ? '：' + detail : ''}`);
   }
   // 429（多すぎ）や503（一時的）は、少し待って1度だけやり直す
   if ((res.status === 429 || res.status === 503) && retry) {
@@ -744,18 +744,35 @@ async function fetchCredits(list) {
  * 別々に並ぶ。タイトルを正規化してまとめ、最古の版を代表として出す。
  * （漫画で「1巻の表紙」を出したのと同じ考え方）
  * ================================================================== */
-const RAKUTEN_ID = process.env.RAKUTEN_APP_ID || '';
+const RAKUTEN_ID  = process.env.RAKUTEN_APP_ID || '';
+const RAKUTEN_KEY = process.env.RAKUTEN_ACCESS_KEY || '';
 const RAKUTEN_AFF = process.env.RAKUTEN_AFFILIATE_ID || '';
 
+/**
+ * 楽天ウェブサービスは2026年2月に刷新された。
+ *   旧: app.rakuten.co.jp/services/api/...  applicationId だけで認証（5月13日で停止）
+ *   新: openapi.rakuten.co.jp/...           applicationId + accessKey が必須
+ * さらにリクエスト元が厳格にチェックされるため、Referer と Origin を明示して送る。
+ * 送り先は、アプリ登録時に「許可されたWebサイト」に入れたドメインと一致させること。
+ */
+const RAKUTEN_ORIGIN = process.env.CONTACT_URL || 'https://nine-1jsh.onrender.com';
+
 function rakutenURL(params) {
-  const u = new URL('https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404');
+  const u = new URL('https://openapi.rakuten.co.jp/bookms/api/BooksBook/Search/20170404');
   u.searchParams.set('applicationId', RAKUTEN_ID);
+  u.searchParams.set('accessKey', RAKUTEN_KEY);
   if (RAKUTEN_AFF) u.searchParams.set('affiliateId', RAKUTEN_AFF);
+  u.searchParams.set('format', 'json');
   u.searchParams.set('hits', '30');
   u.searchParams.set('sort', 'sales');
   Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
   return u.toString();
 }
+
+const rakutenHeaders = () => ({
+  Referer: RAKUTEN_ORIGIN,
+  Origin: RAKUTEN_ORIGIN,
+});
 
 /** 版の違いを無視して同じ作品にまとめるためのキー */
 function bookKey(title) {
@@ -800,12 +817,13 @@ function foldEditions(books) {
 }
 
 async function searchRakutenBooks(term, field = 'title') {
-  if (!RAKUTEN_ID) {
-    const e = new Error('書籍検索には楽天のアプリIDが必要です。環境変数 RAKUTEN_APP_ID を設定してください。');
+  if (!RAKUTEN_ID || !RAKUTEN_KEY) {
+    const e = new Error('書籍検索には楽天のアプリIDとアクセスキーが必要です。'
+      + '環境変数 RAKUTEN_APP_ID と RAKUTEN_ACCESS_KEY を設定してください。');
     e.status = 503;
     throw e;
   }
-  const json = await q.rakuten(() => getJSON(rakutenURL({ [field]: term })));
+  const json = await q.rakuten(() => getJSON(rakutenURL({ [field]: term }), { headers: rakutenHeaders() }));
   return (json.Items || []).map(x => shapeRakutenBook(x.Item || x)).filter(b => b.img && b.title);
 }
 
@@ -920,7 +938,7 @@ async function searchCharacters(term) {
 
 module.exports = {
   search, suggest, related, creators, works, IMG_HOSTS,
-  hasRakuten: () => !!RAKUTEN_ID,
+  hasRakuten: () => !!(RAKUTEN_ID && RAKUTEN_KEY),
   hasTMDB: () => !!TMDB_KEY,
   hasYouTube: () => !!YT_KEY,
   _internal: { key, variants, dice, rank },   // テスト用
