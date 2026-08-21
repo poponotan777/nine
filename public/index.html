@@ -179,7 +179,13 @@
   .s-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .search-row button{flex:0 0 auto;padding:0 18px;background:var(--obi);color:#101216;
     border:0;border-radius:2px;font-weight:700;cursor:pointer}
-  .results{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:16px}
+  .results{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:16px;
+    max-height:44vh;overflow-y:auto;overscroll-behavior:contain;
+    align-content:start;
+  }
+  .results::-webkit-scrollbar{width:6px}
+  .results::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
   .results button{
     padding:0;border:1px solid var(--line);background:var(--panel);border-radius:2px;
     aspect-ratio:var(--ratio,1);overflow:hidden;cursor:pointer;position:relative;
@@ -206,6 +212,27 @@
   .people img{width:36px;height:36px;object-fit:cover;border-radius:50%;flex:0 0 auto;background:var(--panel-2)}
   .people .p-name{font-size:14px}
   .people .p-sub{font-size:11px;color:var(--muted);margin-left:auto;text-align:right}
+  .buy{
+    display:block;text-align:center;padding:11px;margin-bottom:14px;
+    border:1px solid var(--line);border-radius:2px;color:var(--muted);
+    font-size:13px;text-decoration:none;
+  }
+  .buy:hover{border-color:var(--obi);color:var(--obi)}
+  .buy small{display:block;font-size:10px;opacity:.7;margin-top:2px}
+
+  /* 横のバナー枠。PCの余白にだけ出し、スマホでは表示しない。
+     作る流れと共有の導線には広告を入れない方針のため。 */
+  .rail{display:none}
+  @media (min-width:1200px){
+    .rail{
+      display:block;position:fixed;top:120px;right:24px;width:180px;
+      font-size:10px;color:var(--muted);text-align:center;
+    }
+    .rail .slot-ad{
+      border:1px dashed var(--line);min-height:600px;
+      display:flex;align-items:center;justify-content:center;margin-top:6px;
+    }
+  }
   .status{font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.7}
   .status.err{color:var(--alert)}
   .drop img{width:100%;height:100%;object-fit:var(--fit,cover)}
@@ -236,6 +263,13 @@
   </div>
 </header>
 
+<aside class="rail" aria-label="広告">
+  <span>PR</span>
+  <div class="slot-ad" id="adRail">
+    <!-- ここにアフィリエイトのバナーを貼る -->
+  </div>
+</aside>
+
 <div class="wrap">
 
   <div class="field">
@@ -243,6 +277,7 @@
     <div class="seg" id="mode" role="group">
       <button type="button" data-mode="cd" aria-pressed="true">CD</button>
       <button type="button" data-mode="manga" aria-pressed="false">漫画</button>
+      <button type="button" data-mode="book" aria-pressed="false">書籍</button>
       <button type="button" data-mode="anime" aria-pressed="false">アニメ</button>
       <button type="button" data-mode="movie" aria-pressed="false">映画</button>
       <button type="button" data-mode="person" aria-pressed="false">有名人</button>
@@ -315,6 +350,7 @@
       <span style="font-size:11px">またはここにドロップ / 貼り付け</span>
     </div>
     <input type="file" id="file" accept="image/*" hidden>
+    <a class="buy" id="buy" target="_blank" rel="noopener sponsored" style="display:none"></a>
     <div class="field">
       <label class="lbl" for="fTitle" id="fTitleLbl">作品名</label>
       <input type="text" id="fTitle" maxlength="30">
@@ -358,6 +394,9 @@
     person: {h1:'9人で自分を紹介する', sub:'好きな有名人・クリエイターを9人選んで、1枚の画像にする',
            title:'私を構成する9人', unit:'人目', f1:'名前', f2:'肩書き', grid:'SELECT NINE PEOPLE',
            ph:'名前で検索', hint:'俳優・音楽家・芸人・配信者など、実在の人物を探せます。'},
+    book: {h1:'9冊で自分を紹介する', sub:'好きな本を9冊選んで、1枚の画像にする',
+           title:'私を構成する9冊', unit:'冊目', f1:'書名', f2:'著者', grid:'SELECT NINE BOOKS',
+           ph:'書名で検索', hint:'小説・実用書・新書などを探せます。同じ作品の別の版は「関連」からどうぞ。'},
     character: {h1:'9人で自分を紹介する', sub:'好きなキャラクターを9人選んで、1枚の画像にする',
            title:'私を構成する9キャラ', unit:'人目', f1:'キャラクター名', f2:'出典', grid:'SELECT NINE CHARACTERS',
            ph:'キャラクター名で検索', hint:'漫画・アニメ・ゲームのキャラクターを横断で探せます。'}
@@ -370,7 +409,7 @@
   /* ===== 検索 =====
      通信先はすべて自前サーバー。外部APIのURLもキーもここには出てこない。
      画像は /img?u=... の同一オリジン経由で来るので、canvasが汚染されない。 */
-  const API_TYPE = { cd:'album', manga:'manga', anime:'anime', movie:'movie', person:'person', character:'character' };
+  const API_TYPE = { cd:'album', manga:'manga', book:'book', anime:'anime', movie:'movie', person:'person', character:'character' };
 
   async function api(path){
     const r = await fetch(path);
@@ -385,14 +424,14 @@
   const workItems    = (type, id) => api(`/x/works?type=${type}&id=${id}`);
 
   // 「作者で探す」のラベル。有名人モードには人名検索しかないので出さない
-  const BY_LABEL = { cd:'アーティストで探す', manga:'作者で探す', anime:'制作・監督で探す', movie:'監督・出演者で探す' };
+  const BY_LABEL = { cd:'アーティストで探す', manga:'作者で探す', book:'著者で探す', anime:'制作・監督で探す', movie:'監督・出演者で探す' };
 
   /* 種別ごとの画像の縦横比（横 ÷ 縦）
      CDジャケットは正方形、漫画・アニメ・映画のポスターは2:3、
      人物写真は3:4が最も切れが少ない。 */
-  const RATIO = { cd:1, manga:460/654, anime:460/654, movie:2/3, person:3/4, character:460/654 };
+  const RATIO = { cd:1, manga:460/654, book:2/3, anime:460/654, movie:2/3, person:3/4, character:460/654 };
   // contain = 絶対に見切れない（余白が出る） / cover = 枠を埋める（端が切れる）
-  const FIT   = { cd:'cover', manga:'contain', anime:'contain', movie:'contain', person:'cover', character:'contain' };
+  const FIT   = { cd:'cover', manga:'contain', book:'contain', anime:'contain', movie:'contain', person:'cover', character:'contain' };
 
   function applyRatio(){
     document.documentElement.style.setProperty('--ratio', String(RATIO[S.mode] || 1));
@@ -537,6 +576,7 @@
     $('q').value = '';
     closeSuggest();
     setFindBy('work');
+    $('buy').style.display = 'none';
     $('editor').classList.add('open');
   }
 
@@ -606,10 +646,12 @@
     });
   }
 
-  let pendingRef = null;   // 集計用の出典（source + id）
+  let pendingRef = null;      // 集計用の出典（source + id）
+  let pendingCredit = null;   // CC BY-SA の著作者表示用
 
   function choose(item){
     pending = item.img;                       // 同一オリジンのプロキシURL
+    pendingCredit = item.credit || null;
     pendingRef = {
       source: item.source || null,
       externalId: item.id != null ? String(item.id) : null,
@@ -622,7 +664,19 @@
     paintDrop(item.img);
     $('fTitle').value = item.title || '';
     $('fSub').value = item.sub || '';
-    setStatus('「決定」で反映されます');
+    setStatus(item.credit
+      ? `「決定」で反映されます（写真: ${item.credit.author} / ${item.credit.license}）`
+      : '「決定」で反映されます');
+    showBuy(item);
+  }
+
+  /** 作品の詳細としての購入リンク。作る流れの外側なので、ここにだけ置く */
+  function showBuy(item){
+    const el = $('buy');
+    if (!item || !item.buyUrl){ el.style.display = 'none'; return; }
+    el.href = item.buyUrl;
+    el.innerHTML = '楽天ブックスで見る<small>広告（アフィリエイトリンク）</small>';
+    el.style.display = 'block';
   }
 
   let lastPeople = [];
@@ -663,7 +717,9 @@
   async function showWorks(person){
     setStatus(`「${person.title}」の作品を読み込み中…`);
     try{
-      const list = await workItems(API_TYPE[S.mode], person.id);
+      const list = S.mode === 'book'
+        ? await api(`/x/works?type=book&id=0&author=${encodeURIComponent(person.authorName || person.title)}`)
+        : await workItems(API_TYPE[S.mode], person.id);
       if (!list.length){ setStatus('作品が見つかりませんでした。'); return; }
       $('people').innerHTML = '';
       lastSearch = list;
@@ -813,11 +869,12 @@
       title: $('fTitle').value.trim(),
       sub: $('fSub').value.trim(),
       ref: pendingRef || (S.items[i] && S.items[i].ref) || null,
+      credit: pendingCredit || (S.items[i] && S.items[i].credit) || null,
     };
     close(); render();
   });
   $('remove').addEventListener('click', () => { S.items[S.editing] = null; close(); render(); });
-  function close(){ pending = null; pendingRef = null; $('editor').classList.remove('open'); }
+  function close(){ pending = null; pendingRef = null; pendingCredit = null; $('editor').classList.remove('open'); }
   $('editor').addEventListener('click', e => { if (e.target.id === 'editor') close(); });
 
   /* ---------- モード切替 ---------- */
@@ -851,6 +908,9 @@
     movie: [['遠い灯台','1998'],['雨のあとで','2014'],['メトロポリス再訪','1979'],
             ['ブルーグラス','2007'],['沈黙の週末','1965'],['南回帰線','2021'],
             ['真夜中の食卓','1993'],['カレイドスコープ','2016'],['最後の教室','1984']],
+    book: [['夜と霧の向こう','水無月ケイ'],['アルジャーノンの庭','三浦タカシ'],['砂の年代記','南雲リョウ'],
+           ['遠くの汽笛','田島ミワ'],['言葉の在処','高梨アキラ'],['冬のいちばん長い日','佐倉レイ'],
+           ['海辺の図書館','大月ソウ'],['名もなき星の','東ハルカ'],['読書の終わり','西野トオル']],
     character: [['シロガネ','夏至のクロニクル'],['ミナト','鋼の遺言'],['アオイ','青いカーテン'],
                 ['ハル','雲の向こうの停留所'],['クロエ','アルカディア急行'],['タツヤ','最終電車'],
                 ['ノノ','星屑インターバル'],['レン','ラストサマー'],['ユキ','きみと放課後と']],
@@ -888,7 +948,11 @@
     const cellH = Math.round(cellW / (RATIO[S.mode] || 1));   // 種別ごとの縦横比
     const capH = 46;
     const gridTop = 250;
-    const H = gridTop + cellH*3 + capH*3 + GAP*2 + 150;
+    // CC BY-SA 画像を含む場合、著作者表示の行を下部に確保する
+    const credits = S.items.filter(it => it && it.credit)
+      .map(it => `${it.title || ''}: ${it.credit.author}${it.credit.license ? ' / ' + it.credit.license : ''}`);
+    const creditH = credits.length ? 34 + credits.length * 24 : 0;
+    const H = gridTop + cellH*3 + capH*3 + GAP*2 + 150 + creditH;
 
     const c = document.createElement('canvas');
     c.width = W; c.height = H;
@@ -952,7 +1016,19 @@
     });
 
     x.fillStyle = '#6f747f'; x.font = `400 18px ${gothic}`;
-    x.fillText(COPY[S.mode].grid, OBI + PAD, H - 56);
+    x.fillText(COPY[S.mode].grid, OBI + PAD, H - 56 - creditH);
+
+    // 著作者表示（CC BY-SA の要件）
+    if (credits.length){
+      let cy2 = H - creditH - 14;
+      x.fillStyle = '#4e535d'; x.font = `400 15px ${gothic}`;
+      x.fillText('写真クレジット（Wikimedia Commons）', OBI + PAD, cy2);
+      x.font = `400 14px ${gothic}`;
+      credits.forEach(line => {
+        cy2 += 24;
+        x.fillText(clip(x, line, W - OBI - PAD*2), OBI + PAD, cy2);
+      });
+    }
     return c;
   }
   function clip(ctx, s, w){
@@ -1078,6 +1154,10 @@
     if (!cfg.movieEnabled){
       const b = document.querySelector('[data-mode="movie"]');
       if (b){ b.disabled = true; b.title = 'TMDB_API_KEY が未設定です'; }
+    }
+    if (!cfg.bookEnabled){
+      const b = document.querySelector('[data-mode="book"]');
+      if (b){ b.disabled = true; b.title = 'RAKUTEN_APP_ID が未設定です'; }
     }
   }).catch(() => {});
 

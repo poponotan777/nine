@@ -18,7 +18,7 @@ const P    = require('./providers');
 const { store, hashIP } = require('./db');
 
 const PORT = process.env.PORT || 3000;
-const TYPES = new Set(['album', 'manga', 'anime', 'movie', 'person', 'character']);
+const TYPES = new Set(['album', 'manga', 'anime', 'movie', 'person', 'character', 'book']);
 
 /* ------------------------------------------------------------------ *
  * キャッシュ（メモリ上・TTL付き・LRU）
@@ -179,7 +179,11 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (url.pathname === '/x/config') {
-      return send(res, 200, { movieEnabled: P.hasTMDB(), youtubeEnabled: P.hasYouTube() });
+      return send(res, 200, {
+        movieEnabled: P.hasTMDB(),
+        youtubeEnabled: P.hasYouTube(),
+        bookEnabled: P.hasRakuten(),
+      });
     }
 
     if (url.pathname.startsWith('/x/')) {
@@ -221,16 +225,18 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (url.pathname === '/x/works') {
-      const type = url.searchParams.get('type') || '';
-      const id   = url.searchParams.get('id') || '';
-      if (!TYPES.has(type))  return send(res, 400, { error: '種別が不正です' });
-      if (!/^\d+$/.test(id)) return send(res, 400, { error: 'idが不正です' });
+      const type   = url.searchParams.get('type') || '';
+      const id     = url.searchParams.get('id') || '';
+      const author = (url.searchParams.get('author') || '').slice(0, 60);
+      if (!TYPES.has(type)) return send(res, 400, { error: '種別が不正です' });
+      if (type !== 'book' && !/^\d+$/.test(id)) return send(res, 400, { error: 'idが不正です' });
+      if (type === 'book' && !author) return send(res, 400, { error: '著者名が必要です' });
 
-      const key = `works:${type}:${id}`;
+      const key = `works:${type}:${id}:${author}`;
       const hit = cacheGet(key);
       if (hit) return send(res, 200, { items: hit, cached: true });
 
-      const items = await P.works(type, id);
+      const items = await P.works(type, id, { author });
       cacheSet(key, items, TTL.search);
       return send(res, 200, { items });
     }
@@ -251,6 +257,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (url.pathname === '/about') return serveStatic('/about.html', res);
+    if (url.pathname === '/terms') return serveStatic('/terms.html', res);
 
     return serveStatic(url.pathname, res);
   } catch (err) {

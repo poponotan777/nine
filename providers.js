@@ -13,7 +13,9 @@
  *   { id, source, title, sub, img, relatedId, relatedCount, relationLabel? }
  */
 
-const UA = 'MyNine/1.0 (https://example.com; contact@example.com)';
+// Wikimedia系APIは、連絡先を含むUser-Agentを求めている。
+// 環境変数 CONTACT_URL / CONTACT_MAIL を設定すると、それが使われる。
+const UA = `MyNine/1.0 (${process.env.CONTACT_URL || 'https://nine-1jsh.onrender.com'}; ${process.env.CONTACT_MAIL || 'noreply@example.com'})`;
 const TMDB_KEY = process.env.TMDB_API_KEY || '';
 const YT_KEY   = process.env.YOUTUBE_API_KEY || '';
 
@@ -28,6 +30,9 @@ const IMG_HOSTS = [
   /^yt\d\.googleusercontent\.com$/,
   /^i\.ytimg\.com$/,
   /^lh\d\.googleusercontent\.com$/,
+  /^thumbnail\.image\.rakuten\.co\.jp$/,
+  /^books\.google\.com$/,
+  /^books\.google\.co\.jp$/,
 ];
 
 const proxied = url => (url ? '/img?u=' + encodeURIComponent(url) : '');
@@ -144,10 +149,26 @@ function makeQueue(intervalMs) {
   const run = async fn => { const r = await fn(); await new Promise(s => setTimeout(s, intervalMs)); return r; };
   return fn => (chain = chain.then(() => run(fn), () => run(fn)));
 }
-const q = { anilist: makeQueue(700), itunes: makeQueue(350), tmdb: makeQueue(120), wiki: makeQueue(200), yt: makeQueue(120) };
+const q = {
+  anilist: makeQueue(700), itunes: makeQueue(350), tmdb: makeQueue(120),
+  wiki: makeQueue(1200),      // Wikidata / Wikipedia。429を避けるため広めに
+  commons: makeQueue(1200),   // 画像クレジット。別キューにして本体を邪魔しない
+  yt: makeQueue(120),
+  rakuten: makeQueue(1100),   // 楽天は1秒1リクエストが目安
+  gbooks: makeQueue(200),
+};
 
-async function getJSON(url, opts = {}) {
-  const res = await fetch(url, { ...opts, headers: { 'User-Agent': UA, Accept: 'application/json', ...(opts.headers || {}) } });
+async function getJSON(url, opts = {}, retry = true) {
+  const res = await fetch(url, {
+    ...opts,
+    headers: { 'User-Agent': UA, Accept: 'application/json', ...(opts.headers || {}) },
+  });
+  // 429（多すぎ）や503（一時的）は、少し待って1度だけやり直す
+  if ((res.status === 429 || res.status === 503) && retry) {
+    const wait = Number(res.headers.get('retry-after')) * 1000 || 2500;
+    await new Promise(s => setTimeout(s, Math.min(wait, 5000)));
+    return getJSON(url, opts, false);
+  }
   if (!res.ok) throw new Error(`${new URL(url).hostname} が ${res.status} を返しました`);
   return res.json();
 }
@@ -362,11 +383,21 @@ async function search(type, rawQuery) {
     return rank(await searchCharacters(term), term);
   }
 
+  if (type === 'book') {
+    let books = await fanout(term, v => searchRakutenBooks(v), { enough: 6, max: 2 });
+    books = foldEditions(books);
+    if (books.length < 4) {
+      const g = await searchGoogleBooks(term);
+      books = mergeBy(x => bookKey(x.title), books, g);
+    }
+    return rank(books, term).slice(0, 24);
+  }
+
   if (type === 'person') {
     // Wikidataを主軸に、俳優はTMDB、配信者はYouTubeで補う。
     // 同じ人物は名前で1つにまとめる（先に来たソースを優先）
     const [wd, tmdb, yt] = await Promise.all([
-      fanout(term, wikidataPeople, { enough: 6, max: 3 }).catch(() => []),
+      fanout(term, wikidataPeople, { enough: 3, max: 2 }).catch(() => []),
       TMDB_KEY
         ? q.tmdb(() => getJSON(tmdbURL('/search/person', { query: term, include_adult: 'false' })))
             .then(j => (j.results || []).map(shapePerson).filter(x => x.img))
@@ -379,7 +410,7 @@ async function search(type, rawQuery) {
 
     // どれも薄いときだけ、従来のWikipedia全文検索で拾い直す
     if (merged.length < 4) {
-      const wiki = await fanout(term, searchWiki, { enough: 6 }).catch(() => []);
+      const wiki = await searchWiki(term).catch(() => []);
       merged = mergeBy(x => key(x.title) || x.id, merged, wiki);
     }
     return rank(merged, term).slice(0, 24);
@@ -428,6 +459,16 @@ async function suggest(type, rawQuery) {
     return dedupe(rank(got, term)).map(({ label, sub }) => ({ label, sub }));
   }
 
+  if (type === 'book') {
+    const got = await fanout(term, async v => {
+      const books = foldEditions(await searchRakutenBooks(v));
+      return books.slice(0, 8).map(b => ({
+        id: b.id, source: 'rakuten', label: b.title, sub: b.sub, title: b.title, _alts: b._alts,
+      }));
+    }, { enough: 4, max: 2 });
+    return dedupe(rank(got, term)).map(({ label, sub }) => ({ label, sub }));
+  }
+
   if (type === 'character') {
     const got = await fanout(term, async v => {
       const data = await anilist(Q_CHARACTERS, { s: v });
@@ -449,7 +490,7 @@ async function suggest(type, rawQuery) {
         sub: (json[2]?.[i] || '').slice(0, 20),
         title: label,
       }));
-    }, { enough: 4, max: 3 });
+    }, { enough: 4, max: 2 });
 
     if (got.length < 3 && TMDB_KEY) {
       const j = await q.tmdb(() => getJSON(tmdbURL('/search/person', { query: term }))).catch(() => null);
@@ -552,6 +593,18 @@ async function creators(type, rawQuery) {
     return rank(got, term);
   }
 
+  if (type === 'book') {
+    // 著者名で検索し、著者ごとにまとめて候補にする
+    const books = await fanout(term, v => searchRakutenBooks(v, 'author'), { enough: 8, max: 2 });
+    const byAuthor = new Map();
+    books.forEach(b => {
+      (b.sub || '').split(/[,、\/]/).map(a => a.trim()).filter(Boolean).forEach(a => {
+        if (!byAuthor.has(a)) byAuthor.set(a, { id: 0, source: 'rakuten', title: a, sub: '', img: '', authorName: a });
+      });
+    });
+    return rank([...byAuthor.values()], term).slice(0, 12);
+  }
+
   if (type === 'movie') {
     requireTMDB();
     const got = await fanout(term, async v => {
@@ -571,7 +624,12 @@ async function creators(type, rawQuery) {
 }
 
 /** その人物の作品一覧 */
-async function works(type, id) {
+async function works(type, id, extra = {}) {
+  if (type === 'book') {
+    const author = String(extra.author || '').slice(0, 60);
+    if (!author) return [];
+    return foldEditions(await searchRakutenBooks(author, 'author')).slice(0, 30);
+  }
   if (type === 'manga' || type === 'anime') {
     const data = await anilist(Q_STAFF_WORKS, { id: Number(id), t: type === 'anime' ? 'ANIME' : 'MANGA' });
     const seen = new Set();
@@ -617,6 +675,155 @@ const claimValues = (ent, prop) =>
 const commonsImage = file =>
   'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(file) + '?width=500';
 
+/**
+ * Commonsの画像クレジットを引く（CC BY-SA の著作者表示義務に対応するため）
+ * imageinfo の extmetadata から、著作者名とライセンス名を取り出す。
+ * 失敗しても検索自体は止めない。
+ */
+const COMMONS = 'https://commons.wikimedia.org/w/api.php';
+
+function stripTags(html) {
+  return String(html || '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#0?39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function commonsCredits(files) {
+  const list = [...new Set(files.filter(Boolean))].slice(0, 10);
+  if (!list.length) return {};
+  try {
+  return await fetchCredits(list);
+  } catch (err) {
+    console.warn('クレジット取得に失敗（検索は継続）:', err.message);
+    return {};
+  }
+}
+
+async function fetchCredits(list) {
+  const u = new URL(COMMONS);
+  Object.entries({
+    action: 'query', format: 'json', formatversion: 2,
+    prop: 'imageinfo', iiprop: 'extmetadata',
+    iiextmetadatafilter: 'Artist|LicenseShortName|LicenseUrl|Credit',
+    titles: list.map(f => 'File:' + f).join('|'),
+  }).forEach(([k, v]) => u.searchParams.set(k, v));
+
+  const json = await q.commons(() => getJSON(u.toString())).catch(() => null);
+  const out = {};
+  (json?.query?.pages || []).forEach(p => {
+    const m = p.imageinfo?.[0]?.extmetadata || {};
+    const file = String(p.title || '').replace(/^File:/, '');
+    const author = stripTags(m.Artist?.value) || stripTags(m.Credit?.value);
+    const license = stripTags(m.LicenseShortName?.value);
+    if (author || license) {
+      out[decodeURIComponent(file).replace(/_/g, ' ')] = {
+        author: (author || '不明').slice(0, 60),
+        license: license || '',
+        licenseUrl: m.LicenseUrl?.value || '',
+      };
+    }
+  });
+  return out;
+}
+
+/* ================================================================== *
+ * 書籍・小説
+ *
+ * 楽天ブックス書籍検索APIを主軸に、見つからないものをGoogle Booksで補う。
+ * 楽天は商品単位のデータなので、同じ作品の単行本・文庫・電子書籍が
+ * 別々に並ぶ。タイトルを正規化してまとめ、最古の版を代表として出す。
+ * （漫画で「1巻の表紙」を出したのと同じ考え方）
+ * ================================================================== */
+const RAKUTEN_ID = process.env.RAKUTEN_APP_ID || '';
+const RAKUTEN_AFF = process.env.RAKUTEN_AFFILIATE_ID || '';
+
+function rakutenURL(params) {
+  const u = new URL('https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404');
+  u.searchParams.set('applicationId', RAKUTEN_ID);
+  if (RAKUTEN_AFF) u.searchParams.set('affiliateId', RAKUTEN_AFF);
+  u.searchParams.set('hits', '30');
+  u.searchParams.set('booksGenreId', '001');   // 本
+  Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
+  return u.toString();
+}
+
+/** 版の違いを無視して同じ作品にまとめるためのキー */
+function bookKey(title) {
+  return key(String(title || '')
+    .replace(/[（(【\[].*?[）)】\]]/g, '')          // （文庫版）などを落とす
+    .replace(/\s*(文庫|新書|上|下|上巻|下巻|完全版|新装版|愛蔵版|電子書籍版)\s*$/g, '')
+    .replace(/\s*\d+\s*$/, ''));                    // 末尾の巻数
+}
+
+function shapeRakutenBook(b) {
+  const img = b.largeImageUrl || b.mediumImageUrl || '';
+  return {
+    id: b.isbn || b.itemCode || '',
+    source: 'rakuten',
+    title: b.title || '',
+    sub: b.author || b.publisherName || '',
+    img: proxied(img.replace(/\?_ex=\d+x\d+$/, '')),
+    // アフィリエイトリンク。作品の詳細でのみ表示する
+    buyUrl: b.affiliateUrl || b.itemUrl || '',
+    date: b.salesDate || '',
+    relatedId: null, relatedCount: 0,
+    _alts: [b.titleKana, b.subTitle, b.author].filter(Boolean),
+  };
+}
+
+/** 同じ作品をまとめ、いちばん古い版を代表にする */
+function foldEditions(books) {
+  const groups = new Map();
+  books.forEach(b => {
+    const k = bookKey(b.title);
+    const cur = groups.get(k);
+    if (!cur) { groups.set(k, { rep: b, all: [b] }); return; }
+    cur.all.push(b);
+    const older = (b.date || '9999') < (cur.rep.date || '9999');
+    if (older && b.img) cur.rep = b;
+  });
+  return [...groups.values()].map(g => ({
+    ...g.rep,
+    relatedCount: g.all.length > 1 ? g.all.length - 1 : 0,
+    editions: g.all.length > 1 ? g.all.slice(0, 12) : null,
+  }));
+}
+
+async function searchRakutenBooks(term, field = 'title') {
+  if (!RAKUTEN_ID) {
+    const e = new Error('書籍検索には楽天のアプリIDが必要です。環境変数 RAKUTEN_APP_ID を設定してください。');
+    e.status = 503;
+    throw e;
+  }
+  const json = await q.rakuten(() => getJSON(rakutenURL({ [field]: term })));
+  return (json.Items || []).map(x => shapeRakutenBook(x.Item || x)).filter(b => b.img && b.title);
+}
+
+/** 楽天で見つからないもの（洋書など）をGoogle Booksで補う */
+async function searchGoogleBooks(term) {
+  const u = new URL('https://www.googleapis.com/books/v1/volumes');
+  u.searchParams.set('q', term);
+  u.searchParams.set('maxResults', '12');
+  u.searchParams.set('country', 'JP');
+  const json = await q.gbooks(() => getJSON(u.toString())).catch(() => null);
+  return (json?.items || []).map(v => {
+    const info = v.volumeInfo || {};
+    const img = (info.imageLinks?.thumbnail || '').replace(/^http:/, 'https:').replace(/&zoom=\d/, '&zoom=1');
+    return {
+      id: 'gb-' + v.id, source: 'googlebooks',
+      title: info.title || '',
+      sub: (info.authors || []).join(', ') || info.publisher || '',
+      img: proxied(img),
+      buyUrl: '', date: info.publishedDate || '',
+      relatedId: null, relatedCount: 0,
+      _alts: (info.authors || []),
+    };
+  }).filter(b => b.img && b.title);
+}
+
 async function wikidataPeople(term) {
   const found = await q.wiki(() => getJSON(wdURL({
     action: 'wbsearchentities', search: term, language: 'ja', uselang: 'ja',
@@ -650,16 +857,23 @@ async function wikidataPeople(term) {
     });
   }
 
+  // 著作者表示のためクレジットをまとめて取得
+  const credits = await commonsCredits(people.map(e => claimValues(e, 'P18')[0])).catch(() => ({}));
+
   return people.map(e => {
     const name = e.labels?.ja?.value || e.labels?.en?.value || '';
     const occ = occLabels[claimValues(e, 'P106')[0]?.id] || '';
     const aliases = [...(e.aliases?.ja || []), ...(e.aliases?.en || [])].map(a => a.value);
+    const file = claimValues(e, 'P18')[0];
+    const cr = credits[String(file || '').replace(/_/g, ' ')];
     return {
       id: 'wd-' + e.id, source: 'wikidata',
       title: name,
       sub: (occ || e.descriptions?.ja?.value || '').slice(0, 24),
-      img: proxied(commonsImage(claimValues(e, 'P18')[0])),
+      img: proxied(commonsImage(file)),
       relatedId: null, relatedCount: 0,
+      // CC BY-SA の著作者表示に使う
+      credit: cr ? { author: cr.author, license: cr.license } : null,
       _alts: [e.labels?.en?.value, ...aliases].filter(Boolean),
     };
   }).filter(x => x.title);
@@ -699,6 +913,7 @@ async function searchCharacters(term) {
 
 module.exports = {
   search, suggest, related, creators, works, IMG_HOSTS,
+  hasRakuten: () => !!RAKUTEN_ID,
   hasTMDB: () => !!TMDB_KEY,
   hasYouTube: () => !!YT_KEY,
   _internal: { key, variants, dice, rank },   // テスト用
