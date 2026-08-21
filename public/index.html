@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MY NINE — 9枚で自分を紹介する</title>
+<style>
+  :root{
+    --ink:#111318;
+    --panel:#1a1d24;
+    --panel-2:#22262f;
+    --line:#31363f;
+    --text:#efece5;
+    --muted:#8b909c;
+    --obi:#f2c230;
+    --obi-deep:#d9a512;
+    --alert:#e0574f;
+    --mincho: "Hiragino Mincho ProN","ヒラギノ明朝 ProN","Yu Mincho","YuMincho","Noto Serif JP",serif;
+    --gothic: "Hiragino Sans","ヒラギノ角ゴシック","Yu Gothic","Noto Sans JP",system-ui,sans-serif;
+    --mono: "SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--ink);
+    color:var(--text);
+    font-family:var(--gothic);
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:96px;
+  }
+  .wrap{max-width:560px;margin:0 auto;padding:0 20px}
+
+  /* ---- header ---- */
+  header{
+    display:flex;align-items:stretch;gap:0;
+    border-bottom:1px solid var(--line);
+    margin-bottom:28px;
+  }
+  .obi-tab{
+    background:var(--obi);color:#101216;
+    font-family:var(--mono);font-size:11px;letter-spacing:.18em;
+    padding:14px 10px;writing-mode:vertical-rl;
+  }
+  .head-text{padding:18px 16px}
+  .head-text h1{
+    font-family:var(--mincho);font-weight:600;
+    font-size:22px;letter-spacing:.06em;margin:0 0 4px;
+  }
+  .head-text p{margin:0;font-size:12px;color:var(--muted);letter-spacing:.04em}
+  .head-meta{margin-left:auto;padding:18px 18px;text-align:right;
+             display:flex;flex-direction:column;gap:4px;justify-content:center}
+  .head-meta .made{font-size:11px;color:var(--muted);white-space:nowrap}
+  .head-meta .made strong{font-family:var(--mono);color:var(--obi);font-size:14px;font-weight:500}
+  .head-meta a{font-size:11px;color:var(--muted);white-space:nowrap}
+  .head-meta a:hover{color:var(--obi)}
+  @media (max-width:420px){ .head-meta{padding:12px 12px} .head-meta .made strong{font-size:12px} }
+
+  /* ---- form ---- */
+  .field{margin-bottom:14px}
+  label.lbl{
+    display:block;font-family:var(--mono);font-size:10px;
+    letter-spacing:.2em;color:var(--muted);margin-bottom:6px;
+  }
+  input[type=text]{
+    width:100%;background:var(--panel);border:1px solid var(--line);
+    color:var(--text);font-family:var(--gothic);font-size:15px;
+    padding:11px 12px;border-radius:2px;
+  }
+  input[type=text]:focus{outline:2px solid var(--obi);outline-offset:1px;border-color:transparent}
+
+  .seg{display:flex;border:1px solid var(--line);border-radius:2px;overflow:hidden}
+  .seg button{
+    flex:1;background:var(--panel);border:0;color:var(--muted);
+    font-family:var(--gothic);font-size:12px;padding:10px 2px;cursor:pointer;
+    border-left:1px solid var(--line);
+  }
+  .seg button:first-child{border-left:0}
+  .seg button[disabled]{opacity:.4;cursor:not-allowed}
+  .seg button[aria-pressed=true]{background:var(--obi);color:#101216;font-weight:700}
+  .seg button:focus-visible{outline:2px solid var(--obi);outline-offset:-4px}
+
+  /* ---- grid ---- */
+  .grid-head{
+    display:flex;justify-content:space-between;align-items:baseline;
+    margin:26px 0 10px;
+  }
+  .grid-head span{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--muted)}
+  .grid{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:8px;
+  }
+  .slot{
+    position:relative;aspect-ratio:var(--ratio,1);background:var(--panel);
+    border:1px solid var(--line);border-radius:2px;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;overflow:hidden;padding:0;color:var(--muted);
+    font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+    transition:border-color .15s, transform .15s;
+  }
+  .slot:hover{border-color:var(--obi)}
+  .slot:focus-visible{outline:2px solid var(--obi);outline-offset:2px}
+  .slot img{width:100%;height:100%;object-fit:var(--fit,cover);object-position:center 30%;display:block}
+  .slot .num{
+    position:absolute;top:5px;left:6px;font-family:var(--mono);
+    font-size:10px;color:rgba(255,255,255,.75);
+    text-shadow:0 1px 3px rgba(0,0,0,.9);z-index:2;
+  }
+  .slot.filled{border-color:transparent}
+  .slot .cap{
+    position:absolute;left:0;right:0;bottom:0;z-index:2;
+    background:linear-gradient(transparent,rgba(0,0,0,.85));
+    padding:14px 6px 5px;font-family:var(--gothic);font-size:10px;
+    line-height:1.3;color:#fff;text-align:left;
+    overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+  }
+  .slot .grab{
+    position:absolute;top:3px;right:3px;z-index:3;width:24px;height:24px;
+    border-radius:2px;background:rgba(0,0,0,.55);border:0;color:#fff;
+    font-size:12px;line-height:1;cursor:grab;display:none;
+  }
+  .slot.filled .grab{display:block}
+  .slot.dragging{opacity:.35}
+  .slot.over{transform:scale(.94);border-color:var(--obi)}
+  .slot.swap-src{outline:2px solid var(--obi);outline-offset:2px}
+  body.swapping .slot:not(.swap-src){border-color:var(--obi-deep)}
+
+  .hint{margin-top:10px;font-size:11px;color:var(--muted);line-height:1.7}
+
+  /* ---- buttons ---- */
+  .row{display:flex;gap:8px;margin-top:18px}
+  .btn{
+    flex:1;padding:14px;border:1px solid var(--line);background:var(--panel);
+    color:var(--text);font-family:var(--gothic);font-size:14px;
+    border-radius:2px;cursor:pointer;
+  }
+  .btn:hover{border-color:var(--obi)}
+  .btn:focus-visible{outline:2px solid var(--obi);outline-offset:2px}
+  .btn.primary{background:var(--obi);color:#101216;border-color:var(--obi);font-weight:700;letter-spacing:.04em}
+  .btn.ghost{flex:0 0 auto;padding:14px 16px;font-size:12px;color:var(--muted)}
+  .btn.danger{color:var(--alert)}
+
+  /* ---- sheet ---- */
+  .veil{
+    position:fixed;inset:0;background:rgba(5,6,8,.82);z-index:50;
+    display:none;align-items:flex-end;justify-content:center;
+  }
+  .veil.open{display:flex}
+  .sheet{
+    width:100%;max-width:560px;background:var(--ink);
+    border-top:3px solid var(--obi);
+    padding:20px 20px calc(20px + env(safe-area-inset-bottom));
+    max-height:92vh;overflow:auto;
+  }
+  .sheet h2{font-family:var(--mincho);font-size:17px;font-weight:600;margin:0 0 16px;letter-spacing:.05em}
+  .drop{
+    border:1px dashed var(--line);border-radius:2px;aspect-ratio:var(--ratio,1);
+    max-height:210px;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;
+    color:var(--muted);font-size:12px;text-align:center;line-height:1.8;
+    cursor:pointer;overflow:hidden;background:var(--panel);
+  }
+  .drop.hot{border-color:var(--obi);color:var(--obi)}
+  .search-row{display:flex;gap:8px;margin-bottom:12px}
+  .search-row input{width:100%}
+  .suggest-wrap{position:relative;flex:1}
+  .suggest{
+    position:absolute;z-index:5;left:0;right:0;top:calc(100% + 2px);margin:0;padding:0;
+    list-style:none;background:var(--panel-2);border:1px solid var(--line);
+    max-height:240px;overflow:auto;display:none;
+  }
+  .suggest.open{display:block}
+  .suggest li{
+    padding:10px 12px;font-size:13px;cursor:pointer;
+    border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;
+  }
+  .suggest li:last-child{border-bottom:0}
+  .suggest li[aria-selected=true],.suggest li:hover{background:var(--obi);color:#101216}
+  .suggest .s-sub{color:var(--muted);font-size:11px;flex:0 0 auto;max-width:40%;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .suggest li[aria-selected=true] .s-sub,.suggest li:hover .s-sub{color:#4a4127}
+  .s-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .search-row button{flex:0 0 auto;padding:0 18px;background:var(--obi);color:#101216;
+    border:0;border-radius:2px;font-weight:700;cursor:pointer}
+  .results{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:16px}
+  .results button{
+    padding:0;border:1px solid var(--line);background:var(--panel);border-radius:2px;
+    aspect-ratio:var(--ratio,1);overflow:hidden;cursor:pointer;position:relative;
+  }
+  .results button:hover{border-color:var(--obi)}
+  .results img{width:100%;height:100%;object-fit:var(--fit,cover);object-position:center 30%;display:block}
+  .results .tag{
+    position:absolute;top:0;left:0;background:var(--obi);color:#101216;
+    font-size:9px;font-weight:700;padding:2px 5px;letter-spacing:.04em;
+  }
+  .results .rel{
+    position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.72);
+    color:#fff;font-size:9px;padding:4px 2px;letter-spacing:.04em;
+  }
+  .results .rel:hover{background:var(--obi);color:#101216}
+  .seg-sm button{font-size:12px;padding:8px 4px}
+  .seg-sm button[aria-pressed=true]{background:var(--obi);color:#101216;font-weight:700}
+  .people{list-style:none;margin:0 0 16px;padding:0}
+  .people li{
+    display:flex;align-items:center;gap:10px;padding:9px 10px;cursor:pointer;
+    border:1px solid var(--line);border-radius:2px;margin-bottom:6px;background:var(--panel);
+  }
+  .people li:hover{border-color:var(--obi)}
+  .people img{width:36px;height:36px;object-fit:cover;border-radius:50%;flex:0 0 auto;background:var(--panel-2)}
+  .people .p-name{font-size:14px}
+  .people .p-sub{font-size:11px;color:var(--muted);margin-left:auto;text-align:right}
+  .status{font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.7}
+  .status.err{color:var(--alert)}
+  .drop img{width:100%;height:100%;object-fit:var(--fit,cover)}
+  @media (min-width:520px){ .veil{align-items:center} .sheet{border:1px solid var(--line);border-top:3px solid var(--obi)} }
+
+  /* ---- export preview ---- */
+  .veil.center{align-items:center}
+  .out{max-width:min(92vw,440px);text-align:center}
+  .out img{width:100%;border:1px solid var(--line);display:block;margin-bottom:14px}
+  .out p{font-size:12px;color:var(--muted);line-height:1.8;margin:0 0 12px}
+
+  footer{margin-top:34px;padding-top:16px;border-top:1px solid var(--line);
+    font-size:11px;color:var(--muted);line-height:1.9}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="obi-tab">MY NINE</div>
+  <div class="head-text">
+    <h1 id="pageTitle">9枚で自分を紹介する</h1>
+    <p id="pageSub">好きなジャケットを9つ選んで、1枚の画像にする</p>
+  </div>
+  <div class="head-meta">
+    <span class="made"><strong id="madeCount">–</strong> 枚つくられました</span>
+    <a href="/about">このサイトについて</a>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="field">
+    <label class="lbl" for="mode">しゅるい</label>
+    <div class="seg" id="mode" role="group">
+      <button type="button" data-mode="cd" aria-pressed="true">CD</button>
+      <button type="button" data-mode="manga" aria-pressed="false">漫画</button>
+      <button type="button" data-mode="anime" aria-pressed="false">アニメ</button>
+      <button type="button" data-mode="movie" aria-pressed="false">映画</button>
+      <button type="button" data-mode="person" aria-pressed="false">有名人</button>
+      <button type="button" data-mode="character" aria-pressed="false">キャラ</button>
+    </div>
+  </div>
+
+  <div class="field">
+    <label class="lbl" for="title">タイトル</label>
+    <input type="text" id="title" maxlength="24" value="私を構成する9枚">
+  </div>
+
+  <div class="field">
+    <label class="lbl" for="name">なまえ</label>
+    <input type="text" id="name" maxlength="20" placeholder="@yourname">
+  </div>
+
+  <div class="grid-head">
+    <span id="gridLabel">SELECT NINE</span>
+    <span id="counter">0 / 9</span>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <p class="hint" id="hint">
+    空きマスをタップして画像を追加。画像はそのままドラッグ＆ドロップでも入ります。<br>
+    右上の <strong>⇅</strong> を押してから別のマスを押すと、順番を入れ替えられます。
+  </p>
+
+  <div class="row">
+    <button class="btn ghost" id="sample">サンプルを入れる</button>
+    <button class="btn ghost danger" id="clear">全部消す</button>
+  </div>
+  <div class="row">
+    <button class="btn" id="export">画像を書き出す</button>
+    <button class="btn primary" id="share">SNSでシェア</button>
+  </div>
+  <p class="hint" id="shareNote" style="margin-top:10px"></p>
+
+  <footer>
+    漫画・アニメのデータは AniList、映画は TMDB（この製品は TMDB の公認ではありません）、
+    音楽は Apple Music / iTunes、人物は Wikipedia および Wikimedia Commons（CC BY-SA）を利用しています。
+    アップロードした画像はブラウザの中だけで処理されます。
+    <a href="/about" style="color:var(--obi)">このサイトについて</a>
+  </footer>
+</div>
+
+<!-- スロット編集 -->
+<div class="veil" id="editor">
+  <div class="sheet">
+    <h2 id="editorTitle">01枚目</h2>
+    <div class="seg seg-sm" id="findBy" role="group" style="margin-bottom:10px">
+      <button type="button" data-by="work" aria-pressed="true">作品名で探す</button>
+      <button type="button" data-by="creator" aria-pressed="false" id="byCreator">作者で探す</button>
+    </div>
+    <div class="search-row">
+      <div class="suggest-wrap">
+        <input type="text" id="q" placeholder="作品名で検索" autocomplete="off"
+               role="combobox" aria-expanded="false" aria-controls="suggest" aria-autocomplete="list">
+        <ul class="suggest" id="suggest" role="listbox"></ul>
+      </div>
+      <button type="button" id="go">検索</button>
+    </div>
+    <p class="status" id="status"></p>
+    <button type="button" class="btn ghost" id="back" style="display:none;margin-bottom:10px">← 検索結果に戻る</button>
+    <ul class="people" id="people"></ul>
+    <div class="results" id="results"></div>
+    <div class="drop" id="drop">
+      画像をタップして選ぶ<br>
+      <span style="font-size:11px">またはここにドロップ / 貼り付け</span>
+    </div>
+    <input type="file" id="file" accept="image/*" hidden>
+    <div class="field">
+      <label class="lbl" for="fTitle" id="fTitleLbl">作品名</label>
+      <input type="text" id="fTitle" maxlength="30">
+    </div>
+    <div class="field">
+      <label class="lbl" for="fSub" id="fSubLbl">アーティスト</label>
+      <input type="text" id="fSub" maxlength="30">
+    </div>
+    <div class="row">
+      <button class="btn ghost danger" id="remove">消す</button>
+      <button class="btn primary" id="done">決定</button>
+    </div>
+  </div>
+</div>
+
+<!-- 書き出し -->
+<div class="veil center" id="outv">
+  <div class="out">
+    <img id="outImg" alt="書き出した9枚の画像">
+    <p>スマホは画像を長押しして保存、PCは右クリックで保存できます。</p>
+    <div class="row">
+      <button class="btn" id="outClose">閉じる</button>
+      <a class="btn primary" id="outDl" download="my-nine.png" style="text-decoration:none;text-align:center">保存</a>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const COPY = {
+    cd:   {h1:'9枚で自分を紹介する', sub:'好きなジャケットを9つ選んで、1枚の画像にする',
+           title:'私を構成する9枚', unit:'枚目', f1:'作品名', f2:'アーティスト', grid:'SELECT NINE ALBUMS'},
+    manga: {h1:'9冊で自分を紹介する', sub:'好きな漫画を9作選んで、1枚の画像にする',
+           title:'私を構成する9冊', unit:'冊目', f1:'作品名', f2:'作者', grid:'SELECT NINE MANGA'},
+    anime: {h1:'9作で自分を紹介する', sub:'好きなアニメを9作選んで、1枚の画像にする',
+           title:'私を構成する9作', unit:'作目', f1:'作品名', f2:'制作', grid:'SELECT NINE ANIME',
+           ph:'作品名で検索', hint:'作品名で探せます。'},
+    movie: {h1:'9本で自分を紹介する', sub:'好きな映画を9本選んで、1枚の画像にする',
+           title:'私を構成する9本', unit:'本目', f1:'作品名', f2:'公開年', grid:'SELECT NINE FILMS',
+           ph:'映画のタイトルで検索', hint:'邦題・原題どちらでも探せます。'},
+    person: {h1:'9人で自分を紹介する', sub:'好きな有名人・クリエイターを9人選んで、1枚の画像にする',
+           title:'私を構成する9人', unit:'人目', f1:'名前', f2:'肩書き', grid:'SELECT NINE PEOPLE',
+           ph:'名前で検索', hint:'俳優・音楽家・芸人・配信者など、実在の人物を探せます。'},
+    character: {h1:'9人で自分を紹介する', sub:'好きなキャラクターを9人選んで、1枚の画像にする',
+           title:'私を構成する9キャラ', unit:'人目', f1:'キャラクター名', f2:'出典', grid:'SELECT NINE CHARACTERS',
+           ph:'キャラクター名で検索', hint:'漫画・アニメ・ゲームのキャラクターを横断で探せます。'}
+  };
+  COPY.cd.ph = 'アルバム名・アーティスト名で検索';
+  COPY.cd.hint = 'アルバム名やアーティスト名で探せます。';
+  COPY.manga.ph = '作品名で検索';
+  COPY.manga.hint = '作品名で探せます。表紙は1巻のものが出ます。';
+
+  /* ===== 検索 =====
+     通信先はすべて自前サーバー。外部APIのURLもキーもここには出てこない。
+     画像は /img?u=... の同一オリジン経由で来るので、canvasが汚染されない。 */
+  const API_TYPE = { cd:'album', manga:'manga', anime:'anime', movie:'movie', person:'person', character:'character' };
+
+  async function api(path){
+    const r = await fetch(path);
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || `サーバーが ${r.status} を返しました`);
+    return j.items || [];
+  }
+  const searchItems  = (type, q) => api(`/api/search?type=${type}&q=${encodeURIComponent(q)}`);
+  const suggestItems = (type, q) => api(`/api/suggest?type=${type}&q=${encodeURIComponent(q)}`);
+  const relatedItems = (type, id) => api(`/api/related?type=${type}&id=${id}`);
+  const creatorItems = (type, q) => api(`/api/creators?type=${type}&q=${encodeURIComponent(q)}`);
+  const workItems    = (type, id) => api(`/api/works?type=${type}&id=${id}`);
+
+  // 「作者で探す」のラベル。有名人モードには人名検索しかないので出さない
+  const BY_LABEL = { cd:'アーティストで探す', manga:'作者で探す', anime:'制作・監督で探す', movie:'監督・出演者で探す' };
+
+  /* 種別ごとの画像の縦横比（横 ÷ 縦）
+     CDジャケットは正方形、漫画・アニメ・映画のポスターは2:3、
+     人物写真は3:4が最も切れが少ない。 */
+  const RATIO = { cd:1, manga:460/654, anime:460/654, movie:2/3, person:3/4, character:460/654 };
+  // contain = 絶対に見切れない（余白が出る） / cover = 枠を埋める（端が切れる）
+  const FIT   = { cd:'cover', manga:'contain', anime:'contain', movie:'contain', person:'cover', character:'contain' };
+
+  function applyRatio(){
+    document.documentElement.style.setProperty('--ratio', String(RATIO[S.mode] || 1));
+    document.documentElement.style.setProperty('--fit', FIT[S.mode] || 'cover');
+  }
+
+  const S = { mode:'cd', items:Array(9).fill(null), editing:0, swapFrom:null,
+              byMode:{}, meta:{} };
+
+  /** いま編集中の内容を種類ごとの控えに退避する */
+  function stash(){
+    S.byMode[S.mode] = S.items;
+    S.meta[S.mode] = { title: $('title').value, name: $('name').value };
+  }
+  /** 種類を切り替えたとき、その種類の内容を呼び戻す */
+  function restore(mode){
+    S.items = S.byMode[mode] || Array(9).fill(null);
+    const m = S.meta[mode];
+    $('title').value = m ? m.title : COPY[mode].title;
+    if (m) $('name').value = m.name;
+  }
+  const $ = id => document.getElementById(id);
+  const grid = $('grid');
+
+  /* ---------- グリッド描画 ---------- */
+  function render(){
+    grid.innerHTML = '';
+    S.items.forEach((it,i) => {
+      const b = document.createElement('button');
+      b.className = 'slot' + (it ? ' filled' : '');
+      b.type = 'button';
+      b.dataset.i = i;
+      b.setAttribute('aria-label', `${String(i+1).padStart(2,'0')}${COPY[S.mode].unit}`);
+      const n = document.createElement('span');
+      n.className = 'num'; n.textContent = String(i+1).padStart(2,'0');
+      b.appendChild(n);
+      if (it){
+        const img = document.createElement('img'); img.src = it.src; img.alt = it.title || '';
+        b.appendChild(img);
+        if (it.title){
+          const c = document.createElement('span'); c.className='cap'; c.textContent = it.title;
+          b.appendChild(c);
+        }
+        const g = document.createElement('span');
+        g.className='grab'; g.textContent='⇅'; g.dataset.grab = i; g.title='入れ替え';
+        b.appendChild(g);
+        b.draggable = true;
+      } else {
+        const p = document.createElement('span'); p.textContent = '＋'; p.style.fontSize='18px';
+        b.appendChild(p);
+      }
+      grid.appendChild(b);
+    });
+    $('counter').textContent = `${S.items.filter(Boolean).length} / 9`;
+    updateShareNote();
+  }
+
+  /* ---------- 画像を読み込んで縮小 ---------- */
+  function loadImage(file, cb){
+    if (!file || !file.type.startsWith('image/')) return;
+    const fr = new FileReader();
+    fr.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const max = 900;
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width*scale); c.height = Math.round(img.height*scale);
+        c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+        cb(c.toDataURL('image/jpeg', .88));
+      };
+      img.src = e.target.result;
+    };
+    fr.readAsDataURL(file);
+  }
+
+  /* ---------- スロット操作 ---------- */
+  grid.addEventListener('click', e => {
+    const grab = e.target.closest('[data-grab]');
+    const slot = e.target.closest('.slot');
+    if (!slot) return;
+    const i = +slot.dataset.i;
+
+    if (grab){
+      S.swapFrom = (S.swapFrom === i) ? null : i;
+      document.body.classList.toggle('swapping', S.swapFrom !== null);
+      [...grid.children].forEach((el,k) => el.classList.toggle('swap-src', k === S.swapFrom));
+      return;
+    }
+    if (S.swapFrom !== null && S.swapFrom !== i){
+      const a = S.swapFrom;
+      [S.items[a], S.items[i]] = [S.items[i], S.items[a]];
+      S.swapFrom = null; document.body.classList.remove('swapping');
+      render(); return;
+    }
+    if (S.swapFrom === i){ S.swapFrom = null; document.body.classList.remove('swapping'); render(); return; }
+    openEditor(i);
+  });
+
+  // デスクトップのドラッグ並べ替え & 画像ドロップ
+  let dragIdx = null;
+  grid.addEventListener('dragstart', e => {
+    const s = e.target.closest('.slot'); if (!s || !S.items[+s.dataset.i]) return;
+    dragIdx = +s.dataset.i; s.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(dragIdx));
+  });
+  grid.addEventListener('dragend', () => {
+    dragIdx = null;
+    [...grid.children].forEach(el => el.classList.remove('dragging','over'));
+  });
+  grid.addEventListener('dragover', e => {
+    e.preventDefault();
+    const s = e.target.closest('.slot'); if (!s) return;
+    [...grid.children].forEach(el => el.classList.remove('over'));
+    s.classList.add('over');
+  });
+  grid.addEventListener('drop', e => {
+    e.preventDefault();
+    const s = e.target.closest('.slot'); if (!s) return;
+    const i = +s.dataset.i;
+    [...grid.children].forEach(el => el.classList.remove('over'));
+    const f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f){ loadImage(f, src => { S.items[i] = Object.assign({title:'',sub:''}, S.items[i], {src}); render(); }); return; }
+    if (dragIdx !== null && dragIdx !== i){
+      [S.items[dragIdx], S.items[i]] = [S.items[i], S.items[dragIdx]];
+      dragIdx = null; render();
+    }
+  });
+
+  /* ---------- 編集シート ---------- */
+  function openEditor(i){
+    S.editing = i;
+    const it = S.items[i] || {};
+    $('editorTitle').textContent = String(i+1).padStart(2,'0') + COPY[S.mode].unit;
+    $('fTitle').value = it.title || '';
+    $('fSub').value = it.sub || '';
+    paintDrop(it.src);
+    $('results').innerHTML = '';
+    $('back').style.display = 'none';
+    lastSearch = [];
+    $('q').value = '';
+    closeSuggest();
+    setFindBy('work');
+    $('editor').classList.add('open');
+  }
+
+  /* ---------- 作品名 / 作者 の切り替え ---------- */
+  let findBy = 'work';
+
+  function setFindBy(mode){
+    findBy = mode;
+    [...$('findBy').children].forEach(b => b.setAttribute('aria-pressed', String(b.dataset.by === mode)));
+    $('results').innerHTML = '';
+    $('people').innerHTML = '';
+    $('back').style.display = 'none';
+    $('q').value = '';
+    lastSearch = []; lastPeople = [];
+    closeSuggest();
+
+    const hasCreator = !!BY_LABEL[S.mode];
+    $('findBy').style.display = hasCreator ? 'flex' : 'none';
+    $('byCreator').textContent = BY_LABEL[S.mode] || '作者で探す';
+
+    if (mode === 'creator'){
+      $('q').placeholder = BY_LABEL[S.mode].replace('で探す', '名');
+      setStatus('名前を入れて検索すると、その人の作品一覧が出ます。');
+    } else {
+      $('q').placeholder = COPY[S.mode].ph;
+      setStatus(COPY[S.mode].hint);
+    }
+  }
+  $('findBy').addEventListener('click', e => {
+    const b = e.target.closest('button[data-by]');
+    if (b && b.dataset.by !== findBy) setFindBy(b.dataset.by);
+  });
+  function setStatus(msg, isErr){
+    $('status').className = 'status' + (isErr ? ' err' : '');
+    $('status').textContent = msg;
+  }
+
+  let lastSearch = [];
+
+  function paintResults(list, opts = {}){
+    const box = $('results');
+    box.innerHTML = '';
+    list.forEach(item => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.title = item.title;
+      const im = new Image(); im.src = item.img; im.alt = item.title; im.loading = 'lazy';
+      b.appendChild(im);
+      if (item.relationLabel){
+        const tag = document.createElement('span');
+        tag.className = 'tag'; tag.textContent = item.relationLabel;
+        b.appendChild(tag);
+      }
+      if (item.relatedCount > 0 && item.relatedId != null){
+        const r = document.createElement('span');
+        r.className = 'rel';
+        r.textContent = S.mode === 'cd' ? '同アーティスト'
+                      : S.mode === 'movie' ? 'シリーズ・関連'
+                      : '関連 ' + item.relatedCount;
+        r.dataset.rel = item.relatedId;
+        b.appendChild(r);
+      }
+      b.addEventListener('click', e => {
+        if (e.target.dataset.rel) return showRelated(item);
+        choose(item);
+      });
+      box.appendChild(b);
+    });
+  }
+
+  let pendingRef = null;   // 集計用の出典（source + id）
+
+  function choose(item){
+    pending = item.img;                       // 同一オリジンのプロキシURL
+    pendingRef = {
+      source: item.source || null,
+      externalId: item.id != null ? String(item.id) : null,
+      // /img?u=... から元のURLを取り出す（共有ページ用。画像そのものは保存しない）
+      imageUrl: (() => {
+        try { return decodeURIComponent(new URL(item.img, location.origin).searchParams.get('u') || ''); }
+        catch { return ''; }
+      })(),
+    };
+    paintDrop(item.img);
+    $('fTitle').value = item.title || '';
+    $('fSub').value = item.sub || '';
+    setStatus('「決定」で反映されます');
+  }
+
+  let lastPeople = [];
+
+  /** 作者・アーティストの候補を出す */
+  async function runCreatorSearch(){
+    const q = $('q').value.trim();
+    if (!q) return;
+    $('results').innerHTML = ''; $('people').innerHTML = '';
+    $('back').style.display = 'none';
+    setStatus('検索中…');
+    try{
+      const list = await creatorItems(API_TYPE[S.mode], q);
+      if (!list.length) return setStatus('見つかりませんでした。表記を変えて試してください。');
+      lastPeople = list;
+      paintPeople(list);
+      setStatus('名前をタップすると、その人の作品一覧が出ます。');
+    } catch(err){
+      setStatus('検索に失敗しました。（' + err.message + '）', true);
+    }
+  }
+
+  function paintPeople(list){
+    const ul = $('people');
+    ul.innerHTML = '';
+    list.forEach(p => {
+      const li = document.createElement('li');
+      if (p.img){ const im = new Image(); im.src = p.img; im.alt = ''; li.appendChild(im); }
+      const n = document.createElement('span'); n.className = 'p-name'; n.textContent = p.title;
+      li.appendChild(n);
+      if (p.sub){ const sb = document.createElement('span'); sb.className = 'p-sub'; sb.textContent = p.sub; li.appendChild(sb); }
+      li.addEventListener('click', () => showWorks(p));
+      ul.appendChild(li);
+    });
+  }
+
+  /** その人の作品一覧を表示する */
+  async function showWorks(person){
+    setStatus(`「${person.title}」の作品を読み込み中…`);
+    try{
+      const list = await workItems(API_TYPE[S.mode], person.id);
+      if (!list.length){ setStatus('作品が見つかりませんでした。'); return; }
+      $('people').innerHTML = '';
+      lastSearch = list;
+      paintResults(list);
+      $('back').style.display = 'block';
+      setStatus(`「${person.title}」の作品。タップして選んでください。`);
+    } catch(err){
+      setStatus('作品一覧を取得できませんでした。（' + err.message + '）', true);
+    }
+  }
+
+  async function runSearch(){
+    if (findBy === 'creator') return runCreatorSearch();
+    const q = $('q').value.trim();
+    const type = API_TYPE[S.mode];
+    if (!q || !type) return;
+    $('results').innerHTML = ''; $('people').innerHTML = '';
+    $('back').style.display = 'none';
+    setStatus('検索中…');
+    try{
+      const list = await searchItems(type, q);
+      if (!list.length) return setStatus('見つかりませんでした。別の言葉で試してください。');
+      lastSearch = list;
+      paintResults(list);
+      setStatus(list.some(x => x.relatedCount)
+        ? 'タップして選ぶ。下部のラベルを押すと関連作品も別の1つとして選べます。'
+        : 'タップして選ぶ');
+    } catch(err){
+      setStatus('検索に失敗しました。画像を直接アップロードすることもできます。（' + err.message + '）', true);
+    }
+  }
+
+  async function showRelated(parent){
+    setStatus(`「${parent.title}」の関連を読み込み中…`);
+    try{
+      const list = await relatedItems(API_TYPE[S.mode], parent.relatedId);
+      if (!list.length){ setStatus('関連は登録されていませんでした。'); return; }
+      paintResults(list);
+      $('back').style.display = 'block';
+      setStatus(`「${parent.title}」の関連。それぞれ別の1つとして選べます。`);
+    } catch(err){
+      setStatus('関連を取得できませんでした。（' + err.message + '）', true);
+    }
+  }
+
+  $('back').addEventListener('click', () => {
+    if (findBy === 'creator' && lastPeople.length){
+      $('results').innerHTML = '';
+      paintPeople(lastPeople);
+      $('back').style.display = 'none';
+      setStatus('名前をタップすると、その人の作品一覧が出ます。');
+      return;
+    }
+    paintResults(lastSearch);
+    $('back').style.display = 'none';
+    setStatus('タップして選ぶ');
+  });
+  $('go').addEventListener('click', () => { closeSuggest(); runSearch(); });
+
+  /* ---------- 検索サジェスト ---------- */
+  let sgTimer = null, sgItems = [], sgIndex = -1, sgSeq = 0;
+
+  function closeSuggest(){
+    $('suggest').classList.remove('open');
+    $('suggest').innerHTML = '';
+    $('q').setAttribute('aria-expanded', 'false');
+    sgItems = []; sgIndex = -1;
+  }
+  function paintSuggest(){
+    const ul = $('suggest');
+    ul.innerHTML = '';
+    sgItems.forEach((s, i) => {
+      const li = document.createElement('li');
+      li.setAttribute('role', 'option');
+      li.setAttribute('aria-selected', String(i === sgIndex));
+      const a = document.createElement('span'); a.className = 's-label'; a.textContent = s.label;
+      li.appendChild(a);
+      if (s.sub){ const b = document.createElement('span'); b.className = 's-sub'; b.textContent = s.sub; li.appendChild(b); }
+      li.addEventListener('mousedown', e => { e.preventDefault(); pick(i); });
+      ul.appendChild(li);
+    });
+    ul.classList.toggle('open', sgItems.length > 0);
+    $('q').setAttribute('aria-expanded', String(sgItems.length > 0));
+  }
+  function pick(i){
+    if (!sgItems[i]) return;
+    $('q').value = sgItems[i].label;
+    closeSuggest();
+    runSearch();
+  }
+
+  $('q').addEventListener('input', () => {
+    const q = $('q').value.trim();
+    clearTimeout(sgTimer);
+    if (findBy === 'creator') return closeSuggest();   // 人名にはサジェストを出さない
+    if (q.length < 2) return closeSuggest();
+    // 打鍵が止まってから投げる（外部APIのレート制限を守るため）
+    sgTimer = setTimeout(async () => {
+      const seq = ++sgSeq;
+      try{
+        const list = await suggestItems(API_TYPE[S.mode], q);
+        if (seq !== sgSeq) return;           // 古いレスポンスは捨てる
+        sgItems = list.slice(0, 8); sgIndex = -1;
+        paintSuggest();
+      } catch(e){ closeSuggest(); }
+    }, 260);
+  });
+
+  $('q').addEventListener('keydown', e => {
+    const open = sgItems.length > 0;
+    if (e.key === 'ArrowDown' && open){ e.preventDefault(); sgIndex = (sgIndex + 1) % sgItems.length; paintSuggest(); }
+    else if (e.key === 'ArrowUp' && open){ e.preventDefault(); sgIndex = (sgIndex - 1 + sgItems.length) % sgItems.length; paintSuggest(); }
+    else if (e.key === 'Enter'){ e.preventDefault(); if (open && sgIndex >= 0) pick(sgIndex); else { closeSuggest(); runSearch(); } }
+    else if (e.key === 'Escape' && open){ e.stopPropagation(); closeSuggest(); }
+  });
+  $('q').addEventListener('blur', () => setTimeout(closeSuggest, 120));
+  function paintDrop(src){
+    const d = $('drop');
+    d.innerHTML = '';
+    if (src){ const im = new Image(); im.src = src; d.appendChild(im); }
+    else d.innerHTML = '画像をタップして選ぶ<br><span style="font-size:11px">またはここにドロップ / 貼り付け</span>';
+  }
+  let pending = null;
+  $('drop').addEventListener('click', () => $('file').click());
+  $('file').addEventListener('change', e => {
+    loadImage(e.target.files[0], src => { pending = src; paintDrop(src); });
+    e.target.value = '';
+  });
+  ['dragover','dragleave','drop'].forEach(ev =>
+    $('drop').addEventListener(ev, e => {
+      e.preventDefault();
+      $('drop').classList.toggle('hot', ev === 'dragover');
+      if (ev === 'drop') loadImage(e.dataTransfer.files[0], src => { pending = src; paintDrop(src); });
+    })
+  );
+  document.addEventListener('paste', e => {
+    if (!$('editor').classList.contains('open')) return;
+    const it = [...(e.clipboardData.items||[])].find(x => x.type.startsWith('image/'));
+    if (it) loadImage(it.getAsFile(), src => { pending = src; paintDrop(src); });
+  });
+  $('done').addEventListener('click', () => {
+    const i = S.editing;
+    const src = pending || (S.items[i] && S.items[i].src);
+    if (!src && !$('fTitle').value) { close(); return; }
+    S.items[i] = {
+      src: src || '',
+      title: $('fTitle').value.trim(),
+      sub: $('fSub').value.trim(),
+      ref: pendingRef || (S.items[i] && S.items[i].ref) || null,
+    };
+    close(); render();
+  });
+  $('remove').addEventListener('click', () => { S.items[S.editing] = null; close(); render(); });
+  function close(){ pending = null; pendingRef = null; $('editor').classList.remove('open'); }
+  $('editor').addEventListener('click', e => { if (e.target.id === 'editor') close(); });
+
+  /* ---------- モード切替 ---------- */
+  $('mode').addEventListener('click', e => {
+    const b = e.target.closest('button[data-mode]'); if (!b) return;
+    if (b.dataset.mode === S.mode) return;
+    stash();                       // いまの種類の内容を控えに残す
+    S.mode = b.dataset.mode;
+    [...$('mode').children].forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    const c = COPY[S.mode];
+    $('pageTitle').textContent = c.h1; $('pageSub').textContent = c.sub;
+    $('fTitleLbl').textContent = c.f1; $('fSubLbl').textContent = c.f2;
+    $('gridLabel').textContent = c.grid;
+    restore(S.mode);               // その種類で前に選んでいた9つを呼び戻す
+    closeSuggest();
+    applyRatio();
+    render();
+  });
+
+  /* ---------- サンプル / クリア ---------- */
+  const SAMPLE = {
+    cd: [['夜明けのロンド','キリエ'],['Blue Hour','the paperbacks'],['海と信号','宮下ハル'],
+         ['LOOP STATION','ヤマウチ'],['遠雷','四月の鳥'],['CITY POP 1984','V.A.'],
+         ['sleeptalk','mio'],['煙の街','ジャンクション'],['Encore','東京カルテット']],
+    manga: [['星降る町の灯','三上ハジメ'],['ブルーピリオド以前','佐々木ノリ'],['鉄と犬','岸本アキ'],
+            ['放課後インベーダー','山田うみ'],['天涯のカルテ','望月レイ'],['ひとくち恋愛','小鳥遊みか'],
+            ['ゴーストタウン学園','大森アキラ'],['海鳴りの夏','井上ナオ'],['最終電車','くらもとゆう']],
+    anime: [['雲の向こうの停留所','スタジオ蒼'],['ハロー、機械仕掛け','ノヴァ'],['夏至のクロニクル','四葉動画'],
+            ['アルカディア急行','スタジオ蒼'],['きみと放課後と','スイングアニメ'],['鋼の遺言','MAPPLE'],
+            ['青いカーテン','ぷりずむ'],['ラストサマー','東雲プロ'],['星屑インターバル','ノヴァ']],
+    movie: [['遠い灯台','1998'],['雨のあとで','2014'],['メトロポリス再訪','1979'],
+            ['ブルーグラス','2007'],['沈黙の週末','1965'],['南回帰線','2021'],
+            ['真夜中の食卓','1993'],['カレイドスコープ','2016'],['最後の教室','1984']],
+    character: [['シロガネ','夏至のクロニクル'],['ミナト','鋼の遺言'],['アオイ','青いカーテン'],
+                ['ハル','雲の向こうの停留所'],['クロエ','アルカディア急行'],['タツヤ','最終電車'],
+                ['ノノ','星屑インターバル'],['レン','ラストサマー'],['ユキ','きみと放課後と']],
+    person: [['佐藤ミキ','写真家'],['川上ケイ','映画監督'],['ナガイ','イラストレーター'],
+             ['白鳥アヤ','俳優'],['トモ','動画クリエイター'],['三浦レン','音楽家'],
+             ['あさひ','配信者'],['黒木ソウ','小説家'],['ユキノ','デザイナー']]
+  };
+  function placeholder(text, seed){
+    // サンプル画像も種別の縦横比で作る
+    const W = 400, H = Math.round(W / (RATIO[S.mode] || 1));
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const x = c.getContext('2d');
+    const hue = (seed*47) % 360;
+    const g = x.createLinearGradient(0,0,W,H);
+    g.addColorStop(0, `hsl(${hue} 42% 32%)`); g.addColorStop(1, `hsl(${(hue+48)%360} 46% 16%)`);
+    x.fillStyle = g; x.fillRect(0,0,W,H);
+    x.strokeStyle = 'rgba(255,255,255,.22)'; x.lineWidth = 2;
+    x.beginPath(); x.arc(W/2, H/2, 60 + (seed%4)*22, 0, Math.PI*2); x.stroke();
+    x.fillStyle = 'rgba(255,255,255,.9)';
+    x.font = '600 26px ' + getComputedStyle(document.body).getPropertyValue('--mincho');
+    x.textAlign = 'center'; x.fillText(text.slice(0,8), W/2, H - 60);
+    return c.toDataURL('image/jpeg', .85);
+  }
+  $('sample').addEventListener('click', () => {
+    S.items = SAMPLE[S.mode].map((p,i) => ({src:placeholder(p[0], i+3), title:p[0], sub:p[1]}));
+    render();
+  });
+  $('clear').addEventListener('click', () => { S.items = Array(9).fill(null); render(); });
+
+  /* ---------- 画像書き出し ---------- */
+  function draw(){
+    const W = 1080, OBI = 92, PAD = 56, GAP = 14;
+    const inner = W - OBI - PAD*2;
+    const cellW = Math.floor((inner - GAP*2) / 3);
+    const cellH = Math.round(cellW / (RATIO[S.mode] || 1));   // 種別ごとの縦横比
+    const capH = 46;
+    const gridTop = 250;
+    const H = gridTop + cellH*3 + capH*3 + GAP*2 + 150;
+
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const x = c.getContext('2d');
+    const mincho = '"Hiragino Mincho ProN","Yu Mincho",serif';
+    const gothic = '"Hiragino Sans","Yu Gothic",sans-serif';
+
+    x.fillStyle = '#111318'; x.fillRect(0,0,W,H);
+
+    // 帯（obi）
+    x.fillStyle = '#f2c230'; x.fillRect(0,0,OBI,H);
+    x.fillStyle = '#101216';
+    const t = ($('title').value || COPY[S.mode].title).slice(0,14);
+    x.font = `600 40px ${mincho}`; x.textAlign = 'center'; x.textBaseline = 'middle';
+    [...t].forEach((ch,i) => x.fillText(ch, OBI/2, 96 + i*46));
+    x.save(); x.translate(OBI/2, H-52); x.rotate(-Math.PI/2);
+    x.font = `500 18px ${gothic}`; x.textAlign = 'left';
+    x.fillText('MY NINE', 0, 0); x.restore();
+
+    // 見出し
+    x.textBaseline = 'alphabetic'; x.textAlign = 'left';
+    x.fillStyle = '#efece5'; x.font = `600 58px ${mincho}`;
+    x.fillText(t, OBI + PAD, 132);
+    const nm = $('name').value.trim();
+    if (nm){ x.fillStyle = '#8b909c'; x.font = `400 26px ${gothic}`; x.fillText(nm, OBI + PAD, 178); }
+    x.strokeStyle = '#31363f'; x.lineWidth = 1;
+    x.beginPath(); x.moveTo(OBI+PAD, 206); x.lineTo(W-PAD, 206); x.stroke();
+
+    // グリッド
+    S.items.forEach((it, i) => {
+      const col = i % 3, row = (i / 3) | 0;
+      const cx = OBI + PAD + col*(cellW+GAP);
+      const cy = gridTop + row*(cellH+capH+GAP);
+      x.fillStyle = '#1a1d24'; x.fillRect(cx, cy, cellW, cellH);
+      if (it && it.src){
+        const im = new Image(); im.crossOrigin = 'anonymous'; im.src = it.src;
+        // 同期描画（この時点でデコード済み）。枠を埋めるように中央でトリミング
+        try {
+          const fit = FIT[S.mode] || 'cover';
+          const s = fit === 'contain'
+            ? Math.min(cellW/im.width, cellH/im.height)   // 全体を収める
+            : Math.max(cellW/im.width, cellH/im.height);  // 枠を埋める
+          const w = im.width*s, h = im.height*s;
+          x.save(); x.beginPath(); x.rect(cx,cy,cellW,cellH); x.clip();
+          x.drawImage(im, cx + (cellW-w)/2, cy + (cellH-h)/2, w, h);
+          x.restore();
+        } catch(e){}
+      } else {
+        x.strokeStyle = '#31363f'; x.strokeRect(cx+.5, cy+.5, cellW-1, cellH-1);
+      }
+      x.fillStyle = '#6f747f'; x.font = `500 15px ${gothic}`;
+      x.fillText(String(i+1).padStart(2,'0'), cx, cy + cellH + 22);
+      if (it && it.title){
+        x.fillStyle = '#efece5'; x.font = `500 19px ${gothic}`;
+        x.fillText(clip(x, it.title, cellW - 34), cx + 30, cy + cellH + 22);
+      }
+      if (it && it.sub){
+        x.fillStyle = '#8b909c'; x.font = `400 16px ${gothic}`;
+        x.fillText(clip(x, it.sub, cellW), cx, cy + cellH + 42);
+      }
+    });
+
+    x.fillStyle = '#6f747f'; x.font = `400 18px ${gothic}`;
+    x.fillText(COPY[S.mode].grid, OBI + PAD, H - 56);
+    return c;
+  }
+  function clip(ctx, s, w){
+    if (ctx.measureText(s).width <= w) return s;
+    let r = s;
+    while (r.length > 1 && ctx.measureText(r + '…').width > w) r = r.slice(0, -1);
+    return r + '…';
+  }
+
+  /** 画像を1枚のPNGにして返す（書き出しと共有で共用） */
+  async function buildPNG(){
+    await Promise.all(S.items.filter(i => i && i.src).map(i => new Promise(res => {
+      const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = im.onerror = res; im.src = i.src;
+    })));
+    const canvas = draw();
+    return new Promise((res, rej) => {
+      try { canvas.toBlob(b => b ? res({ blob:b, url:canvas.toDataURL('image/png') }) : rej(new Error('生成に失敗')), 'image/png'); }
+      catch(e){ rej(e); }
+    });
+  }
+
+  /* ---------- 作成数の記録とカウンタ ---------- */
+  function paintCount(n){
+    if (typeof n === 'number') $('madeCount').textContent = n.toLocaleString('ja-JP');
+  }
+  fetch('/api/stats').then(r => r.json()).then(s => paintCount(s.total)).catch(() => {});
+
+  let lastSaved = '';
+  /** 書き出し・共有のときに1件記録する。同じ内容を続けて出しても二重に数えない */
+  async function recordCard(){
+    const payload = {
+      type: API_TYPE[S.mode],
+      title: $('title').value,
+      name: $('name').value,
+      items: S.items.map(it => it && ({
+        source: it.ref?.source || 'upload',
+        externalId: it.ref?.externalId || null,
+        imageUrl: it.ref?.imageUrl || null,   // アップロード画像はnull。サーバーに送らない
+        title: it.title || '', sub: it.sub || '',
+      })),
+    };
+    const sig = JSON.stringify(payload);
+    if (sig === lastSaved) return;
+    if (!payload.items.filter(Boolean).length) return;
+    lastSaved = sig;
+    try{
+      const r = await fetch('/api/cards', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body: sig,
+      });
+      const j = await r.json();
+      if (r.ok) paintCount(j.stats?.total);
+    } catch(e){ /* 記録に失敗しても本体の動作は止めない */ }
+  }
+
+  /** アップロード画像がいくつ入っているかを見て案内を出し分ける */
+  function updateShareNote(){
+    const filled = S.items.filter(Boolean);
+    const uploads = filled.filter(it => !it.ref?.imageUrl).length;
+    const el = $('shareNote');
+    if (!filled.length){ el.textContent = ''; return; }
+    el.textContent = uploads
+      ? `SNSでシェアすると、自分で追加した${uploads}件を含めた画像がそのまま送られます。` +
+        'これらの画像はサーバーには保存されないため、あとで作る共有ページ（URL）には表示されません。'
+      : 'SNSでシェアすると、画像がそのまま送られます。';
+  }
+
+  function shareText(){
+    const t = $('title').value || COPY[S.mode].title;
+    const nm = $('name').value.trim();
+    return `${t}${nm ? ' / ' + nm : ''} #MYNINE`;
+  }
+
+  $('share').addEventListener('click', async () => {
+    const btn = $('share');
+    btn.disabled = true; btn.textContent = '準備中…';
+    try{
+      const { blob, url } = await buildPNG();
+      recordCard();
+      const file = new File([blob], 'my-nine.png', { type:'image/png' });
+
+      // スマホはOSの共有シートを開く（X・LINE・Instagramなど何にでも送れる）
+      if (navigator.canShare && navigator.canShare({ files:[file] })){
+        await navigator.share({ files:[file], text: shareText() });
+      } else {
+        // 非対応環境は「画像を保存 → 投稿画面を開く」の2段構え
+        const a = document.createElement('a');
+        a.href = url; a.download = 'my-nine.png'; a.click();
+        window.open('https://x.com/intent/post?text=' + encodeURIComponent(shareText()), '_blank', 'noopener');
+        $('outImg').src = url; $('outDl').href = url;
+        $('outv').classList.add('open');
+      }
+    } catch(e){
+      if (e && e.name !== 'AbortError') alert('共有できませんでした。「画像を書き出す」から保存してください。');
+    } finally {
+      btn.disabled = false; btn.textContent = 'SNSでシェア';
+    }
+  });
+
+  $('export').addEventListener('click', async () => {
+    // 画像デコードを待ってから描く
+    await Promise.all(S.items.filter(i => i && i.src).map(i => new Promise(res => {
+      const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = im.onerror = res; im.src = i.src;
+    })));
+    let url;
+    try { url = draw().toDataURL('image/png'); }
+    catch(e){
+      alert('外部から読み込んだ画像があるため、この環境では画像化できませんでした。\n本番では画像を自分のサーバー経由（プロキシ）で配信すると解決します。');
+      return;
+    }
+    recordCard();
+    $('outImg').src = url; $('outDl').href = url;
+    $('outv').classList.add('open');
+  });
+  $('outClose').addEventListener('click', () => $('outv').classList.remove('open'));
+  $('outv').addEventListener('click', e => { if (e.target.id === 'outv') $('outv').classList.remove('open'); });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape'){ close(); $('outv').classList.remove('open'); }
+  });
+
+  // TMDBキーが無い環境では映画タブを無効化しておく
+  fetch('/api/config').then(r => r.json()).then(cfg => {
+    if (!cfg.movieEnabled){
+      const b = document.querySelector('[data-mode="movie"]');
+      if (b){ b.disabled = true; b.title = 'TMDB_API_KEY が未設定です'; }
+    }
+  }).catch(() => {});
+
+  applyRatio();
+  render();
+  // 説明文を種類に合わせておく
+  $('hint').innerHTML = '空きマスをタップして画像を追加。作品名でも作者名でも探せます。<br>' +
+    '右上の <strong>⇅</strong> を押してから別のマスを押すと、順番を入れ替えられます。種類を変えても、それぞれの選択は残ります。';
+})();
+</script>
+</body>
+</html>

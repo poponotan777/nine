@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>このサイトについて | MY NINE</title>
+<meta name="description" content="好きなCD・漫画・アニメ・映画・有名人・キャラクターを9つ選んで、1枚の画像にするツールです。">
+<style>
+  :root{
+    --ink:#111318; --panel:#1a1d24; --panel-2:#22262f; --line:#31363f;
+    --text:#efece5; --muted:#8b909c; --obi:#f2c230;
+    --mincho:"Hiragino Mincho ProN","ヒラギノ明朝 ProN","Yu Mincho","Noto Serif JP",serif;
+    --gothic:"Hiragino Sans","ヒラギノ角ゴシック","Yu Gothic","Noto Sans JP",system-ui,sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ink);color:var(--text);font-family:var(--gothic);
+       -webkit-font-smoothing:antialiased;line-height:1.9}
+  a{color:var(--obi)}
+  header{display:flex;border-bottom:1px solid var(--line)}
+  .obi-tab{background:var(--obi);color:#101216;font-family:var(--mono);font-size:11px;
+           letter-spacing:.18em;padding:14px 10px;writing-mode:vertical-rl}
+  .head-text{padding:18px 16px}
+  .head-text h1{font-family:var(--mincho);font-weight:600;font-size:22px;
+                letter-spacing:.06em;margin:0 0 4px}
+  .head-text p{margin:0;font-size:12px;color:var(--muted)}
+  main{max-width:640px;margin:0 auto;padding:32px 20px 80px}
+  h2{font-family:var(--mincho);font-size:18px;font-weight:600;letter-spacing:.05em;
+     margin:38px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  h2:first-child{margin-top:0}
+  p{font-size:14px;margin:0 0 14px}
+  ul{font-size:14px;padding-left:1.2em;margin:0 0 14px}
+  li{margin-bottom:6px}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px}
+  th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:400;font-family:var(--mono);font-size:10px;letter-spacing:.14em}
+  .counter{display:flex;gap:24px;background:var(--panel);border:1px solid var(--line);
+           padding:18px 20px;border-radius:2px;margin-bottom:8px}
+  .counter div{flex:1}
+  .counter .n{font-family:var(--mono);font-size:30px;color:var(--obi);display:block;line-height:1.2}
+  .counter .k{font-size:11px;color:var(--muted);letter-spacing:.08em}
+  .note{font-size:12px;color:var(--muted)}
+  .cta{display:inline-block;background:var(--obi);color:#101216;font-weight:700;
+       padding:14px 28px;border-radius:2px;text-decoration:none;margin-top:8px}
+  footer{border-top:1px solid var(--line);margin-top:48px;padding-top:20px;
+         font-size:11px;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="obi-tab">MY NINE</div>
+  <div class="head-text">
+    <h1>このサイトについて</h1>
+    <p>9つ選んで、1枚の画像にする</p>
+  </div>
+</header>
+
+<main>
+
+  <h2>できること</h2>
+  <p>
+    好きなCD・漫画・アニメ・映画・有名人・キャラクターを9つ選ぶと、1枚のカード画像になります。
+    作品名からでも、作者やアーティストの名前からでも探せます。
+    選んだ内容は種類ごとに保存されるので、切り替えても消えません。
+  </p>
+  <p><a class="cta" href="/">9つ選んでみる</a></p>
+
+  <h2>これまでに作られた数</h2>
+  <div class="counter">
+    <div><span class="n" id="total">–</span><span class="k">TOTAL</span></div>
+    <div><span class="n" id="today">–</span><span class="k">LAST 24H</span></div>
+    <div><span class="n" id="kinds">–</span><span class="k">種類</span></div>
+  </div>
+  <p class="note" id="breakdown"></p>
+
+  <h2>データの出典</h2>
+  <table>
+    <tr><th>種類</th><th>提供元</th></tr>
+    <tr><td>CD</td><td>Apple Music / iTunes Search API</td></tr>
+    <tr><td>漫画・アニメ・キャラクター</td><td><a href="https://anilist.co" target="_blank" rel="noopener">AniList</a></td></tr>
+    <tr><td>映画</td><td><a href="https://www.themoviedb.org" target="_blank" rel="noopener">TMDB</a></td></tr>
+    <tr><td>有名人</td><td><a href="https://www.wikidata.org" target="_blank" rel="noopener">Wikidata</a> / Wikimedia Commons / TMDB / YouTube</td></tr>
+  </table>
+  <p class="note">
+    本サービスはTMDBの公認を受けたものではありません。
+    Wikimedia Commons由来の画像はCC BY-SAで提供されています。
+    各作品の表紙・ポスター・写真の権利は、それぞれの権利者に帰属します。
+  </p>
+
+  <h2>技術的な話</h2>
+  <p>個人開発です。作るうえで判断が必要だった点を残しておきます。</p>
+  <ul>
+    <li>
+      <strong>書影APIの選定</strong> — 国立国会図書館サーチの書影APIが2026年3月に終了し、
+      openBD APIも提供を終えているため、ISBN起点ではなく作品単位のデータベースを使う設計にしました。
+    </li>
+    <li>
+      <strong>自前サーバーを挟む</strong> — 外部APIをブラウザから直接叩くと、
+      APIキーが露出し、外部画像を描画したcanvasが汚染されて画像を書き出せなくなります。
+      すべてを自前サーバー経由にすることで、この2つとレート制限を同時に解決しています。
+    </li>
+    <li>
+      <strong>表記ゆれ</strong> — 全角半角・ひらがなカタカナ・中黒・長音記号を正規化し、
+      結果が少ないときだけ変換した語で再検索します。
+      並べ替えは2文字ずつの重なり具合（Dice係数）で採点。
+      よみがなから漢字への変換は形態素辞書が必要なため対象外としています。
+    </li>
+    <li>
+      <strong>人物検索</strong> — Wikipediaの全文検索は人物かどうかを判定しないため、
+      団体名や作品名が混ざります。Wikidataで分類（P31）がヒト（Q5）の項目に限定しています。
+    </li>
+    <li>
+      <strong>Twitter/Xを使わない理由</strong> — 2026年2月に従量課金へ移行し無料枠が廃止されたこと、
+      プロフィール画像の権利が本人側にあることの2点から、採用を見送りました。
+    </li>
+  </ul>
+
+  <h2>権利について</h2>
+  <p>
+    本サービスは非営利で運営しており、作品の紹介を目的としています。
+    画像は各提供元から都度取得しており、当サイトで保存・再配布はしていません。
+  </p>
+  <p>
+    掲載内容について権利者の方からご連絡をいただいた場合は、確認のうえ速やかに対応します。
+    <a href="/contact">お問い合わせ</a>からご連絡ください。
+  </p>
+
+  <footer>
+    <p>
+      開発者: <span id="dev">（ここにあなたの名前とリンクを入れてください）</span><br>
+      <a href="/">トップ</a> ｜ <a href="/privacy-policy">プライバシーポリシー</a> ｜
+      <a href="/terms">利用規約</a> ｜ <a href="/contact">お問い合わせ</a>
+    </p>
+    <p>© 2026 MY NINE</p>
+  </footer>
+
+</main>
+
+<script>
+  const LABEL = { cd:'CD', manga:'漫画', anime:'アニメ', movie:'映画', person:'有名人', character:'キャラ' };
+  fetch('/api/stats')
+    .then(r => r.json())
+    .then(s => {
+      const fmt = n => n.toLocaleString('ja-JP');
+      document.getElementById('total').textContent = fmt(s.total);
+      document.getElementById('today').textContent = fmt(s.today);
+      const kinds = Object.keys(s.byType || {});
+      document.getElementById('kinds').textContent = kinds.length;
+      document.getElementById('breakdown').textContent = kinds.length
+        ? '内訳: ' + kinds.map(k => `${LABEL[k] || k} ${fmt(s.byType[k])}`).join(' ・ ')
+        : 'まだ1枚も作られていません。最初の1枚を作ってみてください。';
+    })
+    .catch(() => {
+      document.getElementById('breakdown').textContent = '集計を読み込めませんでした。';
+    });
+</script>
+</body>
+</html>

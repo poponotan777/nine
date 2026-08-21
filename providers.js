@@ -1,0 +1,705 @@
+/**
+ * providers.js — 外部データソースのアダプタ
+ *
+ *  種別      検索/画像                                  キー
+ *  --------  ----------------------------------------  --------------------
+ *  album     iTunes Search API                          不要
+ *  manga     AniList GraphQL (MANGA)                    不要
+ *  anime     AniList GraphQL (ANIME)                    不要
+ *  movie     TMDB                                       TMDB_API_KEY
+ *  person    Wikipedia + TMDB人物 + YouTubeチャンネル    後ろ2つは任意
+ *
+ * 正規化した戻り値:
+ *   { id, source, title, sub, img, relatedId, relatedCount, relationLabel? }
+ */
+
+const UA = 'MyNine/1.0 (https://example.com; contact@example.com)';
+const TMDB_KEY = process.env.TMDB_API_KEY || '';
+const YT_KEY   = process.env.YOUTUBE_API_KEY || '';
+
+const IMG_HOSTS = [
+  /^s\d\.anilist\.co$/,
+  /^is\d-ssl\.mzstatic\.com$/,
+  /^a\d\.mzstatic\.com$/,
+  /^image\.tmdb\.org$/,
+  /^upload\.wikimedia\.org$/,
+  /^commons\.wikimedia\.org$/,
+  /^yt\d\.ggpht\.com$/,
+  /^yt\d\.googleusercontent\.com$/,
+  /^i\.ytimg\.com$/,
+  /^lh\d\.googleusercontent\.com$/,
+];
+
+const proxied = url => (url ? '/img?u=' + encodeURIComponent(url) : '');
+
+/* ================================================================== *
+ * 表記ゆれの吸収
+ *
+ * 日本語の検索でいちばん多い失敗は次の4つ。
+ *   1. 全角と半角の違い     ＮＡＲＵＴＯ / NARUTO
+ *   2. ひらがなとカタカナ   すらむだんく / スラムダンク
+ *   3. 中黒や空白の有無     ワンピース / ワン・ピース / ONE PIECE
+ *   4. 長音記号のゆれ       ハンター / ハンタ―（別文字）
+ * ここで比較用のキーを作り、当たらなければ変換した語で追撃する。
+ * ※「よみがな→漢字」だけは辞書が要るため対象外（Wikipediaの全文検索が吸収する）。
+ * ================================================================== */
+
+const toHalfWidth = s => s
+  .replace(/[Ａ-Ｚａ-ｚ０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+  .replace(/　/g, ' ');
+
+const kataToHira = s => s.replace(/[\u30a1-\u30f6]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+const hiraToKata = s => s.replace(/[\u3041-\u3096]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60));
+
+/** 入力そのものの整形（外部APIに投げる文字列） */
+function normalize(s) {
+  return toHalfWidth(s || '')
+    .replace(/[‐‑‒–—―ー－ｰ]/g, 'ー')     // 長音記号のゆれを統一
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** 比較専用のキー。記号と空白を落とし、カタカナはひらがなに寄せる */
+function key(s) {
+  return kataToHira(toHalfWidth(s || '').toLowerCase())
+    .replace(/[ー〜~]/g, '')
+    .replace(/[\s・･:：;；,，.。!！?？'"“”‘’\-–—_()（）\[\]【】「」『』/／]/g, '');
+}
+
+/** 検索に使う候補を優先順に返す（重複は除く） */
+function variants(term) {
+  const base = normalize(term);
+  const list = [
+    base,
+    hiraToKata(base),                       // すらむだんく → スラムダンク
+    kataToHira(base),                       // スラムダンク → すらむだんく
+    base.replace(/[・･\s]/g, ''),           // ワン・ピース → ワンピース
+  ];
+  return [...new Set(list.filter(Boolean))];
+}
+
+/** 2文字ずつの重なり具合で似ている度合いを出す（0〜1） */
+function dice(a, b) {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  if (a.length < 2 || b.length < 2) return a === b ? 1 : 0;
+  const grams = s => { const m = new Map(); for (let i = 0; i < s.length - 1; i++) { const g = s.slice(i, i + 2); m.set(g, (m.get(g) || 0) + 1); } return m; };
+  const ga = grams(a), gb = grams(b);
+  let hit = 0, total = 0;
+  for (const [g, n] of ga) { total += n; hit += Math.min(n, gb.get(g) || 0); }
+  for (const n of gb.values()) total += n;
+  return (2 * hit) / total;
+}
+
+/** 検索語との近さで並べ替える。候補文字列は複数持てる（原題・ローマ字など） */
+function rank(items, term) {
+  const keys = variants(term).map(key);
+  return items
+    .map(it => {
+      const cands = [it.title, it.sub, ...(it._alts || [])].filter(Boolean).map(key);
+      let best = 0;
+      for (const k of keys) for (const c of cands) {
+        let sc = dice(k, c);
+        if (c.startsWith(k)) sc = Math.max(sc, 0.95);   // 前方一致は強い手がかり
+        else if (c.includes(k)) sc = Math.max(sc, 0.8);
+        best = Math.max(best, sc);
+      }
+      return { it, best };
+    })
+    .sort((a, b) => b.best - a.best)
+    .map(({ it }) => { delete it._alts; return it; });
+}
+
+/** 重複を潰しつつ結合 */
+function mergeBy(fn, ...lists) {
+  const out = [], seen = new Set();
+  for (const list of lists) for (const it of list || []) {
+    const k = fn(it);
+    if (seen.has(k)) continue;
+    seen.add(k); out.push(it);
+  }
+  return out;
+}
+
+/**
+ * 1つ目の候補で十分な件数が取れなければ、変換した語で追撃する。
+ * 毎回すべての変換を投げると外部APIのレート制限に当たるため、必要なときだけ。
+ */
+async function fanout(term, fetcher, { enough = 5, max = 3 } = {}) {
+  const vs = variants(term).slice(0, max);
+  let acc = [];
+  for (const v of vs) {
+    const got = await fetcher(v);
+    acc = mergeBy(x => `${x.source}:${x.id}`, acc, got);
+    if (acc.length >= enough) break;
+  }
+  return acc;
+}
+
+/* ================================================================== *
+ * 共通
+ * ================================================================== */
+function makeQueue(intervalMs) {
+  let chain = Promise.resolve();
+  const run = async fn => { const r = await fn(); await new Promise(s => setTimeout(s, intervalMs)); return r; };
+  return fn => (chain = chain.then(() => run(fn), () => run(fn)));
+}
+const q = { anilist: makeQueue(700), itunes: makeQueue(350), tmdb: makeQueue(120), wiki: makeQueue(200), yt: makeQueue(120) };
+
+async function getJSON(url, opts = {}) {
+  const res = await fetch(url, { ...opts, headers: { 'User-Agent': UA, Accept: 'application/json', ...(opts.headers || {}) } });
+  if (!res.ok) throw new Error(`${new URL(url).hostname} が ${res.status} を返しました`);
+  return res.json();
+}
+
+/* ================================================================== *
+ * AniList（漫画・アニメ）
+ * ================================================================== */
+const ANILIST = 'https://graphql.anilist.co';
+
+const MEDIA = `
+  id type
+  title { native romaji english }
+  synonyms
+  coverImage { extraLarge large }
+  startDate { year }
+  staff(perPage: 1, sort: RELEVANCE) { nodes { name { native full } } }
+  studios(isMain: true) { nodes { name } }
+`;
+
+const Q_SEARCH = t => `query ($s: String) {
+  Page(perPage: 18) { media(search: $s, type: ${t}, sort: SEARCH_MATCH, isAdult: false) {
+    ${MEDIA} relations { edges { relationType node { id type } } } } }
+}`;
+const Q_RELATED = `query ($id: Int) {
+  Media(id: $id) { relations { edges { relationType node { ${MEDIA} } } } }
+}`;
+const Q_SUGGEST = t => `query ($s: String) {
+  Page(perPage: 8) { media(search: $s, type: ${t}, sort: SEARCH_MATCH, isAdult: false) {
+    title { native romaji } startDate { year } } }
+}`;
+
+const REL_LABEL = {
+  SEQUEL: '続編', PREQUEL: '前日譚', SIDE_STORY: '外伝', SPIN_OFF: 'スピンオフ',
+  ALTERNATIVE: '別バージョン', PARENT: '本編', OTHER: '関連',
+};
+const REL_SKIP = new Set(['SUMMARY', 'CHARACTER', 'CONTAINS', 'COMPILATION', 'ADAPTATION', 'SOURCE']);
+
+async function anilist(query, variables) {
+  const json = await q.anilist(() => getJSON(ANILIST, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, variables }),
+  }));
+  if (json.errors?.length) throw new Error(json.errors[0].message);
+  return json.data;
+}
+
+function shapeAniList(m, kind, relationType) {
+  if (!m) return null;
+  const sub = kind === 'anime'
+    ? (m.studios?.nodes?.[0]?.name || '')
+    : (m.staff?.nodes?.[0]?.name?.native || m.staff?.nodes?.[0]?.name?.full || '');
+  const rel = (m.relations?.edges || [])
+    .filter(e => e.node?.type === (kind === 'anime' ? 'ANIME' : 'MANGA') && !REL_SKIP.has(e.relationType));
+  return {
+    id: m.id,
+    source: 'anilist',
+    title: m.title?.native || m.title?.romaji || m.title?.english || '',
+    sub,
+    img: proxied(m.coverImage?.extraLarge || m.coverImage?.large),
+    relatedId: m.id,
+    relatedCount: rel.length,
+    // 並べ替え用の別名（ローマ字・英題・別表記）。送信前に削除される
+    _alts: [m.title?.romaji, m.title?.english, m.title?.native, ...(m.synonyms || [])].filter(Boolean),
+    ...(relationType ? { relationLabel: REL_LABEL[relationType] || '関連' } : {}),
+  };
+}
+
+/* ================================================================== *
+ * iTunes Search（アルバム）
+ * ================================================================== */
+function shapeAlbum(a) {
+  return {
+    id: a.collectionId,
+    source: 'itunes',
+    title: a.collectionName || '',
+    sub: a.artistName || '',
+    img: proxied((a.artworkUrl100 || '').replace('100x100bb', '600x600bb')),
+    relatedId: a.artistId || null,
+    relatedCount: a.artistId ? 1 : 0,
+    _alts: [a.collectionCensoredName, a.artistName].filter(Boolean),
+  };
+}
+const itunesSearch = async (term, limit = 18) => {
+  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=album&country=JP&limit=${limit}`;
+  const json = await q.itunes(() => getJSON(url));
+  return (json.results || []).map(shapeAlbum).filter(x => x.img);
+};
+
+/* ================================================================== *
+ * TMDB（映画・人物）
+ * ================================================================== */
+function tmdbURL(pathname, params = {}) {
+  const u = new URL('https://api.themoviedb.org/3' + pathname);
+  u.searchParams.set('api_key', TMDB_KEY);
+  u.searchParams.set('language', 'ja-JP');
+  Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
+  return u.toString();
+}
+function requireTMDB() {
+  if (!TMDB_KEY) {
+    const e = new Error('映画検索にはTMDBのAPIキーが必要です。環境変数 TMDB_API_KEY を設定してください。');
+    e.status = 503;
+    throw e;
+  }
+}
+function shapeMovie(m) {
+  return {
+    id: m.id, source: 'tmdb',
+    title: m.title || m.original_title || '',
+    sub: (m.release_date || '').slice(0, 4),
+    img: m.poster_path ? proxied('https://image.tmdb.org/t/p/w500' + m.poster_path) : '',
+    relatedId: m.id, relatedCount: 1,
+    _alts: [m.original_title].filter(Boolean),
+  };
+}
+
+const DEPT = { Acting: '俳優', Directing: '監督', Writing: '脚本', Production: 'プロデューサー', Sound: '音楽', Camera: '撮影' };
+function shapePerson(p) {
+  return {
+    id: 'tmdb-' + p.id, source: 'tmdb',
+    title: p.name || '',
+    sub: DEPT[p.known_for_department] || (p.known_for?.[0]?.title ? '映画・TV' : ''),
+    img: p.profile_path ? proxied('https://image.tmdb.org/t/p/w500' + p.profile_path) : '',
+    relatedId: null, relatedCount: 0,
+    _alts: [p.original_name, ...(p.also_known_as || [])].filter(Boolean),
+  };
+}
+
+/* ================================================================== *
+ * YouTube（配信者・クリエイター）
+ * search.list は1回100ユニット、無料枠は1日10,000ユニット＝約100回。
+ * キャッシュ前提で使うこと。
+ * ================================================================== */
+async function searchYouTube(term) {
+  if (!YT_KEY) return [];
+  const u = new URL('https://www.googleapis.com/youtube/v3/search');
+  u.searchParams.set('part', 'snippet');
+  u.searchParams.set('type', 'channel');
+  u.searchParams.set('maxResults', '8');
+  u.searchParams.set('q', term);
+  u.searchParams.set('key', YT_KEY);
+  try {
+    const json = await q.yt(() => getJSON(u.toString()));
+    return (json.items || []).map(it => ({
+      id: 'yt-' + (it.id?.channelId || it.snippet?.channelId),
+      source: 'youtube',
+      title: it.snippet?.channelTitle || it.snippet?.title || '',
+      sub: 'YouTube',
+      img: proxied(it.snippet?.thumbnails?.high?.url || it.snippet?.thumbnails?.default?.url || ''),
+      relatedId: null, relatedCount: 0,
+    })).filter(x => x.img && x.title);
+  } catch (e) {
+    return [];   // 枠切れなどで落ちても他のソースは活かす
+  }
+}
+
+/* ================================================================== *
+ * Wikipedia（有名人・クリエイター全般）
+ * ================================================================== */
+const wikiURL = params => {
+  const u = new URL('https://ja.wikipedia.org/w/api.php');
+  Object.entries({ format: 'json', formatversion: 2, ...params }).forEach(([k, v]) => u.searchParams.set(k, v));
+  return u.toString();
+};
+
+async function searchWiki(term) {
+  const json = await q.wiki(() => getJSON(wikiURL({
+    action: 'query', generator: 'search', gsrsearch: term, gsrlimit: 20, gsrnamespace: 0,
+    prop: 'pageimages|pageterms', piprop: 'thumbnail', pithumbsize: 500, wbptterms: 'description',
+  })));
+  return (json.query?.pages || [])
+    .filter(p => p.thumbnail?.source)
+    .map(p => ({
+      id: 'wiki-' + p.pageid, source: 'wikipedia',
+      title: p.title.replace(/\s*\(.+?\)$/, ''),
+      sub: (p.terms?.description?.[0] || '').slice(0, 24),
+      img: proxied(p.thumbnail.source),
+      relatedId: null, relatedCount: 0,
+      _alts: [p.title],
+    }));
+}
+
+/* ================================================================== *
+ * 公開インターフェース
+ * ================================================================== */
+async function search(type, rawQuery) {
+  const term = normalize(rawQuery);
+
+  if (type === 'manga' || type === 'anime') {
+    const gql = Q_SEARCH(type === 'anime' ? 'ANIME' : 'MANGA');
+    const items = await fanout(term, async v => {
+      const data = await anilist(gql, { s: v });
+      return (data.Page?.media || []).map(m => shapeAniList(m, type)).filter(x => x?.img);
+    });
+    return rank(items, term);
+  }
+
+  if (type === 'album') {
+    return rank(await fanout(term, v => itunesSearch(v)), term);
+  }
+
+  if (type === 'movie') {
+    requireTMDB();
+    const items = await fanout(term, async v => {
+      const json = await q.tmdb(() => getJSON(tmdbURL('/search/movie', { query: v, include_adult: 'false' })));
+      return (json.results || []).map(shapeMovie).filter(x => x.img);
+    });
+    return rank(items, term);
+  }
+
+  if (type === 'character') {
+    return rank(await searchCharacters(term), term);
+  }
+
+  if (type === 'person') {
+    // Wikidataを主軸に、俳優はTMDB、配信者はYouTubeで補う。
+    // 同じ人物は名前で1つにまとめる（先に来たソースを優先）
+    const [wd, tmdb, yt] = await Promise.all([
+      fanout(term, wikidataPeople, { enough: 6, max: 3 }).catch(() => []),
+      TMDB_KEY
+        ? q.tmdb(() => getJSON(tmdbURL('/search/person', { query: term, include_adult: 'false' })))
+            .then(j => (j.results || []).map(shapePerson).filter(x => x.img))
+            .catch(() => [])
+        : [],
+      searchYouTube(term),
+    ]);
+
+    let merged = mergeBy(x => key(x.title) || x.id, wd, tmdb, yt);
+
+    // どれも薄いときだけ、従来のWikipedia全文検索で拾い直す
+    if (merged.length < 4) {
+      const wiki = await fanout(term, searchWiki, { enough: 6 }).catch(() => []);
+      merged = mergeBy(x => key(x.title) || x.id, merged, wiki);
+    }
+    return rank(merged, term).slice(0, 24);
+  }
+
+  throw Object.assign(new Error('未対応の種別です'), { status: 400 });
+}
+
+async function suggest(type, rawQuery) {
+  const term = normalize(rawQuery);
+  if (term.length < 2) return [];
+  const dedupe = list => mergeBy(x => key(x.label), list).slice(0, 8);
+
+  if (type === 'manga' || type === 'anime') {
+    const gql = Q_SUGGEST(type === 'anime' ? 'ANIME' : 'MANGA');
+    const got = await fanout(term, async v => {
+      const data = await anilist(gql, { s: v });
+      return (data.Page?.media || []).map(m => ({
+        id: m.title?.native || m.title?.romaji, source: 'x',
+        label: m.title?.native || m.title?.romaji || '',
+        sub: m.startDate?.year ? String(m.startDate.year) : '',
+        title: m.title?.native || m.title?.romaji || '',
+        _alts: [m.title?.romaji].filter(Boolean),
+      })).filter(x => x.label);
+    }, { enough: 4, max: 2 });
+    return dedupe(rank(got, term)).map(({ label, sub }) => ({ label, sub }));
+  }
+
+  if (type === 'album') {
+    const got = await fanout(term, async v => (await itunesSearch(v, 8)).map(a => ({
+      id: a.id, source: 'itunes', label: a.title, sub: a.sub, title: a.title,
+    })), { enough: 4, max: 2 });
+    return dedupe(rank(got, term)).map(({ label, sub }) => ({ label, sub }));
+  }
+
+  if (type === 'movie') {
+    requireTMDB();
+    const got = await fanout(term, async v => {
+      const json = await q.tmdb(() => getJSON(tmdbURL('/search/movie', { query: v, include_adult: 'false' })));
+      return (json.results || []).slice(0, 8).map(m => ({
+        id: m.id, source: 'tmdb', label: m.title || m.original_title,
+        sub: (m.release_date || '').slice(0, 4), title: m.title || m.original_title,
+        _alts: [m.original_title].filter(Boolean),
+      })).filter(x => x.label);
+    }, { enough: 4, max: 2 });
+    return dedupe(rank(got, term)).map(({ label, sub }) => ({ label, sub }));
+  }
+
+  if (type === 'character') {
+    const got = await fanout(term, async v => {
+      const data = await anilist(Q_CHARACTERS, { s: v });
+      return (data.Page?.characters || []).map(c => {
+        const x = shapeCharacter(c);
+        return { id: x.id, source: 'anilist', label: x.title, sub: x.sub, title: x.title, _alts: x._alts };
+      }).filter(x => x.label);
+    }, { enough: 4, max: 2 });
+    return dedupe(rank(got, term)).map(({ label, sub }) => ({ label, sub }));
+  }
+
+  if (type === 'person') {
+    // opensearch は前方一致なので、当たらなければ全文検索に切り替える
+    const got = await fanout(term, async v => {
+      const json = await q.wiki(() => getJSON(wikiURL({ action: 'opensearch', search: v, limit: 8, namespace: 0 })));
+      return (json[1] || []).map((label, i) => ({
+        id: label, source: 'wiki',
+        label: label.replace(/\s*\(.+?\)$/, ''),
+        sub: (json[2]?.[i] || '').slice(0, 20),
+        title: label,
+      }));
+    }, { enough: 4, max: 3 });
+
+    if (got.length < 3 && TMDB_KEY) {
+      const j = await q.tmdb(() => getJSON(tmdbURL('/search/person', { query: term }))).catch(() => null);
+      (j?.results || []).slice(0, 6).forEach(p => got.push({
+        id: 'tmdb-' + p.id, source: 'tmdb', label: p.name,
+        sub: DEPT[p.known_for_department] || '', title: p.name,
+      }));
+    }
+    return dedupe(rank(got, term)).map(({ label, sub }) => ({ label, sub }));
+  }
+  return [];
+}
+
+async function related(type, id) {
+  if (type === 'manga' || type === 'anime') {
+    const want = type === 'anime' ? 'ANIME' : 'MANGA';
+    const data = await anilist(Q_RELATED, { id: Number(id) });
+    return (data.Media?.relations?.edges || [])
+      .filter(e => e.node?.type === want && !REL_SKIP.has(e.relationType))
+      .map(e => shapeAniList(e.node, type, e.relationType))
+      .filter(x => x?.img)
+      .map(x => { delete x._alts; return x; });
+  }
+  if (type === 'album') {
+    const url = `https://itunes.apple.com/lookup?id=${encodeURIComponent(id)}&entity=album&limit=25&country=JP`;
+    const json = await q.itunes(() => getJSON(url));
+    return (json.results || [])
+      .filter(r => r.wrapperType === 'collection')
+      .map(a => { const s = shapeAlbum(a); delete s._alts; return { ...s, relationLabel: '同アーティスト', relatedCount: 0 }; })
+      .filter(x => x.img);
+  }
+  if (type === 'movie') {
+    requireTMDB();
+    const detail = await q.tmdb(() => getJSON(tmdbURL(`/movie/${Number(id)}`)));
+    const shape = m => { const s = shapeMovie(m); delete s._alts; return s; };
+    if (detail.belongs_to_collection?.id) {
+      const col = await q.tmdb(() => getJSON(tmdbURL(`/collection/${detail.belongs_to_collection.id}`)));
+      return (col.parts || []).filter(m => m.id !== detail.id)
+        .map(m => ({ ...shape(m), relationLabel: 'シリーズ', relatedCount: 0 })).filter(x => x.img);
+    }
+    const rec = await q.tmdb(() => getJSON(tmdbURL(`/movie/${Number(id)}/recommendations`)));
+    return (rec.results || []).slice(0, 12)
+      .map(m => ({ ...shape(m), relationLabel: '関連', relatedCount: 0 })).filter(x => x.img);
+  }
+  return [];
+}
+
+/* ================================================================== *
+ * 作者・アーティストから探す
+ *
+ * 作品名と人名を同じ検索窓で混ぜると候補が濁るため、
+ * 「人を探す」→「その人の作品一覧」の2段階に分けている。
+ * ================================================================== */
+
+const Q_STAFF = `query ($s: String) {
+  Page(perPage: 12) { staff(search: $s) {
+    id name { native full } image { large }
+    staffMedia(perPage: 1) { nodes { id } }
+  } }
+}`;
+
+const Q_STAFF_WORKS = `query ($id: Int, $t: MediaType) {
+  Staff(id: $id) {
+    name { native full }
+    staffMedia(type: $t, perPage: 40, sort: POPULARITY_DESC) {
+      nodes { ${MEDIA} relations { edges { relationType node { id type } } } }
+    }
+  }
+}`;
+
+/** 人物の候補を返す（画像は無くてもよい） */
+async function creators(type, rawQuery) {
+  const term = normalize(rawQuery);
+
+  if (type === 'manga' || type === 'anime') {
+    const got = await fanout(term, async v => {
+      const data = await anilist(Q_STAFF, { s: v });
+      return (data.Page?.staff || [])
+        .filter(s => s.staffMedia?.nodes?.length)
+        .map(s => ({
+          id: s.id, source: 'anilist',
+          title: s.name?.native || s.name?.full || '',
+          sub: s.name?.native && s.name?.full && s.name.native !== s.name.full ? s.name.full : '',
+          img: proxied(s.image?.large || ''),
+          _alts: [s.name?.full, s.name?.native].filter(Boolean),
+        })).filter(x => x.title);
+    }, { enough: 4, max: 3 });
+    return rank(got, term);
+  }
+
+  if (type === 'album') {
+    const got = await fanout(term, async v => {
+      const url = `https://itunes.apple.com/search?term=${encodeURIComponent(v)}&entity=musicArtist&country=JP&limit=12`;
+      const json = await q.itunes(() => getJSON(url));
+      return (json.results || []).map(a => ({
+        id: a.artistId, source: 'itunes',
+        title: a.artistName || '', sub: a.primaryGenreName || '', img: '',
+      })).filter(x => x.id && x.title);
+    }, { enough: 4, max: 3 });
+    return rank(got, term);
+  }
+
+  if (type === 'movie') {
+    requireTMDB();
+    const got = await fanout(term, async v => {
+      const json = await q.tmdb(() => getJSON(tmdbURL('/search/person', { query: v, include_adult: 'false' })));
+      return (json.results || []).map(p => ({
+        id: p.id, source: 'tmdb',
+        title: p.name || '',
+        sub: DEPT[p.known_for_department] || '',
+        img: p.profile_path ? proxied('https://image.tmdb.org/t/p/w185' + p.profile_path) : '',
+        _alts: [p.original_name].filter(Boolean),
+      })).filter(x => x.title);
+    }, { enough: 4, max: 2 });
+    return rank(got, term);
+  }
+
+  return [];
+}
+
+/** その人物の作品一覧 */
+async function works(type, id) {
+  if (type === 'manga' || type === 'anime') {
+    const data = await anilist(Q_STAFF_WORKS, { id: Number(id), t: type === 'anime' ? 'ANIME' : 'MANGA' });
+    const seen = new Set();
+    return (data.Staff?.staffMedia?.nodes || [])
+      .map(m => shapeAniList(m, type))
+      .filter(x => x?.img && !seen.has(x.id) && seen.add(x.id))
+      .map(x => { delete x._alts; return x; });
+  }
+  if (type === 'album') {
+    return related('album', id);          // 同アーティストのアルバム一覧と同じ
+  }
+  if (type === 'movie') {
+    requireTMDB();
+    const json = await q.tmdb(() => getJSON(tmdbURL(`/person/${Number(id)}/movie_credits`)));
+    const all = [...(json.cast || []), ...(json.crew || [])];
+    const seen = new Set();
+    return all
+      .filter(m => m.poster_path && !seen.has(m.id) && seen.add(m.id))
+      .sort((a, b) => (b.release_date || '').localeCompare(a.release_date || ''))
+      .slice(0, 40)
+      .map(m => { const s = shapeMovie(m); delete s._alts; return s; });
+  }
+  return [];
+}
+
+/* ================================================================== *
+ * Wikidata（人物）
+ *
+ * Wikipediaの全文検索は「人物かどうか」を見ないため、
+ * 団体名・楽曲名・地名が同列に混ざってしまう。
+ * Wikidataなら P31（分類）= Q5（ヒト）で厳密に絞り込める。
+ * さらに別名（芸名・本名・ローマ字表記）が登録されているので表記ゆれにも強い。
+ * ================================================================== */
+const wdURL = params => {
+  const u = new URL('https://www.wikidata.org/w/api.php');
+  Object.entries({ format: 'json', ...params }).forEach(([k, v]) => u.searchParams.set(k, v));
+  return u.toString();
+};
+
+const claimValues = (ent, prop) =>
+  ((ent.claims || {})[prop] || []).map(c => c.mainsnak?.datavalue?.value).filter(Boolean);
+
+const commonsImage = file =>
+  'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(file) + '?width=500';
+
+async function wikidataPeople(term) {
+  const found = await q.wiki(() => getJSON(wdURL({
+    action: 'wbsearchentities', search: term, language: 'ja', uselang: 'ja',
+    type: 'item', limit: 20,
+  })));
+  const ids = (found.search || []).map(x => x.id);
+  if (!ids.length) return [];
+
+  const got = await q.wiki(() => getJSON(wdURL({
+    action: 'wbgetentities', ids: ids.join('|'),
+    props: 'claims|labels|descriptions|aliases', languages: 'ja|en',
+  })));
+  const entities = Object.values(got.entities || {});
+
+  // ヒトだけ残し、画像があるものに限る
+  const people = entities.filter(e =>
+    claimValues(e, 'P31').some(v => v.id === 'Q5') && claimValues(e, 'P18').length
+  );
+  if (!people.length) return [];
+
+  // 職業（P106）のラベルをまとめて引く
+  const occIds = [...new Set(people.map(e => claimValues(e, 'P106')[0]?.id).filter(Boolean))];
+  let occLabels = {};
+  if (occIds.length) {
+    const lab = await q.wiki(() => getJSON(wdURL({
+      action: 'wbgetentities', ids: occIds.slice(0, 50).join('|'),
+      props: 'labels', languages: 'ja|en',
+    }))).catch(() => null);
+    Object.entries(lab?.entities || {}).forEach(([id, e]) => {
+      occLabels[id] = e.labels?.ja?.value || e.labels?.en?.value || '';
+    });
+  }
+
+  return people.map(e => {
+    const name = e.labels?.ja?.value || e.labels?.en?.value || '';
+    const occ = occLabels[claimValues(e, 'P106')[0]?.id] || '';
+    const aliases = [...(e.aliases?.ja || []), ...(e.aliases?.en || [])].map(a => a.value);
+    return {
+      id: 'wd-' + e.id, source: 'wikidata',
+      title: name,
+      sub: (occ || e.descriptions?.ja?.value || '').slice(0, 24),
+      img: proxied(commonsImage(claimValues(e, 'P18')[0])),
+      relatedId: null, relatedCount: 0,
+      _alts: [e.labels?.en?.value, ...aliases].filter(Boolean),
+    };
+  }).filter(x => x.title);
+}
+
+/* ================================================================== *
+ * AniList（キャラクター）
+ * 漫画・アニメ・ゲーム原作のキャラクターを横断で引ける。キー不要。
+ * ================================================================== */
+const Q_CHARACTERS = `query ($s: String) {
+  Page(perPage: 18) { characters(search: $s, sort: SEARCH_MATCH) {
+    id
+    name { native full alternative }
+    image { large }
+    media(perPage: 1, sort: POPULARITY_DESC) { nodes { title { native romaji } } }
+  } }
+}`;
+
+function shapeCharacter(c) {
+  const from = c.media?.nodes?.[0]?.title;
+  return {
+    id: c.id, source: 'anilist',
+    title: c.name?.native || c.name?.full || '',
+    sub: from ? (from.native || from.romaji || '') : '',
+    img: proxied(c.image?.large || ''),
+    relatedId: null, relatedCount: 0,
+    _alts: [c.name?.full, c.name?.native, ...(c.name?.alternative || [])].filter(Boolean),
+  };
+}
+
+async function searchCharacters(term) {
+  return fanout(term, async v => {
+    const data = await anilist(Q_CHARACTERS, { s: v });
+    return (data.Page?.characters || []).map(shapeCharacter).filter(x => x.img && x.title);
+  });
+}
+
+module.exports = {
+  search, suggest, related, creators, works, IMG_HOSTS,
+  hasTMDB: () => !!TMDB_KEY,
+  hasYouTube: () => !!YT_KEY,
+  _internal: { key, variants, dice, rank },   // テスト用
+};

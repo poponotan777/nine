@@ -1,0 +1,17 @@
+{
+  "name": "my-nine",
+  "version": "1.0.0",
+  "description": "好きなCD・漫画・アニメ・映画・有名人・キャラクターを9つ選んで1枚の画像にするツール",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "license": "MIT"
+}
