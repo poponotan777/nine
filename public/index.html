@@ -378,11 +378,11 @@
     if (!r.ok) throw new Error(j.error || `サーバーが ${r.status} を返しました`);
     return j.items || [];
   }
-  const searchItems  = (type, q) => api(`/api/search?type=${type}&q=${encodeURIComponent(q)}`);
-  const suggestItems = (type, q) => api(`/api/suggest?type=${type}&q=${encodeURIComponent(q)}`);
-  const relatedItems = (type, id) => api(`/api/related?type=${type}&id=${id}`);
-  const creatorItems = (type, q) => api(`/api/creators?type=${type}&q=${encodeURIComponent(q)}`);
-  const workItems    = (type, id) => api(`/api/works?type=${type}&id=${id}`);
+  const searchItems  = (type, q) => api(`/x/search?type=${type}&q=${encodeURIComponent(q)}`);
+  const suggestItems = (type, q) => api(`/x/suggest?type=${type}&q=${encodeURIComponent(q)}`);
+  const relatedItems = (type, id) => api(`/x/related?type=${type}&id=${id}`);
+  const creatorItems = (type, q) => api(`/x/creators?type=${type}&q=${encodeURIComponent(q)}`);
+  const workItems    = (type, id) => api(`/x/works?type=${type}&id=${id}`);
 
   // 「作者で探す」のラベル。有名人モードには人名検索しかないので出さない
   const BY_LABEL = { cd:'アーティストで探す', manga:'作者で探す', anime:'制作・監督で探す', movie:'監督・出演者で探す' };
@@ -978,7 +978,7 @@
   function paintCount(n){
     if (typeof n === 'number') $('madeCount').textContent = n.toLocaleString('ja-JP');
   }
-  fetch('/api/stats').then(r => r.json()).then(s => paintCount(s.total)).catch(() => {});
+  fetch('/x/stats').then(r => r.json()).then(s => paintCount(s.total)).catch(() => {});
 
   let lastSaved = '';
   /** 書き出し・共有のときに1件記録する。同じ内容を続けて出しても二重に数えない */
@@ -999,7 +999,7 @@
     if (!payload.items.filter(Boolean).length) return;
     lastSaved = sig;
     try{
-      const r = await fetch('/api/cards', {
+      const r = await fetch('/x/cards', {
         method:'POST', headers:{'Content-Type':'application/json'}, body: sig,
       });
       const j = await r.json();
@@ -1074,7 +1074,7 @@
   });
 
   // TMDBキーが無い環境では映画タブを無効化しておく
-  fetch('/api/config').then(r => r.json()).then(cfg => {
+  fetch('/x/config').then(r => r.json()).then(cfg => {
     if (!cfg.movieEnabled){
       const b = document.querySelector('[data-mode="movie"]');
       if (b){ b.disabled = true; b.title = 'TMDB_API_KEY が未設定です'; }

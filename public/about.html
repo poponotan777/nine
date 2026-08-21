@@ -139,7 +139,7 @@
 
 <script>
   const LABEL = { cd:'CD', manga:'漫画', anime:'アニメ', movie:'映画', person:'有名人', character:'キャラ' };
-  fetch('/api/stats')
+  fetch('/x/stats')
     .then(r => r.json())
     .then(s => {
       const fmt = n => n.toLocaleString('ja-JP');

@@ -131,14 +131,14 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/img') return await serveImage(url.searchParams.get('u') || '', res);
 
     // 作成数カウンタ
-    if (url.pathname === '/api/stats') {
+    if (url.pathname === '/x/stats') {
       const s = await store.stats();
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
       return res.end(JSON.stringify(s));
     }
 
     // カードの保存（書き出し・共有したときに1件記録する）
-    if (url.pathname === '/api/cards' && req.method === 'POST') {
+    if (url.pathname === '/x/cards' && req.method === 'POST') {
       const ipHash = hashIP(ip);
       if (await store.countByIP(ipHash, 3600e3) > 40) {
         return send(res, 429, { error: '短時間に作りすぎです。少し待ってください。' });
@@ -178,15 +178,15 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { id, shareable, uploads, stats: await store.stats() });
     }
 
-    if (url.pathname === '/api/config') {
+    if (url.pathname === '/x/config') {
       return send(res, 200, { movieEnabled: P.hasTMDB(), youtubeEnabled: P.hasYouTube() });
     }
 
-    if (url.pathname.startsWith('/api/')) {
+    if (url.pathname.startsWith('/x/')) {
       if (rateLimited(ip)) return send(res, 429, { error: 'リクエストが多すぎます。少し待ってください。' });
     }
 
-    if (url.pathname === '/api/search' || url.pathname === '/api/suggest') {
+    if (url.pathname === '/x/search' || url.pathname === '/x/suggest') {
       const kind = url.pathname.endsWith('suggest') ? 'suggest' : 'search';
       const type = url.searchParams.get('type') || '';
       const q    = (url.searchParams.get('q') || '').trim();
@@ -204,7 +204,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { items });
     }
 
-    if (url.pathname === '/api/creators') {
+    if (url.pathname === '/x/creators') {
       const type = url.searchParams.get('type') || '';
       const qs   = (url.searchParams.get('q') || '').trim();
       if (!TYPES.has(type)) return send(res, 400, { error: '種別が不正です' });
@@ -220,7 +220,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { items });
     }
 
-    if (url.pathname === '/api/works') {
+    if (url.pathname === '/x/works') {
       const type = url.searchParams.get('type') || '';
       const id   = url.searchParams.get('id') || '';
       if (!TYPES.has(type))  return send(res, 400, { error: '種別が不正です' });
@@ -235,7 +235,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { items });
     }
 
-    if (url.pathname === '/api/related') {
+    if (url.pathname === '/x/related') {
       const type = url.searchParams.get('type') || '';
       const id   = url.searchParams.get('id') || '';
       if (!TYPES.has(type))   return send(res, 400, { error: '種別が不正です' });
