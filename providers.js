@@ -750,15 +750,16 @@ const RAKUTEN_AFF = process.env.RAKUTEN_AFFILIATE_ID || '';
 
 /**
  * 楽天ウェブサービスは2026年2月に刷新された。
- *   旧: app.rakuten.co.jp/services/api/...  applicationId だけで認証（5月13日で停止）
- *   新: openapi.rakuten.co.jp/...           applicationId + accessKey が必須
+ *   旧: app.rakuten.co.jp/services/api/...      applicationId だけで認証（5月13日で停止）
+ *   新: openapi.rakuten.co.jp/services/api/...  applicationId + accessKey が必須
+ *   （変わるのはドメインだけで、/services/api/ 以降のパスは同じ）
  * さらにリクエスト元が厳格にチェックされるため、Referer と Origin を明示して送る。
  * 送り先は、アプリ登録時に「許可されたWebサイト」に入れたドメインと一致させること。
  */
 const RAKUTEN_ORIGIN = process.env.CONTACT_URL || 'https://nine-1jsh.onrender.com';
 
 function rakutenURL(params) {
-  const u = new URL('https://openapi.rakuten.co.jp/bookms/api/BooksBook/Search/20170404');
+  const u = new URL('https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404');
   u.searchParams.set('applicationId', RAKUTEN_ID);
   u.searchParams.set('accessKey', RAKUTEN_KEY);
   if (RAKUTEN_AFF) u.searchParams.set('affiliateId', RAKUTEN_AFF);
