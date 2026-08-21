@@ -163,6 +163,13 @@ async function getJSON(url, opts = {}, retry = true) {
     ...opts,
     headers: { 'User-Agent': UA, Accept: 'application/json', ...(opts.headers || {}) },
   });
+  // 400は原因が本文に書かれていることが多いので、拾って表に出す
+  if (res.status === 400) {
+    const body = await res.text().catch(() => '');
+    let detail = '';
+    try { const j = JSON.parse(body); detail = j.error_description || j.error || ''; } catch {}
+    throw new Error(`${new URL(url).hostname} が 400 を返しました${detail ? '：' + detail : ''}`);
+  }
   // 429（多すぎ）や503（一時的）は、少し待って1度だけやり直す
   if ((res.status === 429 || res.status === 503) && retry) {
     const wait = Number(res.headers.get('retry-after')) * 1000 || 2500;
@@ -745,7 +752,7 @@ function rakutenURL(params) {
   u.searchParams.set('applicationId', RAKUTEN_ID);
   if (RAKUTEN_AFF) u.searchParams.set('affiliateId', RAKUTEN_AFF);
   u.searchParams.set('hits', '30');
-  u.searchParams.set('booksGenreId', '001');   // 本
+  u.searchParams.set('sort', 'sales');
   Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
   return u.toString();
 }
