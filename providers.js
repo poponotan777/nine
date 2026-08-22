@@ -391,8 +391,12 @@ async function search(type, rawQuery) {
   }
 
   if (type === 'book') {
-    let books = await fanout(term, v => searchRakutenBooks(v), { enough: 6, max: 2 });
-    books = foldEditions(books);
+    // 紙 → 電子（Kobo）→ Google Books の順に補う
+    let books = foldEditions(await fanout(term, v => searchRakutenBooks(v), { enough: 6, max: 2 }));
+    if (books.length < 8) {
+      const kobo = foldEditions(await searchKobo(term));
+      books = mergeBy(x => bookKey(x.title), books, kobo);
+    }
     if (books.length < 4) {
       const g = await searchGoogleBooks(term);
       books = mergeBy(x => bookKey(x.title), books, g);
@@ -602,7 +606,8 @@ async function creators(type, rawQuery) {
 
   if (type === 'book') {
     // 著者名で検索し、著者ごとにまとめて候補にする
-    const books = await fanout(term, v => searchRakutenBooks(v, 'author'), { enough: 8, max: 2 });
+    let books = await fanout(term, v => searchRakutenBooks(v, 'author'), { enough: 8, max: 2 });
+    if (books.length < 8) books = books.concat(await searchKobo(term, 'author'));
     const byAuthor = new Map();
     books.forEach(b => {
       (b.sub || '').split(/[,、\/]/).map(a => a.trim()).filter(Boolean).forEach(a => {
@@ -635,7 +640,9 @@ async function works(type, id, extra = {}) {
   if (type === 'book') {
     const author = String(extra.author || '').slice(0, 60);
     if (!author) return [];
-    return foldEditions(await searchRakutenBooks(author, 'author')).slice(0, 30);
+    const paper = await searchRakutenBooks(author, 'author');
+    const kobo = paper.length < 12 ? await searchKobo(author, 'author') : [];
+    return foldEditions(mergeBy(x => bookKey(x.title), paper, kobo)).slice(0, 30);
   }
   if (type === 'manga' || type === 'anime') {
     const data = await anilist(Q_STAFF_WORKS, { id: Number(id), t: type === 'anime' ? 'ANIME' : 'MANGA' });
@@ -826,6 +833,45 @@ async function searchRakutenBooks(term, field = 'title') {
   }
   const json = await q.rakuten(() => getJSON(rakutenURL({ [field]: term }), { headers: rakutenHeaders() }));
   return (json.Items || []).map(x => shapeRakutenBook(x.Item || x)).filter(b => b.img && b.title);
+}
+
+/**
+ * 楽天Kobo（電子書籍）で補う。
+ * 紙の本は絶版になると消えるが、電子版は残っていることが多い。
+ * ただしジャケットが電子版用の別デザインのことがあるため、紙を優先し、
+ * 見つからないときだけこちらを使う。
+ */
+function shapeKobo(b) {
+  const img = b.largeImageUrl || b.mediumImageUrl || '';
+  return {
+    id: 'kobo-' + (b.itemNumber || b.itemUrl || ''),
+    source: 'rakuten-kobo',
+    title: (b.title || '').replace(/【電子書籍】$/, '').trim(),
+    sub: b.author || b.publisherName || '',
+    img: proxied(img.replace(/\?_ex=\d+x\d+$/, '')),
+    buyUrl: b.affiliateUrl || b.itemUrl || '',
+    date: b.salesDate || '',
+    relatedId: null, relatedCount: 0,
+    _alts: [b.titleKana, b.author].filter(Boolean),
+  };
+}
+
+async function searchKobo(term, field = 'title') {
+  if (!RAKUTEN_ID || !RAKUTEN_KEY) return [];
+  const u = new URL('https://openapi.rakuten.co.jp/services/api/Kobo/EbookSearch/20170426');
+  u.searchParams.set('applicationId', RAKUTEN_ID);
+  u.searchParams.set('accessKey', RAKUTEN_KEY);
+  if (RAKUTEN_AFF) u.searchParams.set('affiliateId', RAKUTEN_AFF);
+  u.searchParams.set('format', 'json');
+  u.searchParams.set('hits', '30');
+  u.searchParams.set(field, term);
+  try {
+    const json = await q.rakuten(() => getJSON(u.toString(), { headers: rakutenHeaders() }));
+    return (json.Items || []).map(x => shapeKobo(x.Item || x)).filter(b => b.img && b.title);
+  } catch (e) {
+    console.warn('Kobo検索に失敗（紙の結果は維持）:', e.message);
+    return [];
+  }
 }
 
 /** 楽天で見つからないもの（洋書など）をGoogle Booksで補う */

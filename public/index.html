@@ -259,6 +259,7 @@
   </div>
   <div class="head-meta">
     <span class="made"><strong id="madeCount">–</strong> 枚つくられました</span>
+    <a href="/trends">みんなの9つ</a>
     <a href="/about">このサイトについて</a>
   </div>
 </header>
@@ -293,6 +294,15 @@
   <div class="field">
     <label class="lbl" for="name">なまえ</label>
     <input type="text" id="name" maxlength="20" placeholder="@yourname">
+  </div>
+
+  <div class="field">
+    <label class="lbl" for="handle">Xのアカウント（任意）</label>
+    <input type="text" id="handle" maxlength="30" placeholder="@yourname"
+           autocomplete="off" pattern="@?[A-Za-z0-9_]{1,30}">
+    <p class="hint" style="margin-top:6px">
+      入れておくと、あなたが作った9つがまとめて見られるページに並びます。
+    </p>
   </div>
 
   <div class="grid-head">
@@ -444,14 +454,14 @@
   /** いま編集中の内容を種類ごとの控えに退避する */
   function stash(){
     S.byMode[S.mode] = S.items;
-    S.meta[S.mode] = { title: $('title').value, name: $('name').value };
+    S.meta[S.mode] = { title: $('title').value, name: $('name').value, handle: $('handle').value };
   }
   /** 種類を切り替えたとき、その種類の内容を呼び戻す */
   function restore(mode){
     S.items = S.byMode[mode] || Array(9).fill(null);
     const m = S.meta[mode];
     $('title').value = m ? m.title : COPY[mode].title;
-    if (m) $('name').value = m.name;
+    if (m) { $('name').value = m.name; $('handle').value = m.handle || ''; }
   }
   const $ = id => document.getElementById(id);
   const grid = $('grid');
@@ -1063,6 +1073,7 @@
       type: API_TYPE[S.mode],
       title: $('title').value,
       name: $('name').value,
+      handle: $('handle').value.trim(),
       items: S.items.map(it => it && ({
         source: it.ref?.source || 'upload',
         externalId: it.ref?.externalId || null,
@@ -1095,10 +1106,16 @@
       : 'SNSでシェアすると、画像がそのまま送られます。';
   }
 
+  // 種類ごとのハッシュタグ。SNSで追えるように統一しておく
+  const TAG = {
+    cd:'私を構成する9枚', manga:'私を構成する9冊', book:'私を構成する9冊',
+    anime:'私を構成する9作', movie:'私を構成する9本',
+    person:'私を構成する9人', character:'私を構成する9キャラ',
+  };
   function shareText(){
     const t = $('title').value || COPY[S.mode].title;
     const nm = $('name').value.trim();
-    return `${t}${nm ? ' / ' + nm : ''} #MYNINE`;
+    return `${t}${nm ? ' / ' + nm : ''}\n#${TAG[S.mode] || 'MYNINE'} #MYNINE`;
   }
 
   $('share').addEventListener('click', async () => {

@@ -167,15 +167,47 @@ const server = http.createServer(async (req, res) => {
         };
       });
 
+      // SNSハンドル（@なし・英数字と_のみ）。有名人ページの紐づけに使う
+      const handle = String(body.handle || '').replace(/^@/, '').slice(0, 30);
       const id = await store.save({
         type: body.type,
         title: String(body.title || '').slice(0, 60),
         name:  String(body.name || '').slice(0, 60),
+        handle: /^[A-Za-z0-9_]{1,30}$/.test(handle) ? handle : null,
         items: clean, ipHash,
       });
       const shareable = clean.filter(x => x && x.imageUrl).length;
       const uploads   = clean.filter(x => x && !x.imageUrl).length;
       return send(res, 200, { id, shareable, uploads, stats: await store.stats() });
+    }
+
+    // 一覧（最新順・人気順・検索・SNSハンドル絞り込み）
+    if (url.pathname === '/x/cards' && req.method === 'GET') {
+      const type   = url.searchParams.get('type');
+      const sort   = url.searchParams.get('sort') === 'hot' ? 'hot' : 'new';
+      const handle = (url.searchParams.get('handle') || '').replace(/^@/, '').slice(0, 30) || null;
+      const kw     = (url.searchParams.get('q') || '').slice(0, 40) || null;
+      const limit  = Math.min(Number(url.searchParams.get('limit')) || 24, 48);
+      const offset = Math.max(Number(url.searchParams.get('offset')) || 0, 0);
+      if (type && !TYPES.has(type)) return send(res, 400, { error: '種別が不正です' });
+
+      const items = await store.list({ type, sort, handle, q: kw, limit, offset });
+      return send(res, 200, { items });
+    }
+
+    // いいね（同じ人が連打できないよう、IP単位で1日1回まで）
+    if (url.pathname === '/x/like' && req.method === 'POST') {
+      const body = await readBody(req);
+      const id = String(body.id || '').slice(0, 20);
+      if (!id) return send(res, 400, { error: 'idが必要です' });
+
+      const mark = `like:${hashIP(ip)}:${id}`;
+      if (cacheGet(mark)) return send(res, 200, { likes: null, already: true });
+      cacheSet(mark, true, 24 * 3600e3);
+
+      const likes = await store.like(id);
+      if (likes == null) return send(res, 404, { error: '見つかりません' });
+      return send(res, 200, { likes });
     }
 
     if (url.pathname === '/x/config') {
@@ -257,7 +289,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (url.pathname === '/about') return serveStatic('/about.html', res);
-    if (url.pathname === '/terms') return serveStatic('/terms.html', res);
+    if (url.pathname === '/terms')  return serveStatic('/terms.html', res);
+    if (url.pathname === '/trends') return serveStatic('/trends.html', res);
+    // /u/ユーザー名 で、その人が作ったものだけを見る
+    if (url.pathname.startsWith('/u/')) return serveStatic('/trends.html', res);
 
     return serveStatic(url.pathname, res);
   } catch (err) {
@@ -267,6 +302,24 @@ const server = http.createServer(async (req, res) => {
 });
 
 // 0.0.0.0 で待ち受ける（Render や Fly.io など外部からの接続に必要）
+/* ------------------------------------------------------------------ *
+ * 定期的な掃除
+ * 閲覧もいいねも0のまま指定日数を過ぎたものだけ消す。
+ * 一度でも見られたカードは、共有リンクが生きている可能性があるため残す。
+ * ------------------------------------------------------------------ */
+const KEEP_DAYS = Number(process.env.KEEP_DAYS) || 90;
+
+async function runCleanup() {
+  try {
+    const n = await store.cleanup(KEEP_DAYS);
+    if (n) console.log(`掃除: 未閲覧のまま${KEEP_DAYS}日を過ぎた ${n} 件を削除しました`);
+  } catch (e) {
+    console.error('掃除に失敗:', e.message);
+  }
+}
+setTimeout(runCleanup, 60e3);              // 起動1分後に一度
+setInterval(runCleanup, 24 * 3600e3);      // 以後1日おき
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`MY NINE → http://localhost:${PORT}`);
   if (!P.hasTMDB()) console.log('※ TMDB_API_KEY が未設定のため、映画モードは無効です');

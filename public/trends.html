@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>みんなの9つ | MY NINE</title>
+<meta name="description" content="みんなが選んだ9つを、最新順・人気順で見られます。">
+<style>
+  :root{
+    --ink:#111318; --panel:#1a1d24; --panel-2:#22262f; --line:#31363f;
+    --text:#efece5; --muted:#8b909c; --obi:#f2c230;
+    --mincho:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;
+    --gothic:"Hiragino Sans","Yu Gothic","Noto Sans JP",system-ui,sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ink);color:var(--text);font-family:var(--gothic);
+       -webkit-font-smoothing:antialiased;padding-bottom:60px}
+  a{color:var(--obi)}
+  header{display:flex;border-bottom:1px solid var(--line);align-items:stretch}
+  .obi-tab{background:var(--obi);color:#101216;font-family:var(--mono);font-size:11px;
+           letter-spacing:.18em;padding:14px 10px;writing-mode:vertical-rl}
+  .head-text{padding:18px 16px}
+  .head-text h1{font-family:var(--mincho);font-weight:600;font-size:22px;margin:0 0 4px;letter-spacing:.06em}
+  .head-text p{margin:0;font-size:12px;color:var(--muted)}
+  .head-meta{margin-left:auto;padding:18px;display:flex;align-items:center;gap:14px;font-size:11px}
+  main{max-width:760px;margin:0 auto;padding:24px 20px}
+
+  .bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .seg{display:flex;border:1px solid var(--line);border-radius:2px;overflow:hidden}
+  .seg button{background:var(--panel);border:0;border-left:1px solid var(--line);
+    color:var(--muted);font-family:var(--gothic);font-size:12px;padding:9px 14px;cursor:pointer}
+  .seg button:first-child{border-left:0}
+  .seg button[aria-pressed=true]{background:var(--obi);color:#101216;font-weight:700}
+  .search{display:flex;gap:6px;flex:1;min-width:200px}
+  .search input{flex:1;background:var(--panel);border:1px solid var(--line);color:var(--text);
+    font-family:var(--gothic);font-size:14px;padding:9px 11px;border-radius:2px}
+  .search input:focus{outline:2px solid var(--obi);outline-offset:1px;border-color:transparent}
+  .search button{background:var(--obi);color:#101216;border:0;font-weight:700;
+    padding:0 16px;border-radius:2px;cursor:pointer}
+
+  .xlink{display:block;padding:12px 14px;margin-bottom:18px;border:1px solid var(--line);
+    border-radius:2px;font-size:13px;text-decoration:none;color:var(--muted)}
+  .xlink:hover{border-color:var(--obi);color:var(--obi)}
+
+  .cards{display:grid;gap:10px}
+  .card{display:flex;align-items:center;gap:14px;background:var(--panel);
+    border:1px solid var(--line);border-radius:2px;padding:14px 16px}
+  .card:hover{border-color:var(--obi)}
+  .card .body{flex:1;min-width:0}
+  .card .t{font-family:var(--mincho);font-size:16px;margin-bottom:3px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .card .m{font-size:11px;color:var(--muted)}
+  .card .m .kind{color:var(--obi)}
+  .card .num{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:right;flex:0 0 auto}
+  .card .num b{color:var(--text);font-weight:500}
+  .like{background:none;border:1px solid var(--line);color:var(--muted);border-radius:2px;
+    padding:7px 11px;font-size:12px;cursor:pointer;flex:0 0 auto}
+  .like:hover{border-color:var(--obi);color:var(--obi)}
+  .like[disabled]{opacity:.5;cursor:default}
+
+  .note{font-size:12px;color:var(--muted);text-align:center;padding:28px 0;line-height:1.8}
+  .more{display:block;width:100%;margin-top:14px;padding:13px;background:var(--panel);
+    border:1px solid var(--line);color:var(--text);border-radius:2px;cursor:pointer;font-size:13px}
+  footer{max-width:760px;margin:40px auto 0;padding:20px;border-top:1px solid var(--line);
+    font-size:11px;color:var(--muted);line-height:1.9}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="obi-tab">MY NINE</div>
+  <div class="head-text">
+    <h1>みんなの9つ</h1>
+    <p>ほかの人が何を選んだかを見る</p>
+  </div>
+  <div class="head-meta"><a href="/">自分でつくる</a></div>
+</header>
+
+<main>
+
+  <div class="bar">
+    <div class="seg" id="sort" role="group">
+      <button type="button" data-sort="new" aria-pressed="true">最新</button>
+      <button type="button" data-sort="hot" aria-pressed="false">人気</button>
+    </div>
+    <div class="seg" id="kind" role="group">
+      <button type="button" data-type="" aria-pressed="true">すべて</button>
+      <button type="button" data-type="cd" aria-pressed="false">CD</button>
+      <button type="button" data-type="book" aria-pressed="false">書籍</button>
+      <button type="button" data-type="manga" aria-pressed="false">漫画</button>
+      <button type="button" data-type="anime" aria-pressed="false">アニメ</button>
+      <button type="button" data-type="movie" aria-pressed="false">映画</button>
+      <button type="button" data-type="person" aria-pressed="false">有名人</button>
+      <button type="button" data-type="character" aria-pressed="false">キャラ</button>
+    </div>
+  </div>
+
+  <div class="search bar">
+    <input type="text" id="q" placeholder="作品名や名前で探す" autocomplete="off">
+    <button type="button" id="go">検索</button>
+  </div>
+
+  <a class="xlink" id="xlink" href="#" target="_blank" rel="noopener">
+    Xでみんなの投稿を見る →
+  </a>
+
+  <div class="cards" id="cards"></div>
+  <p class="note" id="note">読み込んでいます…</p>
+  <button class="more" id="more" style="display:none">もっと見る</button>
+
+</main>
+
+<footer>
+  <a href="/">トップ</a> ｜ <a href="/about">このサイトについて</a> ｜
+  <a href="/terms">利用規約</a>
+</footer>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const LABEL = { cd:'CD', manga:'漫画', book:'書籍', anime:'アニメ',
+                  movie:'映画', person:'有名人', character:'キャラ' };
+  const TAG = { '':'MYNINE', cd:'私を構成する9枚', manga:'私を構成する9冊', book:'私を構成する9冊',
+                anime:'私を構成する9作', movie:'私を構成する9本',
+                person:'私を構成する9人', character:'私を構成する9キャラ' };
+
+  const state = { sort:'new', type:'', q:'', handle:'', offset:0 };
+  const LIMIT = 24;
+  const liked = new Set();
+
+  // URLの ?handle=xxx で、その人の作品だけを見られる
+  const params = new URLSearchParams(location.search);
+  // /u/ユーザー名 でも ?handle=ユーザー名 でも受け付ける
+  const fromPath = location.pathname.startsWith('/u/')
+    ? decodeURIComponent(location.pathname.slice(3)) : '';
+  state.handle = (fromPath || params.get('handle') || '').replace(/^@/, '');
+  if (state.handle){
+    $('q').placeholder = `@${state.handle} さんの9つ`;
+    document.querySelector('.head-text p').textContent = `@${state.handle} さんが選んだもの`;
+  }
+
+  function updateXLink(){
+    const tag = TAG[state.type] || 'MYNINE';
+    $('xlink').href = 'https://x.com/search?q=' + encodeURIComponent('#' + tag) + '&f=live';
+    $('xlink').textContent = `Xで #${tag} の投稿を見る →`;
+  }
+
+  function since(iso){
+    const d = (Date.now() - new Date(iso).getTime()) / 1000;
+    if (d < 3600) return Math.max(1, Math.floor(d / 60)) + '分前';
+    if (d < 86400) return Math.floor(d / 3600) + '時間前';
+    if (d < 2592000) return Math.floor(d / 86400) + '日前';
+    return new Date(iso).toLocaleDateString('ja-JP');
+  }
+
+  function render(items, append){
+    const box = $('cards');
+    if (!append) box.innerHTML = '';
+    items.forEach(c => {
+      const el = document.createElement('div');
+      el.className = 'card';
+
+      const body = document.createElement('div');
+      body.className = 'body';
+      const t = document.createElement('div');
+      t.className = 't'; t.textContent = c.title || '無題';
+      const m = document.createElement('div');
+      m.className = 'm';
+      const kind = document.createElement('span');
+      kind.className = 'kind'; kind.textContent = LABEL[c.type] || c.type;
+      m.appendChild(kind);
+      const rest = document.createTextNode(
+        `${c.name ? ' ・ ' + c.name : ''}${c.handle ? ' ・ @' + c.handle : ''} ・ ${since(c.created_at)}`);
+      m.appendChild(rest);
+      body.appendChild(t); body.appendChild(m);
+
+      const num = document.createElement('div');
+      num.className = 'num';
+      num.innerHTML = `<b>${c.likes}</b> ♥<br><b>${c.views}</b> view`;
+
+      const like = document.createElement('button');
+      like.className = 'like'; like.textContent = '♥ いいね';
+      like.addEventListener('click', async () => {
+        if (liked.has(c.id)) return;
+        liked.add(c.id); like.disabled = true;
+        try{
+          const r = await fetch('/x/like', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ id: c.id }),
+          });
+          const j = await r.json();
+          if (j.likes != null) num.innerHTML = `<b>${j.likes}</b> ♥<br><b>${c.views}</b> view`;
+          like.textContent = j.already ? '♥ 済' : '♥ ありがとう';
+        } catch(e){ like.textContent = '失敗'; }
+      });
+
+      el.appendChild(body); el.appendChild(num); el.appendChild(like);
+      box.appendChild(el);
+    });
+  }
+
+  async function load(append){
+    if (!append){ state.offset = 0; $('note').textContent = '読み込んでいます…'; }
+    const p = new URLSearchParams({ sort: state.sort, limit: LIMIT, offset: state.offset });
+    if (state.type) p.set('type', state.type);
+    if (state.q) p.set('q', state.q);
+    if (state.handle) p.set('handle', state.handle);
+    try{
+      const r = await fetch('/x/cards?' + p);
+      const j = await r.json();
+      const items = j.items || [];
+      render(items, append);
+      state.offset += items.length;
+      $('more').style.display = items.length === LIMIT ? 'block' : 'none';
+      $('note').textContent = $('cards').children.length
+        ? '' : 'まだ何もありません。最初の1つを作ってみてください。';
+    } catch(e){
+      $('note').textContent = '読み込めませんでした。';
+    }
+  }
+
+  $('sort').addEventListener('click', e => {
+    const b = e.target.closest('button[data-sort]'); if (!b) return;
+    state.sort = b.dataset.sort;
+    [...$('sort').children].forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    load(false);
+  });
+  $('kind').addEventListener('click', e => {
+    const b = e.target.closest('button[data-type]'); if (!b) return;
+    state.type = b.dataset.type;
+    [...$('kind').children].forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    updateXLink();
+    load(false);
+  });
+  $('go').addEventListener('click', () => { state.q = $('q').value.trim(); load(false); });
+  $('q').addEventListener('keydown', e => {
+    if (e.key === 'Enter'){ state.q = $('q').value.trim(); load(false); }
+  });
+  $('more').addEventListener('click', () => load(true));
+
+  updateXLink();
+  load(false);
+})();
+</script>
+</body>
+</html>
