@@ -136,6 +136,8 @@
   .btn:focus-visible{outline:2px solid var(--obi);outline-offset:2px}
   .btn.primary{background:var(--obi);color:#101216;border-color:var(--obi);font-weight:700;letter-spacing:.04em}
   .btn.ghost{flex:0 0 auto;padding:14px 16px;font-size:12px;color:var(--muted)}
+  .btn.sns{padding:11px;font-size:12px;color:var(--muted)}
+  .btn.sns:hover{border-color:var(--obi);color:var(--obi)}
   .btn.danger{color:var(--alert)}
 
   /* ---- sheet ---- */
@@ -212,27 +214,66 @@
   .people img{width:36px;height:36px;object-fit:cover;border-radius:50%;flex:0 0 auto;background:var(--panel-2)}
   .people .p-name{font-size:14px}
   .people .p-sub{font-size:11px;color:var(--muted);margin-left:auto;text-align:right}
-  .buy{
-    display:block;text-align:center;padding:11px;margin-bottom:14px;
+  .buys{margin-bottom:14px}
+  .buys .pr{font-size:10px;color:var(--muted);letter-spacing:.1em;
+    font-family:var(--mono);margin-bottom:5px}
+  .buys a{
+    display:block;text-align:center;padding:10px;margin-bottom:5px;
     border:1px solid var(--line);border-radius:2px;color:var(--muted);
     font-size:13px;text-decoration:none;
   }
-  .buy:hover{border-color:var(--obi);color:var(--obi)}
-  .buy small{display:block;font-size:10px;opacity:.7;margin-top:2px}
+  .buys a:hover{border-color:var(--obi);color:var(--obi)}
 
   /* 横のバナー枠。PCの余白にだけ出し、スマホでは表示しない。
      作る流れと共有の導線には広告を入れない方針のため。 */
+  /* 左右のレール。本体（最大560px）の両脇に置く。
+     160px + 余白 が両側に取れる幅（約1100px）から左右そろえて出す */
   .rail{display:none}
-  @media (min-width:1200px){
+  @media (min-width:1100px){
     .rail{
-      display:block;position:fixed;top:120px;right:24px;width:180px;
+      display:block;position:fixed;top:110px;width:160px;
       font-size:10px;color:var(--muted);text-align:center;
+      letter-spacing:.12em;
     }
+    .rail-l{right:calc(50% + 300px)}
+    .rail-r{left:calc(50% + 300px)}
     .rail .slot-ad{
-      border:1px dashed var(--line);min-height:600px;
-      display:flex;align-items:center;justify-content:center;margin-top:6px;
+      min-height:600px;display:flex;align-items:center;justify-content:center;
+      margin-top:6px;overflow:hidden;
     }
   }
+  @media (min-width:1360px){
+    .rail{width:180px}
+    .rail-l{right:calc(50% + 320px)}
+    .rail-r{left:calc(50% + 320px)}
+  }
+
+  /* 本文の流れの中に置く広告。枠線で囲わず、区切り線だけにして馴染ませる */
+  .inflow{
+    margin:26px 0 4px;padding-top:18px;border-top:1px solid var(--line);
+  }
+  .inflow-label{
+    font-family:var(--mono);font-size:9px;letter-spacing:.2em;
+    color:var(--muted);margin-bottom:8px;
+  }
+  .inflow img,.inflow iframe{max-width:100%;height:auto}
+  @media (min-width:1100px){ .inflow{display:none} }
+
+  /* スマホ用の下部バー。固定表示だが操作は覆わない */
+  .adbar{
+    position:fixed;left:0;right:0;bottom:0;z-index:40;
+    background:var(--panel);border-top:1px solid var(--line);
+    padding:6px 34px 6px 8px;display:flex;justify-content:center;align-items:center;
+    min-height:56px;
+  }
+  .adbar-close{
+    position:absolute;right:6px;top:50%;transform:translateY(-50%);
+    width:26px;height:26px;border-radius:50%;border:1px solid var(--line);
+    background:var(--ink);color:var(--muted);font-size:14px;line-height:1;cursor:pointer;
+  }
+  .adbar-slot{min-height:50px;display:flex;align-items:center}
+  @media (min-width:1200px){ .adbar{display:none} }
+  body.has-adbar{padding-bottom:150px}
   .status{font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.7}
   .status.err{color:var(--alert)}
   .drop img{width:100%;height:100%;object-fit:var(--fit,cover)}
@@ -264,12 +305,28 @@
   </div>
 </header>
 
-<aside class="rail" aria-label="広告">
+<aside class="rail rail-r" aria-label="広告">
   <span>PR</span>
   <div class="slot-ad" id="adRail">
-    <!-- ここにアフィリエイトのバナーを貼る -->
+    <!-- ここにアフィリエイトのバナーを貼る（幅180px前後の縦長） -->
   </div>
 </aside>
+
+<aside class="rail rail-l" aria-label="広告">
+  <span>PR</span>
+  <div class="slot-ad" id="adRailLeft">
+    <!-- 左側のバナー枠 -->
+  </div>
+</aside>
+
+<!-- スマホ用。下部に固定表示し、閉じられるようにする。
+     作業を覆い隠すポップアップにはしない（共有体験を守るため） -->
+<div class="adbar" id="adBar" hidden>
+  <button class="adbar-close" id="adBarClose" aria-label="広告を閉じる">×</button>
+  <div class="adbar-slot" id="adBarSlot">
+    <!-- 320x50 前後のバナーを貼る -->
+  </div>
+</div>
 
 <div class="wrap">
 
@@ -325,7 +382,19 @@
     <button class="btn" id="export">画像を書き出す</button>
     <button class="btn primary" id="share">SNSでシェア</button>
   </div>
+  <div class="row" id="snsRow">
+    <button class="btn sns" data-sns="x">X</button>
+    <button class="btn sns" data-sns="bluesky">Bluesky</button>
+    <button class="btn sns" data-sns="threads">Threads</button>
+    <button class="btn sns" data-sns="misskey">Misskey</button>
+  </div>
   <p class="hint" id="shareNote" style="margin-top:10px"></p>
+
+  <!-- スマホ用の本文内広告。作業が終わった位置に置くので流れを切らない -->
+  <div class="inflow" id="inflow" hidden>
+    <div class="inflow-label">PR</div>
+    <div id="inflowSlot"></div>
+  </div>
 
   <footer>
     漫画・アニメのデータは AniList、映画は TMDB（この製品は TMDB の公認ではありません）、
@@ -360,7 +429,7 @@
       <span style="font-size:11px">またはここにドロップ / 貼り付け</span>
     </div>
     <input type="file" id="file" accept="image/*" hidden>
-    <a class="buy" id="buy" target="_blank" rel="noopener sponsored" style="display:none"></a>
+    <div id="buy" class="buys" style="display:none"></div>
     <div class="field">
       <label class="lbl" for="fTitle" id="fTitleLbl">作品名</label>
       <input type="text" id="fTitle" maxlength="30">
@@ -683,9 +752,21 @@
   /** 作品の詳細としての購入リンク。作る流れの外側なので、ここにだけ置く */
   function showBuy(item){
     const el = $('buy');
-    if (!item || !item.buyUrl){ el.style.display = 'none'; return; }
-    el.href = item.buyUrl;
-    el.innerHTML = '楽天ブックスで見る<small>広告（アフィリエイトリンク）</small>';
+    const links = (item && item.links) || [];
+    el.innerHTML = '';
+    if (!links.length){ el.style.display = 'none'; return; }
+
+    const pr = document.createElement('div');
+    pr.className = 'pr'; pr.textContent = 'PR（アフィリエイトリンク）';
+    el.appendChild(pr);
+
+    links.forEach(l => {
+      const a = document.createElement('a');
+      a.href = l.url; a.target = '_blank';
+      a.rel = 'noopener sponsored nofollow';
+      a.textContent = l.label;
+      el.appendChild(a);
+    });
     el.style.display = 'block';
   }
 
@@ -791,6 +872,7 @@
 
   /* ---------- 検索サジェスト ---------- */
   let sgTimer = null, sgItems = [], sgIndex = -1, sgSeq = 0;
+  const sgCache = new Map();   // 同じ語を二度サーバーに聞かない
 
   function closeSuggest(){
     $('suggest').classList.remove('open');
@@ -826,16 +908,23 @@
     clearTimeout(sgTimer);
     if (findBy === 'creator') return closeSuggest();   // 人名にはサジェストを出さない
     if (q.length < 2) return closeSuggest();
+    if (q.length < 3 && !/[぀-ヿ一-鿿]/.test(q)) return closeSuggest();  // 英数字は3文字から
     // 打鍵が止まってから投げる（外部APIのレート制限を守るため）
+    // 一度引いた語の続きを打っているだけなら、手元で絞り込んでAPIを叩かない
+    const cached = sgCache.get(API_TYPE[S.mode] + ':' + q);
+    if (cached){ sgItems = cached; sgIndex = -1; return paintSuggest(); }
+
     sgTimer = setTimeout(async () => {
       const seq = ++sgSeq;
       try{
         const list = await suggestItems(API_TYPE[S.mode], q);
         if (seq !== sgSeq) return;           // 古いレスポンスは捨てる
         sgItems = list.slice(0, 8); sgIndex = -1;
+        sgCache.set(API_TYPE[S.mode] + ':' + q, sgItems);
+        if (sgCache.size > 200) sgCache.delete(sgCache.keys().next().value);
         paintSuggest();
       } catch(e){ closeSuggest(); }
-    }, 260);
+    }, 420);
   });
 
   $('q').addEventListener('keydown', e => {
@@ -901,6 +990,7 @@
     restore(S.mode);               // その種類で前に選んでいた9つを呼び戻す
     closeSuggest();
     applyRatio();
+    loadAds(S.mode);               // 種類に合った広告に差し替える
     render();
   });
 
@@ -1101,9 +1191,9 @@
     const el = $('shareNote');
     if (!filled.length){ el.textContent = ''; return; }
     el.textContent = uploads
-      ? `SNSでシェアすると、自分で追加した${uploads}件を含めた画像がそのまま送られます。` +
-        'これらの画像はサーバーには保存されないため、あとで作る共有ページ（URL）には表示されません。'
-      : 'SNSでシェアすると、画像がそのまま送られます。';
+      ? `「SNSでシェア」なら、自分で追加した${uploads}件を含めた画像がそのまま送られます。` +
+        'X・Bluesky・Misskeyのボタンは、画像を保存してから投稿画面を開きます（画像は手動で添付してください）。'
+      : '「SNSでシェア」は画像をそのまま送ります。下のボタンは画像を保存してから投稿画面を開きます。';
   }
 
   // 種類ごとのハッシュタグ。SNSで追えるように統一しておく
@@ -1117,6 +1207,47 @@
     const nm = $('name').value.trim();
     return `${t}${nm ? ' / ' + nm : ''}\n#${TAG[S.mode] || 'MYNINE'} #MYNINE`;
   }
+
+  /* ---------- SNSごとの投稿画面 ----------
+     どれも画像は自動添付できない（どのSNSのWeb投稿画面もそういう仕様）。
+     先に画像を保存してから、本文が入った状態の投稿画面を開く。
+     MisskeyはサーバーごとにURLが違うので、初回だけ聞いて覚えておく。 */
+  let misskeyHost = '';
+
+  const SNS = {
+    x: text => 'https://x.com/intent/post?text=' + encodeURIComponent(text),
+    bluesky: text => 'https://bsky.app/intent/compose?text=' + encodeURIComponent(text),
+    // Threads の Web Intents。2025年に .net から .com へ移行済み
+    threads: text => 'https://www.threads.com/intent/post?text=' + encodeURIComponent(text),
+    misskey: text => {
+      if (!misskeyHost){
+        const input = prompt(
+          'お使いのMisskey/Fediverseサーバーを入れてください\n（例: misskey.io, fedibird.com）',
+          'misskey.io');
+        if (!input) return null;
+        misskeyHost = input.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
+      }
+      return `https://${misskeyHost}/share?text=` + encodeURIComponent(text);
+    },
+  };
+
+  $('snsRow').addEventListener('click', async e => {
+    const b = e.target.closest('button[data-sns]');
+    if (!b) return;
+    const url = SNS[b.dataset.sns](shareText() + '\n' + location.origin);
+    if (!url) return;
+    b.disabled = true;
+    try{
+      const { url: png } = await buildPNG();
+      recordCard();
+      // 画像を先に保存してもらってから投稿画面へ（どのSNSも自動添付はできない）
+      const a = document.createElement('a');
+      a.href = png; a.download = 'my-nine.png'; a.click();
+      setTimeout(() => window.open(url, '_blank', 'noopener'), 400);
+    } catch(err){
+      alert('画像を作れませんでした。');
+    } finally { b.disabled = false; }
+  });
 
   $('share').addEventListener('click', async () => {
     const btn = $('share');
@@ -1178,8 +1309,52 @@
     }
   }).catch(() => {});
 
+  /* ---------- 広告の読み込み ----------
+     種類ごとに差し替える。書籍なら電子書籍ストア、映画ならVOD、といった具合。
+     中身が無ければ枠ごと消えるので、未設定でも見た目は崩れない */
+  let adCache = {};
+  async function loadAds(kind){
+    if (!(kind in adCache)){
+      try {
+        const r = await fetch('/x/ads?kind=' + encodeURIComponent(kind));
+        adCache[kind] = await r.json();
+      } catch(e){ adCache[kind] = { rail:'', railLeft:'', bar:'' }; }
+    }
+    const a = adCache[kind];
+    put('adRail', a.rail);
+    put('adRailLeft', a.railLeft);
+    put('adBarSlot', a.bar);
+    const inflow = $('inflowSlot');
+    inflow.innerHTML = a.inflow || '';
+    $('inflow').hidden = !a.inflow;
+    syncAdBar();
+  }
+  function put(id, html){
+    const el = $(id); if (!el) return;
+    el.innerHTML = html || '';
+    const box = el.closest('.rail');
+    if (box) box.style.display = html ? '' : 'none';
+  }
+
+  /* ---------- スマホ用の下部広告バー ----------
+     中身が入っているときだけ表示し、閉じたらその日は出さない。
+     ポップアップで覆う形にはしない（作る流れと共有を邪魔しないため） */
+  let adBarClosed = false;
+  function syncAdBar(){
+    const bar = $('adBar');
+    const has = !!$('adBarSlot').innerHTML.trim();
+    const show = has && !adBarClosed;
+    bar.hidden = !show;
+    document.body.classList.toggle('has-adbar', show);
+  }
+  $('adBarClose').addEventListener('click', () => {
+    adBarClosed = true;
+    syncAdBar();
+  });
+
   applyRatio();
   render();
+  loadAds(S.mode);
   // 説明文を種類に合わせておく
   $('hint').innerHTML = '空きマスをタップして画像を追加。作品名でも作者名でも探せます。<br>' +
     '右上の <strong>⇅</strong> を押してから別のマスを押すと、順番を入れ替えられます。種類を変えても、それぞれの選択は残ります。';

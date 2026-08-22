@@ -309,8 +309,22 @@ function shapePerson(p) {
  * search.list は1回100ユニット、無料枠は1日10,000ユニット＝約100回。
  * キャッシュ前提で使うこと。
  * ================================================================== */
+/* YouTube search.list は1回100ユニット、無料枠は1日10,000ユニット＝100回。
+   すぐ枯れるので、1日の呼び出し回数に上限を設けて守る。
+   枯れても他のソースで結果は出るので、利用者には影響が出にくい。 */
+const YT_BUDGET = Number(process.env.YOUTUBE_DAILY_SEARCHES) || 80;
+let ytUsed = 0;
+let ytDay = new Date().toDateString();
+
+function ytAllowed() {
+  const today = new Date().toDateString();
+  if (today !== ytDay) { ytDay = today; ytUsed = 0; }
+  return ytUsed < YT_BUDGET;
+}
+
 async function searchYouTube(term) {
   if (!YT_KEY) return [];
+  if (!ytAllowed()) return [];   // 予算切れ。静かに諦める
   const u = new URL('https://www.googleapis.com/youtube/v3/search');
   u.searchParams.set('part', 'snippet');
   u.searchParams.set('type', 'channel');
@@ -318,6 +332,7 @@ async function searchYouTube(term) {
   u.searchParams.set('q', term);
   u.searchParams.set('key', YT_KEY);
   try {
+    ytUsed++;
     const json = await q.yt(() => getJSON(u.toString()));
     return (json.items || []).map(it => ({
       id: 'yt-' + (it.id?.channelId || it.snippet?.channelId),
@@ -361,6 +376,11 @@ async function searchWiki(term) {
 /* ================================================================== *
  * 公開インターフェース
  * ================================================================== */
+/** 一覧に購入・視聴リンクを付けて返す */
+function withLinks(type, items) {
+  return items.map(it => ({ ...it, links: buyLinks(type, it) }));
+}
+
 async function search(type, rawQuery) {
   const term = normalize(rawQuery);
 
@@ -407,17 +427,22 @@ async function search(type, rawQuery) {
   if (type === 'person') {
     // Wikidataを主軸に、俳優はTMDB、配信者はYouTubeで補う。
     // 同じ人物は名前で1つにまとめる（先に来たソースを優先）
-    const [wd, tmdb, yt] = await Promise.all([
+    const [wd, tmdb] = await Promise.all([
       fanout(term, wikidataPeople, { enough: 3, max: 2 }).catch(() => []),
       TMDB_KEY
         ? q.tmdb(() => getJSON(tmdbURL('/search/person', { query: term, include_adult: 'false' })))
             .then(j => (j.results || []).map(shapePerson).filter(x => x.img))
             .catch(() => [])
         : [],
-      searchYouTube(term),
     ]);
 
-    let merged = mergeBy(x => key(x.title) || x.id, wd, tmdb, yt);
+    let merged = mergeBy(x => key(x.title) || x.id, wd, tmdb);
+
+    // 配信者・クリエイターは他で拾えないので、結果が少ないときだけYouTubeを使う
+    if (merged.length < 5) {
+      const yt = await searchYouTube(term);
+      merged = mergeBy(x => key(x.title) || x.id, merged, yt);
+    }
 
     // どれも薄いときだけ、従来のWikipedia全文検索で拾い直す
     if (merged.length < 4) {
@@ -983,8 +1008,69 @@ async function searchCharacters(term) {
   });
 }
 
+/* ================================================================== *
+ * 作品ごとの購入・視聴リンク
+ *
+ * 収益は「その9つを、今すぐ観る・読む・聴く手段」に限定して置く。
+ * 作品を選ぶ画面の詳細部分にだけ出し、共有ページには出さない。
+ *
+ * VODについて: 「この作品がどこで配信中か」を返す無料APIは実質存在しない
+ * （TMDBの配信情報はJustWatch由来で、アフィリエイト利用は規約上できない）。
+ * そのため「作品名で検索するリンク」を置く形にしている。
+ * ================================================================== */
+const AMAZON_TAG = process.env.AMAZON_ASSOCIATE_TAG || '';
+const VOD_LINKS  = process.env.VOD_LINKS ? safeJSON(process.env.VOD_LINKS) : null;
+
+function safeJSON(t) { try { return JSON.parse(t); } catch { return null; } }
+
+function amazonSearch(keyword, category) {
+  if (!AMAZON_TAG) return null;
+  const u = new URL('https://www.amazon.co.jp/s');
+  u.searchParams.set('k', keyword);
+  if (category) u.searchParams.set('i', category);
+  u.searchParams.set('tag', AMAZON_TAG);
+  return u.toString();
+}
+
+/**
+ * 種別ごとの導線を返す。
+ * VOD_LINKS は環境変数でこう渡す（{q} が作品名に置き換わる）:
+ *   {"U-NEXT":"https://px.a8.net/.../?k={q}","DMM TV":"https://..."}
+ * A8やバリューコマースで発行したリンクをそのまま入れられる。
+ */
+function buyLinks(type, item) {
+  const q = item.title || '';
+  if (!q) return [];
+  const out = [];
+
+  if (item.buyUrl) {
+    out.push({ label: '楽天ブックスで見る', url: item.buyUrl, kind: 'shop' });
+  }
+
+  const CATEGORY = {
+    book: 'stripbooks', manga: 'stripbooks', cd: 'popular',
+    movie: 'dvd', anime: 'dvd', character: null, person: null,
+  };
+  if (CATEGORY[type] !== undefined && CATEGORY[type] !== null) {
+    const url = amazonSearch(q, CATEGORY[type]);
+    if (url) out.push({ label: 'Amazonで探す', url, kind: 'shop' });
+  }
+
+  // 映画・アニメだけ、配信サービスへの検索リンクを添える
+  if ((type === 'movie' || type === 'anime') && VOD_LINKS) {
+    Object.entries(VOD_LINKS).slice(0, 3).forEach(([name, tpl]) => {
+      out.push({
+        label: `${name}で探す`,
+        url: String(tpl).replace('{q}', encodeURIComponent(q)),
+        kind: 'vod',
+      });
+    });
+  }
+  return out;
+}
+
 module.exports = {
-  search, suggest, related, creators, works, IMG_HOSTS,
+  search, suggest, related, creators, works, buyLinks, IMG_HOSTS,
   hasRakuten: () => !!(RAKUTEN_ID && RAKUTEN_KEY),
   hasTMDB: () => !!TMDB_KEY,
   hasYouTube: () => !!YT_KEY,

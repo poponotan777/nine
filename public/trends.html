@@ -39,8 +39,9 @@
   .search button{background:var(--obi);color:#101216;border:0;font-weight:700;
     padding:0 16px;border-radius:2px;cursor:pointer}
 
-  .xlink{display:block;padding:12px 14px;margin-bottom:18px;border:1px solid var(--line);
-    border-radius:2px;font-size:13px;text-decoration:none;color:var(--muted)}
+  .xlink{flex:1;min-width:150px;text-align:center;padding:11px 12px;
+    border:1px solid var(--line);border-radius:2px;font-size:12px;
+    text-decoration:none;color:var(--muted)}
   .xlink:hover{border-color:var(--obi);color:var(--obi)}
 
   .cards{display:grid;gap:10px}
@@ -101,10 +102,9 @@
     <button type="button" id="go">検索</button>
   </div>
 
-  <a class="xlink" id="xlink" href="#" target="_blank" rel="noopener">
-    Xでみんなの投稿を見る →
-  </a>
+  <div class="bar" id="snslinks"></div>
 
+  <div id="adTop" style="margin-bottom:16px"></div>
   <div class="cards" id="cards"></div>
   <p class="note" id="note">読み込んでいます…</p>
   <button class="more" id="more" style="display:none">もっと見る</button>
@@ -140,10 +140,24 @@
     document.querySelector('.head-text p').textContent = `@${state.handle} さんが選んだもの`;
   }
 
+  // 各SNSのハッシュタグ検索へ。APIを使わないので費用はかからない
+  const SNS_SEARCH = [
+    ['X', tag => 'https://x.com/search?q=' + encodeURIComponent('#' + tag) + '&f=live'],
+    ['Bluesky', tag => 'https://bsky.app/search?q=' + encodeURIComponent('#' + tag)],
+    ['Threads', tag => 'https://www.threads.com/search?q=' + encodeURIComponent('#' + tag)],
+    ['Misskey', tag => 'https://misskey.io/tags/' + encodeURIComponent(tag)],
+  ];
   function updateXLink(){
     const tag = TAG[state.type] || 'MYNINE';
-    $('xlink').href = 'https://x.com/search?q=' + encodeURIComponent('#' + tag) + '&f=live';
-    $('xlink').textContent = `Xで #${tag} の投稿を見る →`;
+    const box = $('snslinks');
+    box.innerHTML = '';
+    SNS_SEARCH.forEach(([name, fn]) => {
+      const a = document.createElement('a');
+      a.className = 'xlink'; a.href = fn(tag);
+      a.target = '_blank'; a.rel = 'noopener';
+      a.textContent = `${name}で #${tag} を見る →`;
+      box.appendChild(a);
+    });
   }
 
   function since(iso){
@@ -154,10 +168,21 @@
     return new Date(iso).toLocaleDateString('ja-JP');
   }
 
+  let adInflow = '';
+
   function render(items, append){
     const box = $('cards');
     if (!append) box.innerHTML = '';
-    items.forEach(c => {
+    items.forEach((c, idx) => {
+      // 一覧の途中に1つだけ挟む。カードと同じ見た目にせず、PRと明示する
+      if (!append && idx === 5 && adInflow){
+        const ad = document.createElement('div');
+        ad.style.cssText = 'padding:14px 16px;border:1px solid var(--line);'
+          + 'border-radius:2px;background:var(--panel)';
+        ad.innerHTML = '<div style="font-family:var(--mono);font-size:9px;'
+          + 'letter-spacing:.2em;color:var(--muted);margin-bottom:8px">PR</div>' + adInflow;
+        box.appendChild(ad);
+      }
       const el = document.createElement('div');
       el.className = 'card';
 
@@ -238,6 +263,14 @@
     if (e.key === 'Enter'){ state.q = $('q').value.trim(); load(false); }
   });
   $('more').addEventListener('click', () => load(true));
+
+  // このページ用の広告（作品を探しに来た層なので、レンタル・配信が合う）
+  fetch('/x/ads?kind=trends').then(r => r.json()).then(a => {
+    adInflow = a.inflow || '';
+    if (a.rail) $('adTop').innerHTML = '<div style="font-family:var(--mono);font-size:9px;'
+      + 'letter-spacing:.2em;color:var(--muted);margin-bottom:6px">PR</div>' + a.rail;
+    if (adInflow) load(false);   // 広告が来たら描き直して差し込む
+  }).catch(() => {});
 
   updateXLink();
   load(false);

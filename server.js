@@ -16,6 +16,7 @@ const fs   = require('fs');
 const path = require('path');
 const P    = require('./providers');
 const { store, hashIP } = require('./db');
+const { adsFor, hasAds } = require('./ads');
 
 const PORT = process.env.PORT || 3000;
 const TYPES = new Set(['album', 'manga', 'anime', 'movie', 'person', 'character', 'book']);
@@ -24,8 +25,12 @@ const TYPES = new Set(['album', 'manga', 'anime', 'movie', 'person', 'character'
  * キャッシュ（メモリ上・TTL付き・LRU）
  * 複数インスタンスで動かすなら Redis / KV に差し替える。
  * ------------------------------------------------------------------ */
-const TTL = { search: 6 * 3600e3, suggest: 24 * 3600e3, img: 24 * 3600e3 };
-const MAX_ENTRIES = 1500;
+const TTL = {
+  search:  24 * 3600e3,       // 作品情報はほぼ変わらないので長めでよい
+  suggest: 7 * 24 * 3600e3,   // 補完はさらに変わらない
+  img:     7 * 24 * 3600e3,
+};
+const MAX_ENTRIES = 4000;
 const cache = new Map();
 
 function cacheGet(key) {
@@ -210,6 +215,16 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { likes });
     }
 
+    // 種類ごとの広告。中身が無ければ空文字が返るだけ
+    if (url.pathname === '/x/ads') {
+      const kind = (url.searchParams.get('kind') || 'common').slice(0, 20);
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'public, max-age=600',
+      });
+      return res.end(JSON.stringify(adsFor(kind)));
+    }
+
     if (url.pathname === '/x/config') {
       return send(res, 200, {
         movieEnabled: P.hasTMDB(),
@@ -224,6 +239,11 @@ const server = http.createServer(async (req, res) => {
 
     if (url.pathname === '/x/search' || url.pathname === '/x/suggest') {
       const kind = url.pathname.endsWith('suggest') ? 'suggest' : 'search';
+
+      // 補完は打鍵のたびに飛んでくるので、IP単位でさらに絞る
+      if (kind === 'suggest' && rateLimited('sg:' + ip, 40, 60e3)) {
+        return send(res, 200, { items: [] });   // 静かに空を返す
+      }
       const type = url.searchParams.get('type') || '';
       const q    = (url.searchParams.get('q') || '').trim();
 
@@ -235,7 +255,8 @@ const server = http.createServer(async (req, res) => {
       const hit = cacheGet(key);
       if (hit) return send(res, 200, { items: hit, cached: true });
 
-      const items = kind === 'suggest' ? await P.suggest(type, q) : await P.search(type, q);
+      let items = kind === 'suggest' ? await P.suggest(type, q) : await P.search(type, q);
+      if (kind === 'search') items = items.map(it => ({ ...it, links: P.buyLinks(type, it) }));
       cacheSet(key, items, TTL[kind]);
       return send(res, 200, { items });
     }
@@ -268,7 +289,8 @@ const server = http.createServer(async (req, res) => {
       const hit = cacheGet(key);
       if (hit) return send(res, 200, { items: hit, cached: true });
 
-      const items = await P.works(type, id, { author });
+      const items = (await P.works(type, id, { author }))
+        .map(it => ({ ...it, links: P.buyLinks(type, it) }));
       cacheSet(key, items, TTL.search);
       return send(res, 200, { items });
     }
@@ -283,7 +305,8 @@ const server = http.createServer(async (req, res) => {
       const hit = cacheGet(key);
       if (hit) return send(res, 200, { items: hit, cached: true });
 
-      const items = await P.related(type, id);
+      const items = (await P.related(type, id))
+        .map(it => ({ ...it, links: P.buyLinks(type, it) }));
       cacheSet(key, items, TTL.search);
       return send(res, 200, { items });
     }
