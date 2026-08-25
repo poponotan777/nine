@@ -6,18 +6,19 @@
 <title>MY NINE — 9枚で自分を紹介する</title>
 <style>
   :root{
-    --ink:#F4EFE4;
+    --ink:#EFF2E8;
     --panel:#FFFFFF;
-    --panel-2:#EDE6D7;
-    --line:#D6CBB4;
-    --text:#1F1B16;
-    --muted:#6B6154;
+    --panel-2:#E4E9DA;
+    --line:#C8D0BB;
+    --text:#1B1F19;
+    --muted:#5F6858;
     --obi:#FFC61A;
     --obi-deep:#E09600;
     --pop:#E03A5F;
     --alert:#C9302C;
-    --shadow:0 2px 0 rgba(214,203,180,.8);
+    --shadow:0 2px 0 rgba(200,208,187,.8);
     --r:12px;
+
 
 
     --mincho: "Hiragino Mincho ProN","ヒラギノ明朝 ProN","Yu Mincho","YuMincho","Noto Serif JP",serif;
@@ -101,7 +102,7 @@
     font-family:var(--mono);font-size:11px;letter-spacing:.1em;
     transition:border-color .15s, transform .15s;
   }
-  .slot:hover{border-color:var(--obi-deep);background:#FFFBEC}
+  .slot:hover{border-color:var(--obi-deep);background:#FBF6E2}
   .slot:focus-visible{outline:2px solid var(--obi);outline-offset:2px}
   .slot img{width:100%;height:100%;object-fit:var(--fit,cover);object-position:center 30%;display:block}
   .slot .num{
@@ -137,7 +138,7 @@
     color:var(--text);font-family:var(--gothic);font-size:14px;font-weight:700;
     border-radius:var(--r);cursor:pointer;box-shadow:var(--shadow);
   }
-  .btn:hover{border-color:var(--obi-deep);background:#FFFBEC}
+  .btn:hover{border-color:var(--obi-deep);background:#FBF6E2}
   .btn:focus-visible{outline:2px solid var(--obi);outline-offset:2px}
   .btn.primary{background:var(--obi);color:#2A2622;border-color:var(--obi-deep);
     font-weight:800;letter-spacing:.04em;box-shadow:0 3px 0 var(--obi-deep)}
@@ -145,7 +146,7 @@
   .btn.ghost{flex:0 0 auto;padding:14px 16px;font-size:12px;color:var(--text);font-weight:500}
   .btn.sns{padding:12px;font-size:13px;color:var(--text);font-weight:700;
     background:var(--panel);box-shadow:var(--shadow)}
-  .btn.sns:hover{border-color:var(--pop);color:var(--pop);background:#FFF0F3}
+  .btn.sns:hover{border-color:var(--pop);color:var(--pop);background:#FCEFF2}
   .btn.danger{color:var(--alert)}
 
   /* ---- sheet ---- */
@@ -230,7 +231,7 @@
     border:1px solid var(--line);border-radius:var(--r);color:var(--muted);
     font-size:13px;text-decoration:none;
   }
-  .buys a:hover{border-color:var(--pop);color:var(--pop);background:#FFF5F7}
+  .buys a:hover{border-color:var(--pop);color:var(--pop);background:#FCEFF2}
 
   /* 横のバナー枠。PCの余白にだけ出し、スマホでは表示しない。
      作る流れと共有の導線には広告を入れない方針のため。 */
@@ -1068,7 +1069,7 @@
     const mincho = '"Hiragino Mincho ProN","Yu Mincho",serif';
     const gothic = '"Hiragino Sans","Yu Gothic",sans-serif';
 
-    x.fillStyle = '#F4EFE4'; x.fillRect(0,0,W,H);
+    x.fillStyle = '#EFF2E8'; x.fillRect(0,0,W,H);
 
     // 帯（obi）
     x.fillStyle = '#FFC61A'; x.fillRect(0,0,OBI,H);
@@ -1082,11 +1083,11 @@
 
     // 見出し
     x.textBaseline = 'alphabetic'; x.textAlign = 'left';
-    x.fillStyle = '#1F1B16'; x.font = `700 58px ${mincho}`;
+    x.fillStyle = '#1B1F19'; x.font = `700 58px ${mincho}`;
     x.fillText(t, OBI + PAD, 132);
     const nm = $('name').value.trim();
-    if (nm){ x.fillStyle = '#6B6154'; x.font = `400 26px ${gothic}`; x.fillText(nm, OBI + PAD, 178); }
-    x.strokeStyle = '#D6CBB4'; x.lineWidth = 2;
+    if (nm){ x.fillStyle = '#5F6858'; x.font = `400 26px ${gothic}`; x.fillText(nm, OBI + PAD, 178); }
+    x.strokeStyle = '#C8D0BB'; x.lineWidth = 2;
     x.beginPath(); x.moveTo(OBI+PAD, 206); x.lineTo(W-PAD, 206); x.stroke();
 
     // グリッド
@@ -1109,27 +1110,27 @@
           x.restore();
         } catch(e){}
       } else {
-        x.strokeStyle = '#D6CBB4'; x.strokeRect(cx+.5, cy+.5, cellW-1, cellH-1);
+        x.strokeStyle = '#C8D0BB'; x.strokeRect(cx+.5, cy+.5, cellW-1, cellH-1);
       }
       x.fillStyle = '#E03A5F'; x.font = `700 15px ${gothic}`;
       x.fillText(String(i+1).padStart(2,'0'), cx, cy + cellH + 22);
       if (it && it.title){
-        x.fillStyle = '#1F1B16'; x.font = `600 19px ${gothic}`;
+        x.fillStyle = '#1B1F19'; x.font = `600 19px ${gothic}`;
         x.fillText(clip(x, it.title, cellW - 34), cx + 30, cy + cellH + 22);
       }
       if (it && it.sub){
-        x.fillStyle = '#6B6154'; x.font = `400 16px ${gothic}`;
+        x.fillStyle = '#5F6858'; x.font = `400 16px ${gothic}`;
         x.fillText(clip(x, it.sub, cellW), cx, cy + cellH + 42);
       }
     });
 
-    x.fillStyle = '#6B6154'; x.font = `400 18px ${gothic}`;
+    x.fillStyle = '#5F6858'; x.font = `400 18px ${gothic}`;
     x.fillText(COPY[S.mode].grid, OBI + PAD, H - 56 - creditH);
 
     // 著作者表示（CC BY-SA の要件）
     if (credits.length){
       let cy2 = H - creditH - 14;
-      x.fillStyle = '#8B8073'; x.font = `400 15px ${gothic}`;
+      x.fillStyle = '#7F8877'; x.font = `400 15px ${gothic}`;
       x.fillText('写真クレジット（Wikimedia Commons）', OBI + PAD, cy2);
       x.font = `400 14px ${gothic}`;
       credits.forEach(line => {
