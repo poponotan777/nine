@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>MY NINE — 9枚で自分を紹介する</title>
+<title>MY NINE LOVES — 9枚で自分を紹介する</title>
 <style>
   :root{
     --ink:#EFF2E8;
@@ -16,6 +16,8 @@
     --obi-deep:#E09600;
     --pop:#E03A5F;
     --alert:#C9302C;
+    --head:#25302A;
+    --head-text:#F2F6EC;
     --shadow:0 2px 0 rgba(200,208,187,.8);
     --r:12px;
 
@@ -39,7 +41,7 @@
   /* ---- header ---- */
   header{
     display:flex;align-items:stretch;gap:0;
-    border-bottom:1px solid var(--line);
+    background:var(--head);color:var(--head-text);
     margin-bottom:28px;
   }
   .obi-tab{
@@ -52,13 +54,19 @@
     font-family:var(--mincho);font-weight:700;
     font-size:23px;letter-spacing:.04em;margin:0 0 4px;
   }
-  .head-text p{margin:0;font-size:12px;color:var(--muted);letter-spacing:.04em}
+  .head-text p{margin:0;font-size:12px;color:#A9B6A2;letter-spacing:.04em}
   .head-meta{margin-left:auto;padding:18px 18px;text-align:right;
              display:flex;flex-direction:column;gap:4px;justify-content:center}
-  .head-meta .made{font-size:11px;color:var(--muted);white-space:nowrap}
-  .head-meta .made strong{font-family:var(--mono);color:var(--pop);font-size:14px;font-weight:700}
-  .head-meta a{font-size:11px;color:var(--muted);white-space:nowrap}
-  .head-meta a:hover{color:var(--pop)}
+  .head-meta .made{font-size:11px;color:#A9B6A2;white-space:nowrap}
+  .head-meta .made strong{font-family:var(--mono);color:var(--obi);font-size:14px;font-weight:700}
+  .head-meta a{font-size:11px;color:#A9B6A2;white-space:nowrap;text-decoration:none}
+  .head-meta a:hover{color:var(--obi)}
+  .langbtn{
+    background:transparent;border:1px solid #56624F;color:#A9B6A2;
+    font-family:var(--mono);font-size:10px;letter-spacing:.1em;
+    padding:4px 9px;border-radius:999px;cursor:pointer;
+  }
+  .langbtn:hover{border-color:var(--obi);color:var(--obi)}
   @media (max-width:420px){ .head-meta{padding:12px 12px} .head-meta .made strong{font-size:12px} }
 
   /* ---- form ---- */
@@ -302,15 +310,16 @@
 <body>
 
 <header>
-  <div class="obi-tab">MY NINE</div>
+  <div class="obi-tab">MY NINE LOVES</div>
   <div class="head-text">
     <h1 id="pageTitle">9枚で自分を紹介する</h1>
     <p id="pageSub">好きなジャケットを9つ選んで、1枚の画像にする</p>
   </div>
   <div class="head-meta">
-    <span class="made"><strong id="madeCount">–</strong> 枚つくられました</span>
-    <a href="/trends">みんなの9つ</a>
-    <a href="/about">このサイトについて</a>
+    <span class="made"><strong id="madeCount">–</strong> <span data-i18n="made">枚つくられました</span></span>
+    <button type="button" id="langBtn" class="langbtn">EN</button>
+    <a href="/trends" data-i18n="nav.trends">みんなの9つ</a>
+    <a href="/about" data-i18n="nav.about">このサイトについて</a>
   </div>
 </header>
 
@@ -340,7 +349,7 @@
 <div class="wrap">
 
   <div class="field">
-    <label class="lbl" for="mode">しゅるい</label>
+    <label class="lbl" for="mode" data-i18n="label.kind">しゅるい</label>
     <div class="seg" id="mode" role="group">
       <button type="button" data-mode="cd" aria-pressed="true">CD</button>
       <button type="button" data-mode="manga" aria-pressed="false">漫画</button>
@@ -353,21 +362,21 @@
   </div>
 
   <div class="field">
-    <label class="lbl" for="title">タイトル</label>
+    <label class="lbl" for="title" data-i18n="label.title">タイトル</label>
     <input type="text" id="title" maxlength="24" value="私を構成する9枚">
   </div>
 
   <div class="field">
-    <label class="lbl" for="name">なまえ</label>
+    <label class="lbl" for="name" data-i18n="label.name">なまえ</label>
     <input type="text" id="name" maxlength="20" placeholder="@yourname">
   </div>
 
   <div class="field">
-    <label class="lbl" for="handle">Xのアカウント（任意）</label>
+    <label class="lbl" for="handle" data-i18n="label.handle">Xのアカウント（任意）</label>
     <input type="text" id="handle" maxlength="30" placeholder="@yourname"
            autocomplete="off" pattern="@?[A-Za-z0-9_]{1,30}">
     <p class="hint" style="margin-top:6px">
-      入れておくと、あなたが作った9つがまとめて見られるページに並びます。
+      <span id="handleHint">入れておくと、あなたが作った9つがまとめて見られるページに並びます。</span>
     </p>
   </div>
 
@@ -384,12 +393,12 @@
   </p>
 
   <div class="row">
-    <button class="btn ghost" id="sample">サンプルを入れる</button>
-    <button class="btn ghost danger" id="clear">全部消す</button>
+    <button class="btn ghost" id="sample" data-i18n="btn.sample">サンプルを入れる</button>
+    <button class="btn ghost danger" id="clear" data-i18n="btn.clear">全部消す</button>
   </div>
   <div class="row">
-    <button class="btn" id="export">画像を書き出す</button>
-    <button class="btn primary" id="share">SNSでシェア</button>
+    <button class="btn" id="export" data-i18n="btn.export">画像を書き出す</button>
+    <button class="btn primary" id="share" data-i18n="btn.share">SNSでシェア</button>
   </div>
   <div class="row" id="snsRow">
     <button class="btn sns" data-sns="x">X</button>
@@ -418,7 +427,7 @@
   <div class="sheet">
     <h2 id="editorTitle">01枚目</h2>
     <div class="seg seg-sm" id="findBy" role="group" style="margin-bottom:10px">
-      <button type="button" data-by="work" aria-pressed="true">作品名で探す</button>
+      <button type="button" data-by="work" aria-pressed="true" data-i18n="by.work">作品名で探す</button>
       <button type="button" data-by="creator" aria-pressed="false" id="byCreator">作者で探す</button>
     </div>
     <div class="search-row">
@@ -427,10 +436,10 @@
                role="combobox" aria-expanded="false" aria-controls="suggest" aria-autocomplete="list">
         <ul class="suggest" id="suggest" role="listbox"></ul>
       </div>
-      <button type="button" id="go">検索</button>
+      <button type="button" id="go" data-i18n="btn.search">検索</button>
     </div>
     <p class="status" id="status"></p>
-    <button type="button" class="btn ghost" id="back" style="display:none;margin-bottom:10px">← 検索結果に戻る</button>
+    <button type="button" class="btn ghost" id="back" style="display:none;margin-bottom:10px" data-i18n="btn.back">← 検索結果に戻る</button>
     <ul class="people" id="people"></ul>
     <div class="results" id="results"></div>
     <div class="drop" id="drop">
@@ -448,8 +457,8 @@
       <input type="text" id="fSub" maxlength="30">
     </div>
     <div class="row">
-      <button class="btn ghost danger" id="remove">消す</button>
-      <button class="btn primary" id="done">決定</button>
+      <button class="btn ghost danger" id="remove" data-i18n="btn.remove">消す</button>
+      <button class="btn primary" id="done" data-i18n="btn.done">決定</button>
     </div>
   </div>
 </div>
@@ -458,16 +467,90 @@
 <div class="veil center" id="outv">
   <div class="out">
     <img id="outImg" alt="書き出した9枚の画像">
-    <p>スマホは画像を長押しして保存、PCは右クリックで保存できます。</p>
+    <p id="outNote">スマホは画像を長押しして保存、PCは右クリックで保存できます。</p>
     <div class="row">
-      <button class="btn" id="outClose">閉じる</button>
-      <a class="btn primary" id="outDl" download="my-nine.png" style="text-decoration:none;text-align:center">保存</a>
+      <button class="btn" id="outClose" data-i18n="btn.close">閉じる</button>
+      <a class="btn primary" id="outDl" download="my-nine.png" style="text-decoration:none;text-align:center" data-i18n="btn.save">保存</a>
     </div>
   </div>
 </div>
 
 <script>
 (() => {
+  /* ===== 言語 =====
+     UIの文言と、外部APIに渡す言語をまとめて切り替える。
+     選択はlocalStorageに残すので、次回も同じ言語で開く。 */
+  let LANG = 'ja';
+  try { LANG = localStorage.getItem('lang') === 'en' ? 'en' : 'ja'; } catch(e){}
+
+  const I18N = {
+    ja: {
+      'nav.trends':'みんなの9つ', 'nav.about':'このサイトについて',
+      'label.kind':'しゅるい', 'label.title':'タイトル', 'label.name':'なまえ',
+      'label.handle':'Xのアカウント（任意）',
+      'handle.hint':'入れておくと、あなたが作った9つがまとめて見られるページに並びます。',
+      'btn.sample':'サンプルを入れる', 'btn.clear':'全部消す',
+      'btn.export':'画像を書き出す', 'btn.share':'SNSでシェア',
+      'btn.search':'検索', 'btn.remove':'消す', 'btn.done':'決定',
+      'btn.close':'閉じる', 'btn.save':'保存', 'btn.back':'← 検索結果に戻る',
+      'by.work':'作品名で探す',
+      'made':'枚つくられました',
+      'grid.hint':'空きマスをタップして画像を追加。作品名でも作者名でも探せます。<br>右上の <strong>⇅</strong> を押してから別のマスを押すと、順番を入れ替えられます。種類を変えても、それぞれの選択は残ります。',
+      'drop':'画像をタップして選ぶ<br><span style="font-size:11px">またはここにドロップ / 貼り付け</span>',
+      'out.note':'スマホは画像を長押しして保存、PCは右クリックで保存できます。',
+      'st.searching':'検索中…', 'st.tap':'タップして選ぶ',
+      'st.none':'見つかりませんでした。別の言葉で試してください。',
+      'st.failed':'検索に失敗しました。画像を直接アップロードすることもできます。',
+      'st.willApply':'「決定」で反映されます',
+      'st.creatorHint':'名前を入れて検索すると、その人の作品一覧が出ます。',
+      'st.creatorTap':'名前をタップすると、その人の作品一覧が出ます。',
+      'st.related':'タップして選ぶ。下部のラベルを押すと関連作品も別の1つとして選べます。',
+      'share.uploads':'「SNSでシェア」なら、自分で追加した{n}件を含めた画像がそのまま送られます。X・Bluesky・Threads・Misskeyのボタンは、画像を保存してから投稿画面を開きます（画像は手動で添付してください）。',
+      'share.plain':'「SNSでシェア」は画像をそのまま送ります。下のボタンは画像を保存してから投稿画面を開きます。',
+      'pr':'PR（アフィリエイトリンク）',
+      'err.share':'共有できませんでした。「画像を書き出す」から保存してください。',
+      'err.png':'画像を作れませんでした。',
+      'err.taint':'外部から読み込んだ画像があるため、この環境では画像化できませんでした。',
+      'misskey.ask':'お使いのMisskey/Fediverseサーバーを入れてください\n（例: misskey.io, fedibird.com）',
+      'credits':'写真クレジット（Wikimedia Commons）',
+    },
+    en: {
+      'nav.trends':'Everyone\u2019s nine', 'nav.about':'About',
+      'label.kind':'Category', 'label.title':'Title', 'label.name':'Your name',
+      'label.handle':'X account (optional)',
+      'handle.hint':'Add it and all of your nines will appear on one page.',
+      'btn.sample':'Fill with samples', 'btn.clear':'Clear all',
+      'btn.export':'Export image', 'btn.share':'Share',
+      'btn.search':'Search', 'btn.remove':'Remove', 'btn.done':'Done',
+      'btn.close':'Close', 'btn.save':'Save', 'btn.back':'\u2190 Back to results',
+      'by.work':'By title',
+      'made':'made so far',
+      'grid.hint':'Tap an empty cell to add an image. Search by title or by creator.<br>Tap <strong>\u21c5</strong> then another cell to swap them. Your picks are kept per category.',
+      'drop':'Tap to choose an image<br><span style="font-size:11px">or drop / paste it here</span>',
+      'out.note':'Long-press the image to save on mobile, or right-click on desktop.',
+      'st.searching':'Searching\u2026', 'st.tap':'Tap to choose',
+      'st.none':'Nothing found. Try different words.',
+      'st.failed':'Search failed. You can also upload an image directly.',
+      'st.willApply':'Press Done to apply',
+      'st.creatorHint':'Search a name to see everything they made.',
+      'st.creatorTap':'Tap a name to see their works.',
+      'st.related':'Tap to choose. The label at the bottom opens related titles.',
+      'share.uploads':'Share sends the image as-is, including the {n} you uploaded. The X / Bluesky / Threads / Misskey buttons save the image first, then open the composer (attach it manually).',
+      'share.plain':'Share sends the image as-is. The buttons below save the image first, then open the composer.',
+      'pr':'PR (affiliate link)',
+      'err.share':'Could not share. Please use Export image instead.',
+      'err.png':'Could not create the image.',
+      'err.taint':'This image came from an external source and could not be exported here.',
+      'misskey.ask':'Enter your Misskey / Fediverse server\n(e.g. misskey.io, fedibird.com)',
+      'credits':'Photo credits (Wikimedia Commons)',
+    },
+  };
+  const t = (k, vars) => {
+    let v = (I18N[LANG] && I18N[LANG][k]) || I18N.ja[k] || k;
+    if (vars) Object.entries(vars).forEach(([a,b]) => { v = v.replace('{'+a+'}', b); });
+    return v;
+  };
+
   const COPY = {
     cd:   {h1:'9枚で自分を紹介する', sub:'好きなジャケットを9つ選んで、1枚の画像にする',
            title:'私を構成する9枚', unit:'枚目', f1:'作品名', f2:'アーティスト', grid:'SELECT NINE ALBUMS'},
@@ -489,6 +572,32 @@
            title:'私を構成する9キャラ', unit:'人目', f1:'キャラクター名', f2:'出典', grid:'SELECT NINE CHARACTERS',
            ph:'キャラクター名で検索', hint:'漫画・アニメ・ゲームのキャラクターを横断で探せます。'}
   };
+  const COPY_EN = {
+    cd: {h1:'Nine albums I love', sub:'Pick nine covers and turn them into one image',
+         title:'Nine albums I love', unit:'', f1:'Album', f2:'Artist', grid:'SELECT NINE ALBUMS',
+         ph:'Search album or artist', hint:'Search by album or artist name.'},
+    manga: {h1:'Nine manga I love', sub:'Pick nine titles and turn them into one image',
+         title:'Nine manga I love', unit:'', f1:'Title', f2:'Author', grid:'SELECT NINE MANGA',
+         ph:'Search a title', hint:'Covers shown are from volume one.'},
+    book: {h1:'Nine books I love', sub:'Pick nine books and turn them into one image',
+         title:'Nine books I love', unit:'', f1:'Title', f2:'Author', grid:'SELECT NINE BOOKS',
+         ph:'Search a title', hint:'Novels, non-fiction and more.'},
+    anime: {h1:'Nine anime I love', sub:'Pick nine titles and turn them into one image',
+         title:'Nine anime I love', unit:'', f1:'Title', f2:'Studio', grid:'SELECT NINE ANIME',
+         ph:'Search a title', hint:'Search by title.'},
+    movie: {h1:'Nine films I love', sub:'Pick nine films and turn them into one image',
+         title:'Nine films I love', unit:'', f1:'Title', f2:'Year', grid:'SELECT NINE FILMS',
+         ph:'Search a film', hint:'Original or localised titles both work.'},
+    person: {h1:'Nine people I love', sub:'Pick nine people and turn them into one image',
+         title:'Nine people I love', unit:'', f1:'Name', f2:'Known for', grid:'SELECT NINE PEOPLE',
+         ph:'Search a name', hint:'Actors, musicians, comedians, creators.'},
+    character: {h1:'Nine characters I love', sub:'Pick nine characters and turn them into one image',
+         title:'Nine characters I love', unit:'', f1:'Character', f2:'From', grid:'SELECT NINE CHARACTERS',
+         ph:'Search a character', hint:'Characters from manga, anime and games.'},
+  };
+  /** いまの言語での種類ごとの文言 */
+  const C = (mode = S.mode) => (LANG === 'en' ? COPY_EN : COPY)[mode];
+
   COPY.cd.ph = 'アルバム名・アーティスト名で検索';
   COPY.cd.hint = 'アルバム名やアーティスト名で探せます。';
   COPY.manga.ph = '作品名で検索';
@@ -505,14 +614,19 @@
     if (!r.ok) throw new Error(j.error || `サーバーが ${r.status} を返しました`);
     return j.items || [];
   }
-  const searchItems  = (type, q) => api(`/x/search?type=${type}&q=${encodeURIComponent(q)}`);
-  const suggestItems = (type, q) => api(`/x/suggest?type=${type}&q=${encodeURIComponent(q)}`);
+  const searchItems  = (type, q) => api(`/x/search?type=${type}&lang=${LANG}&q=${encodeURIComponent(q)}`);
+  const suggestItems = (type, q) => api(`/x/suggest?type=${type}&lang=${LANG}&q=${encodeURIComponent(q)}`);
   const relatedItems = (type, id) => api(`/x/related?type=${type}&id=${id}`);
   const creatorItems = (type, q) => api(`/x/creators?type=${type}&q=${encodeURIComponent(q)}`);
   const workItems    = (type, id) => api(`/x/works?type=${type}&id=${id}`);
 
   // 「作者で探す」のラベル。有名人モードには人名検索しかないので出さない
-  const BY_LABEL = { cd:'アーティストで探す', manga:'作者で探す', book:'著者で探す', anime:'制作・監督で探す', movie:'監督・出演者で探す' };
+  const BY_LABEL_JA = { cd:'アーティストで探す', manga:'作者で探す', book:'著者で探す',
+                        anime:'制作・監督で探す', movie:'監督・出演者で探す' };
+  const BY_LABEL_EN = { cd:'By artist', manga:'By author', book:'By author',
+                        anime:'By studio', movie:'By director / cast' };
+  const BY_LABEL = new Proxy({}, { get: (_, k) =>
+    (LANG === 'en' ? BY_LABEL_EN : BY_LABEL_JA)[k] });
 
   /* 種別ごとの画像の縦横比（横 ÷ 縦）
      CDジャケットは正方形、漫画・アニメ・映画のポスターは2:3、
@@ -538,7 +652,7 @@
   function restore(mode){
     S.items = S.byMode[mode] || Array(9).fill(null);
     const m = S.meta[mode];
-    $('title').value = m ? m.title : COPY[mode].title;
+    $('title').value = m ? m.title : C(mode).title;
     if (m) { $('name').value = m.name; $('handle').value = m.handle || ''; }
   }
   const $ = id => document.getElementById(id);
@@ -552,7 +666,7 @@
       b.className = 'slot' + (it ? ' filled' : '');
       b.type = 'button';
       b.dataset.i = i;
-      b.setAttribute('aria-label', `${String(i+1).padStart(2,'0')}${COPY[S.mode].unit}`);
+      b.setAttribute('aria-label', `${String(i+1).padStart(2,'0')}${C().unit}`);
       const n = document.createElement('span');
       n.className = 'num'; n.textContent = String(i+1).padStart(2,'0');
       b.appendChild(n);
@@ -654,7 +768,7 @@
   function openEditor(i){
     S.editing = i;
     const it = S.items[i] || {};
-    $('editorTitle').textContent = String(i+1).padStart(2,'0') + COPY[S.mode].unit;
+    $('editorTitle').textContent = String(i+1).padStart(2,'0') + C().unit;
     $('fTitle').value = it.title || '';
     $('fSub').value = it.sub || '';
     paintDrop(it.src);
@@ -686,11 +800,12 @@
     $('byCreator').textContent = BY_LABEL[S.mode] || '作者で探す';
 
     if (mode === 'creator'){
-      $('q').placeholder = BY_LABEL[S.mode].replace('で探す', '名');
-      setStatus('名前を入れて検索すると、その人の作品一覧が出ます。');
+      $('q').placeholder = LANG === 'en' ? 'Search a name'
+        : (BY_LABEL[S.mode] || '').replace('で探す', '名');
+      setStatus(t('st.creatorHint'));
     } else {
-      $('q').placeholder = COPY[S.mode].ph;
-      setStatus(COPY[S.mode].hint);
+      $('q').placeholder = C().ph;
+      setStatus(C().hint);
     }
   }
   $('findBy').addEventListener('click', e => {
@@ -753,8 +868,8 @@
     $('fTitle').value = item.title || '';
     $('fSub').value = item.sub || '';
     setStatus(item.credit
-      ? `「決定」で反映されます（写真: ${item.credit.author} / ${item.credit.license}）`
-      : '「決定」で反映されます');
+      ? `${t('st.willApply')}（${item.credit.author} / ${item.credit.license}）`
+      : t('st.willApply'));
     showBuy(item);
   }
 
@@ -766,7 +881,7 @@
     if (!links.length){ el.style.display = 'none'; return; }
 
     const pr = document.createElement('div');
-    pr.className = 'pr'; pr.textContent = 'PR（アフィリエイトリンク）';
+    pr.className = 'pr'; pr.textContent = t('pr');
     el.appendChild(pr);
 
     links.forEach(l => {
@@ -787,15 +902,15 @@
     if (!q) return;
     $('results').innerHTML = ''; $('people').innerHTML = '';
     $('back').style.display = 'none';
-    setStatus('検索中…');
+    setStatus(t('st.searching'));
     try{
       const list = await creatorItems(API_TYPE[S.mode], q);
-      if (!list.length) return setStatus('見つかりませんでした。表記を変えて試してください。');
+      if (!list.length) return setStatus(t('st.none'));
       lastPeople = list;
       paintPeople(list);
-      setStatus('名前をタップすると、その人の作品一覧が出ます。');
+      setStatus(t('st.creatorTap'));
     } catch(err){
-      setStatus('検索に失敗しました。（' + err.message + '）', true);
+      setStatus(t('st.failed') + '（' + err.message + '）', true);
     }
   }
 
@@ -838,17 +953,17 @@
     if (!q || !type) return;
     $('results').innerHTML = ''; $('people').innerHTML = '';
     $('back').style.display = 'none';
-    setStatus('検索中…');
+    setStatus(t('st.searching'));
     try{
       const list = await searchItems(type, q);
-      if (!list.length) return setStatus('見つかりませんでした。別の言葉で試してください。');
+      if (!list.length) return setStatus(t('st.none'));
       lastSearch = list;
       paintResults(list);
       setStatus(list.some(x => x.relatedCount)
-        ? 'タップして選ぶ。下部のラベルを押すと関連作品も別の1つとして選べます。'
-        : 'タップして選ぶ');
+        ? t('st.related')
+        : t('st.tap'));
     } catch(err){
-      setStatus('検索に失敗しました。画像を直接アップロードすることもできます。（' + err.message + '）', true);
+      setStatus(t('st.failed') + '（' + err.message + '）', true);
     }
   }
 
@@ -870,12 +985,12 @@
       $('results').innerHTML = '';
       paintPeople(lastPeople);
       $('back').style.display = 'none';
-      setStatus('名前をタップすると、その人の作品一覧が出ます。');
+      setStatus(t('st.creatorTap'));
       return;
     }
     paintResults(lastSearch);
     $('back').style.display = 'none';
-    setStatus('タップして選ぶ');
+    setStatus(t('st.tap'));
   });
   $('go').addEventListener('click', () => { closeSuggest(); runSearch(); });
 
@@ -948,7 +1063,7 @@
     const d = $('drop');
     d.innerHTML = '';
     if (src){ const im = new Image(); im.src = src; d.appendChild(im); }
-    else d.innerHTML = '画像をタップして選ぶ<br><span style="font-size:11px">またはここにドロップ / 貼り付け</span>';
+    else d.innerHTML = t('drop');
   }
   let pending = null;
   $('drop').addEventListener('click', () => $('file').click());
@@ -992,13 +1107,14 @@
     stash();                       // いまの種類の内容を控えに残す
     S.mode = b.dataset.mode;
     [...$('mode').children].forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-    const c = COPY[S.mode];
+    const c = C();
     $('pageTitle').textContent = c.h1; $('pageSub').textContent = c.sub;
     $('fTitleLbl').textContent = c.f1; $('fSubLbl').textContent = c.f2;
     $('gridLabel').textContent = c.grid;
     restore(S.mode);               // その種類で前に選んでいた9つを呼び戻す
     closeSuggest();
     applyRatio();
+    applyLang();
     loadAds(S.mode);               // 種類に合った広告に差し替える
     render();
   });
@@ -1074,7 +1190,7 @@
     // 帯（obi）
     x.fillStyle = '#FFC61A'; x.fillRect(0,0,OBI,H);
     x.fillStyle = '#2A2622';
-    const t = ($('title').value || COPY[S.mode].title).slice(0,14);
+    const t = ($('title').value || C().title).slice(0,14);
     x.font = `600 40px ${mincho}`; x.textAlign = 'center'; x.textBaseline = 'middle';
     [...t].forEach((ch,i) => x.fillText(ch, OBI/2, 96 + i*46));
     x.save(); x.translate(OBI/2, H-52); x.rotate(-Math.PI/2);
@@ -1125,13 +1241,13 @@
     });
 
     x.fillStyle = '#5F6858'; x.font = `400 18px ${gothic}`;
-    x.fillText(COPY[S.mode].grid, OBI + PAD, H - 56 - creditH);
+    x.fillText(C().grid, OBI + PAD, H - 56 - creditH);
 
     // 著作者表示（CC BY-SA の要件）
     if (credits.length){
       let cy2 = H - creditH - 14;
       x.fillStyle = '#7F8877'; x.font = `400 15px ${gothic}`;
-      x.fillText('写真クレジット（Wikimedia Commons）', OBI + PAD, cy2);
+      x.fillText(t('credits'), OBI + PAD, cy2);
       x.font = `400 14px ${gothic}`;
       credits.forEach(line => {
         cy2 += 24;
@@ -1206,15 +1322,22 @@
   }
 
   // 種類ごとのハッシュタグ。SNSで追えるように統一しておく
+  // 日本語タグは種類別、英語タグは共通。どちらも #MyNineLoves を必ず添える
   const TAG = {
     cd:'私を構成する9枚', manga:'私を構成する9冊', book:'私を構成する9冊',
     anime:'私を構成する9作', movie:'私を構成する9本',
     person:'私を構成する9人', character:'私を構成する9キャラ',
   };
+  const TAG_EN = {
+    cd:'MyNineAlbums', manga:'MyNineManga', book:'MyNineBooks',
+    anime:'MyNineAnime', movie:'MyNineFilms',
+    person:'MyNinePeople', character:'MyNineCharacters',
+  };
   function shareText(){
-    const t = $('title').value || COPY[S.mode].title;
+    const t = $('title').value || C().title;
     const nm = $('name').value.trim();
-    return `${t}${nm ? ' / ' + nm : ''}\n#${TAG[S.mode] || 'MYNINE'} #MYNINE`;
+    const tag = LANG === 'en' ? TAG_EN[S.mode] : TAG[S.mode];
+    return `${t}${nm ? ' / ' + nm : ''}\n#${tag} #MyNineLoves`;
   }
 
   /* ---------- SNSごとの投稿画面 ----------
@@ -1231,7 +1354,7 @@
     misskey: text => {
       if (!misskeyHost){
         const input = prompt(
-          'お使いのMisskey/Fediverseサーバーを入れてください\n（例: misskey.io, fedibird.com）',
+          t('misskey.ask'),
           'misskey.io');
         if (!input) return null;
         misskeyHost = input.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
@@ -1254,7 +1377,7 @@
       a.href = png; a.download = 'my-nine.png'; a.click();
       setTimeout(() => window.open(url, '_blank', 'noopener'), 400);
     } catch(err){
-      alert('画像を作れませんでした。');
+      alert(t('err.png'));
     } finally { b.disabled = false; }
   });
 
@@ -1278,7 +1401,7 @@
         $('outv').classList.add('open');
       }
     } catch(e){
-      if (e && e.name !== 'AbortError') alert('共有できませんでした。「画像を書き出す」から保存してください。');
+      if (e && e.name !== 'AbortError') alert(t('err.share'));
     } finally {
       btn.disabled = false; btn.textContent = 'SNSでシェア';
     }
@@ -1292,7 +1415,7 @@
     let url;
     try { url = draw().toDataURL('image/png'); }
     catch(e){
-      alert('外部から読み込んだ画像があるため、この環境では画像化できませんでした。\n本番では画像を自分のサーバー経由（プロキシ）で配信すると解決します。');
+      alert(t('err.taint'));
       return;
     }
     recordCard();
@@ -1361,7 +1484,52 @@
     syncAdBar();
   });
 
+  /* ---------- 言語の適用 ---------- */
+  function applyLang(){
+    document.documentElement.lang = LANG;
+    $('langBtn').textContent = LANG === 'en' ? '日本語' : 'EN';
+
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      el.innerHTML = t(el.dataset.i18n);
+    });
+    $('hint').innerHTML = t('grid.hint');
+    $('handleHint').textContent = t('handle.hint');
+    $('outNote').textContent = t('out.note');
+    $('byCreator').textContent = BY_LABEL[S.mode] || (LANG === 'en' ? 'By creator' : '作者で探す');
+    $('name').placeholder = LANG === 'en' ? 'your name' : '@yourname';
+
+    // 種類ボタンの表示名
+    const KIND = LANG === 'en'
+      ? { cd:'Albums', manga:'Manga', book:'Books', anime:'Anime',
+          movie:'Films', person:'People', character:'Chars' }
+      : { cd:'CD', manga:'漫画', book:'書籍', anime:'アニメ',
+          movie:'映画', person:'有名人', character:'キャラ' };
+    document.querySelectorAll('[data-mode]').forEach(b => {
+      b.textContent = KIND[b.dataset.mode] || b.textContent;
+    });
+
+    const c = C();
+    $('pageTitle').textContent = c.h1;
+    $('pageSub').textContent = c.sub;
+    $('gridLabel').textContent = c.grid;
+    $('fTitleLbl').textContent = c.f1;
+    $('fSubLbl').textContent = c.f2;
+    const ti = $('title');
+    if (!ti.value || Object.values(COPY).some(v => v.title === ti.value)
+        || Object.values(COPY_EN).some(v => v.title === ti.value)) ti.value = c.title;
+    updateShareNote();
+  }
+
+  $('langBtn').addEventListener('click', () => {
+    LANG = LANG === 'en' ? 'ja' : 'en';
+    try { localStorage.setItem('lang', LANG); } catch(e){}
+    adCache = {};                  // 広告も引き直す
+    applyLang();
+    loadAds(S.mode);
+  });
+
   applyRatio();
+  applyLang();
   render();
   loadAds(S.mode);
   // 説明文を種類に合わせておく
