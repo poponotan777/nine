@@ -99,13 +99,31 @@ function send(res, code, obj) {
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify(obj));
 }
+/* Googleアナリティクス。GA_ID があるときだけHTMLに差し込む。
+   4つのHTMLを個別に編集しなくて済み、IDもGitに載らない。 */
+const GA_ID = process.env.GA_ID || '';
+const GA_TAG = GA_ID ? `
+<script async src="https://www.googletagmanager.com/gtag/js?id=${GA_ID}"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', '${GA_ID}');
+</script>` : '';
+
 function serveStatic(pathname, res) {
   const root = path.join(__dirname, 'public');
   const file = path.join(root, pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, ''));
   if (!file.startsWith(root)) return send(res, 403, { error: 'forbidden' });
   fs.readFile(file, (err, buf) => {
     if (err) return send(res, 404, { error: 'not found' });
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' });
+    const type = MIME[path.extname(file)] || 'application/octet-stream';
+    if (GA_TAG && type.startsWith('text/html')) {
+      const html = buf.toString('utf8').replace('</head>', GA_TAG + '\n</head>');
+      res.writeHead(200, { 'Content-Type': type });
+      return res.end(html);
+    }
+    res.writeHead(200, { 'Content-Type': type });
     res.end(buf);
   });
 }
@@ -251,11 +269,12 @@ const server = http.createServer(async (req, res) => {
       if (!q)              return send(res, 400, { error: '検索語を入れてください' });
       if (q.length > 80)   return send(res, 400, { error: '検索語が長すぎます' });
 
-      const key = `${kind}:${type}:${q.toLowerCase()}`;
+      const lang = url.searchParams.get('lang') === 'en' ? 'en' : 'ja';
+      const key = `${kind}:${type}:${lang}:${q.toLowerCase()}`;
       const hit = cacheGet(key);
       if (hit) return send(res, 200, { items: hit, cached: true });
 
-      let items = kind === 'suggest' ? await P.suggest(type, q) : await P.search(type, q);
+      let items = kind === 'suggest' ? await P.suggest(type, q) : await P.search(type, q, lang);
       if (kind === 'search') items = items.map(it => ({ ...it, links: P.buyLinks(type, it) }));
       cacheSet(key, items, TTL[kind]);
       return send(res, 200, { items });

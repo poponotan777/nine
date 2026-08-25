@@ -37,6 +37,13 @@ const IMG_HOSTS = [
 
 const proxied = url => (url ? '/img?u=' + encodeURIComponent(url) : '');
 
+/* 言語。'ja' か 'en'。各APIに渡す値をここで一元管理する */
+const LANG = {
+  ja: { tmdb:'ja-JP', wiki:'ja', itunes:'JP', wikiHost:'ja.wikipedia.org' },
+  en: { tmdb:'en-US', wiki:'en', itunes:'US', wikiHost:'en.wikipedia.org' },
+};
+const langOf = l => LANG[l] || LANG.ja;
+
 /* ================================================================== *
  * 表記ゆれの吸収
  *
@@ -222,7 +229,7 @@ async function anilist(query, variables) {
   return json.data;
 }
 
-function shapeAniList(m, kind, relationType) {
+function shapeAniList(m, kind, relationType, lang = 'ja') {
   if (!m) return null;
   const sub = kind === 'anime'
     ? (m.studios?.nodes?.[0]?.name || '')
@@ -232,7 +239,9 @@ function shapeAniList(m, kind, relationType) {
   return {
     id: m.id,
     source: 'anilist',
-    title: m.title?.native || m.title?.romaji || m.title?.english || '',
+    title: lang === 'en'
+      ? (m.title?.english || m.title?.romaji || m.title?.native || '')
+      : (m.title?.native || m.title?.romaji || m.title?.english || ''),
     sub,
     img: proxied(m.coverImage?.extraLarge || m.coverImage?.large),
     relatedId: m.id,
@@ -267,10 +276,10 @@ const itunesSearch = async (term, limit = 18) => {
 /* ================================================================== *
  * TMDB（映画・人物）
  * ================================================================== */
-function tmdbURL(pathname, params = {}) {
+function tmdbURL(pathname, params = {}, lang = 'ja') {
   const u = new URL('https://api.themoviedb.org/3' + pathname);
   u.searchParams.set('api_key', TMDB_KEY);
-  u.searchParams.set('language', 'ja-JP');
+  u.searchParams.set('language', langOf(lang).tmdb);
   Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
   return u.toString();
 }
@@ -381,14 +390,14 @@ function withLinks(type, items) {
   return items.map(it => ({ ...it, links: buyLinks(type, it) }));
 }
 
-async function search(type, rawQuery) {
+async function search(type, rawQuery, lang = 'ja') {
   const term = normalize(rawQuery);
 
   if (type === 'manga' || type === 'anime') {
     const gql = Q_SEARCH(type === 'anime' ? 'ANIME' : 'MANGA');
     const items = await fanout(term, async v => {
       const data = await anilist(gql, { s: v });
-      return (data.Page?.media || []).map(m => shapeAniList(m, type)).filter(x => x?.img);
+      return (data.Page?.media || []).map(m => shapeAniList(m, type, null, lang)).filter(x => x?.img);
     });
     return rank(items, term);
   }
@@ -400,17 +409,20 @@ async function search(type, rawQuery) {
   if (type === 'movie') {
     requireTMDB();
     const items = await fanout(term, async v => {
-      const json = await q.tmdb(() => getJSON(tmdbURL('/search/movie', { query: v, include_adult: 'false' })));
+      const json = await q.tmdb(() => getJSON(tmdbURL('/search/movie', { query: v, include_adult: 'false' }, lang)));
       return (json.results || []).map(shapeMovie).filter(x => x.img);
     });
     return rank(items, term);
   }
 
   if (type === 'character') {
-    return rank(await searchCharacters(term), term);
+    return rank(await searchCharacters(term, lang), term);
   }
 
   if (type === 'book') {
+    // 英語では楽天が使えない（日本の書籍のみ）ので Google Books を主軸にする
+    if (lang === 'en') return rank(await searchGoogleBooks(term), term);
+
     // 紙 → 電子（Kobo）→ Google Books の順に補う
     let books = foldEditions(await fanout(term, v => searchRakutenBooks(v), { enough: 6, max: 2 }));
     if (books.length < 8) {
@@ -428,9 +440,9 @@ async function search(type, rawQuery) {
     // Wikidataを主軸に、俳優はTMDB、配信者はYouTubeで補う。
     // 同じ人物は名前で1つにまとめる（先に来たソースを優先）
     const [wd, tmdb] = await Promise.all([
-      fanout(term, wikidataPeople, { enough: 3, max: 2 }).catch(() => []),
+      fanout(term, v => wikidataPeople(v, lang), { enough: 3, max: 2 }).catch(() => []),
       TMDB_KEY
-        ? q.tmdb(() => getJSON(tmdbURL('/search/person', { query: term, include_adult: 'false' })))
+        ? q.tmdb(() => getJSON(tmdbURL('/search/person', { query: term, include_adult: 'false' }, lang)))
             .then(j => (j.results || []).map(shapePerson).filter(x => x.img))
             .catch(() => [])
         : [],
@@ -921,9 +933,10 @@ async function searchGoogleBooks(term) {
   }).filter(b => b.img && b.title);
 }
 
-async function wikidataPeople(term) {
+async function wikidataPeople(term, lang = 'ja') {
+  const L = langOf(lang).wiki;
   const found = await q.wiki(() => getJSON(wdURL({
-    action: 'wbsearchentities', search: term, language: 'ja', uselang: 'ja',
+    action: 'wbsearchentities', search: term, language: L, uselang: L,
     type: 'item', limit: 20,
   })));
   const ids = (found.search || []).map(x => x.id);
@@ -931,7 +944,7 @@ async function wikidataPeople(term) {
 
   const got = await q.wiki(() => getJSON(wdURL({
     action: 'wbgetentities', ids: ids.join('|'),
-    props: 'claims|labels|descriptions|aliases', languages: 'ja|en',
+    props: 'claims|labels|descriptions|aliases', languages: `${L}|en`,
   })));
   const entities = Object.values(got.entities || {});
 
@@ -989,22 +1002,24 @@ const Q_CHARACTERS = `query ($s: String) {
   } }
 }`;
 
-function shapeCharacter(c) {
+function shapeCharacter(c, lang = 'ja') {
   const from = c.media?.nodes?.[0]?.title;
+  const en = lang === 'en';
   return {
     id: c.id, source: 'anilist',
-    title: c.name?.native || c.name?.full || '',
-    sub: from ? (from.native || from.romaji || '') : '',
+    title: (en ? (c.name?.full || c.name?.native) : (c.name?.native || c.name?.full)) || '',
+    sub: from ? (en ? (from.romaji || from.native) : (from.native || from.romaji)) || '' : '',
     img: proxied(c.image?.large || ''),
     relatedId: null, relatedCount: 0,
     _alts: [c.name?.full, c.name?.native, ...(c.name?.alternative || [])].filter(Boolean),
   };
 }
 
-async function searchCharacters(term) {
+async function searchCharacters(term, lang = 'ja') {
   return fanout(term, async v => {
     const data = await anilist(Q_CHARACTERS, { s: v });
-    return (data.Page?.characters || []).map(shapeCharacter).filter(x => x.img && x.title);
+    return (data.Page?.characters || [])
+      .map(c => shapeCharacter(c, lang)).filter(x => x.img && x.title);
   });
 }
 
@@ -1022,6 +1037,23 @@ const AMAZON_TAG = process.env.AMAZON_ASSOCIATE_TAG || '';
 const VOD_LINKS  = process.env.VOD_LINKS ? safeJSON(process.env.VOD_LINKS) : null;
 
 function safeJSON(t) { try { return JSON.parse(t); } catch { return null; } }
+
+/**
+ * Yahoo!ショッピングの検索リンク。
+ * バリューコマースのMyLink（LinkSwitch非対応の枠でも使える形）を想定。
+ * VC_YAHOO_TEMPLATE に {q} を含むURLを入れると有効になる。
+ *   例: https://ck.jp.ap.valuecommerce.com/servlet/referral?sid=...&url={q}
+ * 未設定なら素のYahooリンク（報酬は発生しない）を出さず、何も表示しない。
+ */
+const VC_YAHOO = process.env.VC_YAHOO_TEMPLATE || '';
+
+function yahooSearch(keyword) {
+  if (!VC_YAHOO) return null;
+  const target = 'https://shopping.yahoo.co.jp/search?p=' + encodeURIComponent(keyword);
+  return VC_YAHOO.includes('{q}')
+    ? VC_YAHOO.replace('{q}', encodeURIComponent(target))
+    : VC_YAHOO + encodeURIComponent(target);
+}
 
 function amazonSearch(keyword, category) {
   if (!AMAZON_TAG) return null;
@@ -1054,6 +1086,8 @@ function buyLinks(type, item) {
   if (CATEGORY[type] !== undefined && CATEGORY[type] !== null) {
     const url = amazonSearch(q, CATEGORY[type]);
     if (url) out.push({ label: 'Amazonで探す', url, kind: 'shop' });
+    const y = yahooSearch(q);
+    if (y) out.push({ label: 'Yahoo!ショッピングで探す', url: y, kind: 'shop' });
   }
 
   // 映画・アニメだけ、配信サービスへの検索リンクを添える

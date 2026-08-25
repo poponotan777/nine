@@ -6,15 +6,19 @@
 <title>MY NINE — 9枚で自分を紹介する</title>
 <style>
   :root{
-    --ink:#111318;
-    --panel:#1a1d24;
-    --panel-2:#22262f;
-    --line:#31363f;
-    --text:#efece5;
-    --muted:#8b909c;
-    --obi:#f2c230;
-    --obi-deep:#d9a512;
-    --alert:#e0574f;
+    --ink:#FFFDF8;
+    --panel:#FFFFFF;
+    --panel-2:#F7F2E8;
+    --line:#E7DFCE;
+    --text:#2A2622;
+    --muted:#8A8073;
+    --obi:#FFCB2E;
+    --obi-deep:#F0A800;
+    --pop:#FF4D74;
+    --alert:#E0453F;
+    --shadow:0 2px 0 rgba(231,223,206,.9);
+    --r:12px;
+
     --mincho: "Hiragino Mincho ProN","ヒラギノ明朝 ProN","Yu Mincho","YuMincho","Noto Serif JP",serif;
     --gothic: "Hiragino Sans","ヒラギノ角ゴシック","Yu Gothic","Noto Sans JP",system-ui,sans-serif;
     --mono: "SF Mono",ui-monospace,Menlo,Consolas,monospace;
@@ -37,22 +41,22 @@
     margin-bottom:28px;
   }
   .obi-tab{
-    background:var(--obi);color:#101216;
+    background:var(--obi);color:#2A2622;
     font-family:var(--mono);font-size:11px;letter-spacing:.18em;
     padding:14px 10px;writing-mode:vertical-rl;
   }
   .head-text{padding:18px 16px}
   .head-text h1{
-    font-family:var(--mincho);font-weight:600;
-    font-size:22px;letter-spacing:.06em;margin:0 0 4px;
+    font-family:var(--mincho);font-weight:700;
+    font-size:23px;letter-spacing:.04em;margin:0 0 4px;
   }
   .head-text p{margin:0;font-size:12px;color:var(--muted);letter-spacing:.04em}
   .head-meta{margin-left:auto;padding:18px 18px;text-align:right;
              display:flex;flex-direction:column;gap:4px;justify-content:center}
   .head-meta .made{font-size:11px;color:var(--muted);white-space:nowrap}
-  .head-meta .made strong{font-family:var(--mono);color:var(--obi);font-size:14px;font-weight:500}
+  .head-meta .made strong{font-family:var(--mono);color:var(--pop);font-size:14px;font-weight:700}
   .head-meta a{font-size:11px;color:var(--muted);white-space:nowrap}
-  .head-meta a:hover{color:var(--obi)}
+  .head-meta a:hover{color:var(--pop)}
   @media (max-width:420px){ .head-meta{padding:12px 12px} .head-meta .made strong{font-size:12px} }
 
   /* ---- form ---- */
@@ -62,13 +66,13 @@
     letter-spacing:.2em;color:var(--muted);margin-bottom:6px;
   }
   input[type=text]{
-    width:100%;background:var(--panel);border:1px solid var(--line);
+    width:100%;background:var(--panel);border:2px solid var(--line);
     color:var(--text);font-family:var(--gothic);font-size:15px;
-    padding:11px 12px;border-radius:2px;
+    padding:11px 12px;border-radius:var(--r);
   }
   input[type=text]:focus{outline:2px solid var(--obi);outline-offset:1px;border-color:transparent}
 
-  .seg{display:flex;border:1px solid var(--line);border-radius:2px;overflow:hidden}
+  .seg{display:flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
   .seg button{
     flex:1;background:var(--panel);border:0;color:var(--muted);
     font-family:var(--gothic);font-size:12px;padding:10px 2px;cursor:pointer;
@@ -76,7 +80,7 @@
   }
   .seg button:first-child{border-left:0}
   .seg button[disabled]{opacity:.4;cursor:not-allowed}
-  .seg button[aria-pressed=true]{background:var(--obi);color:#101216;font-weight:700}
+  .seg button[aria-pressed=true]{background:var(--obi);color:#2A2622;font-weight:700}
   .seg button:focus-visible{outline:2px solid var(--obi);outline-offset:-4px}
 
   /* ---- grid ---- */
@@ -89,14 +93,14 @@
     display:grid;grid-template-columns:repeat(3,1fr);gap:8px;
   }
   .slot{
-    position:relative;aspect-ratio:var(--ratio,1);background:var(--panel);
-    border:1px solid var(--line);border-radius:2px;
+    position:relative;aspect-ratio:var(--ratio,1);background:var(--panel-2);
+    border:2px dashed var(--line);border-radius:var(--r);
     display:flex;align-items:center;justify-content:center;
     cursor:pointer;overflow:hidden;padding:0;color:var(--muted);
     font-family:var(--mono);font-size:11px;letter-spacing:.1em;
     transition:border-color .15s, transform .15s;
   }
-  .slot:hover{border-color:var(--obi)}
+  .slot:hover{border-color:var(--obi-deep);background:#FFFBEC}
   .slot:focus-visible{outline:2px solid var(--obi);outline-offset:2px}
   .slot img{width:100%;height:100%;object-fit:var(--fit,cover);object-position:center 30%;display:block}
   .slot .num{
@@ -104,7 +108,7 @@
     font-size:10px;color:rgba(255,255,255,.75);
     text-shadow:0 1px 3px rgba(0,0,0,.9);z-index:2;
   }
-  .slot.filled{border-color:transparent}
+  .slot.filled{border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow)}
   .slot .cap{
     position:absolute;left:0;right:0;bottom:0;z-index:2;
     background:linear-gradient(transparent,rgba(0,0,0,.85));
@@ -114,7 +118,7 @@
   }
   .slot .grab{
     position:absolute;top:3px;right:3px;z-index:3;width:24px;height:24px;
-    border-radius:2px;background:rgba(0,0,0,.55);border:0;color:#fff;
+    border-radius:var(--r);background:rgba(0,0,0,.55);border:0;color:#fff;
     font-size:12px;line-height:1;cursor:grab;display:none;
   }
   .slot.filled .grab{display:block}
@@ -130,19 +134,21 @@
   .btn{
     flex:1;padding:14px;border:1px solid var(--line);background:var(--panel);
     color:var(--text);font-family:var(--gothic);font-size:14px;
-    border-radius:2px;cursor:pointer;
+    border-radius:var(--r);cursor:pointer;
   }
-  .btn:hover{border-color:var(--obi)}
+  .btn:hover{border-color:var(--obi-deep);background:#FFFBEC}
   .btn:focus-visible{outline:2px solid var(--obi);outline-offset:2px}
-  .btn.primary{background:var(--obi);color:#101216;border-color:var(--obi);font-weight:700;letter-spacing:.04em}
+  .btn.primary{background:var(--obi);color:#2A2622;border-color:var(--obi-deep);
+    font-weight:800;letter-spacing:.04em;box-shadow:0 3px 0 var(--obi-deep)}
+  .btn.primary:active{transform:translateY(2px);box-shadow:0 1px 0 var(--obi-deep)}
   .btn.ghost{flex:0 0 auto;padding:14px 16px;font-size:12px;color:var(--muted)}
   .btn.sns{padding:11px;font-size:12px;color:var(--muted)}
-  .btn.sns:hover{border-color:var(--obi);color:var(--obi)}
+  .btn.sns:hover{border-color:var(--pop);color:var(--pop);background:#FFF5F7}
   .btn.danger{color:var(--alert)}
 
   /* ---- sheet ---- */
   .veil{
-    position:fixed;inset:0;background:rgba(5,6,8,.82);z-index:50;
+    position:fixed;inset:0;background:rgba(42,38,34,.45);z-index:50;
     display:none;align-items:flex-end;justify-content:center;
   }
   .veil.open{display:flex}
@@ -154,7 +160,7 @@
   }
   .sheet h2{font-family:var(--mincho);font-size:17px;font-weight:600;margin:0 0 16px;letter-spacing:.05em}
   .drop{
-    border:1px dashed var(--line);border-radius:2px;aspect-ratio:var(--ratio,1);
+    border:1px dashed var(--line);border-radius:var(--r);aspect-ratio:var(--ratio,1);
     max-height:210px;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;
     color:var(--muted);font-size:12px;text-align:center;line-height:1.8;
     cursor:pointer;overflow:hidden;background:var(--panel);
@@ -174,13 +180,13 @@
     border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;
   }
   .suggest li:last-child{border-bottom:0}
-  .suggest li[aria-selected=true],.suggest li:hover{background:var(--obi);color:#101216}
+  .suggest li[aria-selected=true],.suggest li:hover{background:var(--obi);color:#2A2622}
   .suggest .s-sub{color:var(--muted);font-size:11px;flex:0 0 auto;max-width:40%;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .suggest li[aria-selected=true] .s-sub,.suggest li:hover .s-sub{color:#4a4127}
   .s-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .search-row button{flex:0 0 auto;padding:0 18px;background:var(--obi);color:#101216;
-    border:0;border-radius:2px;font-weight:700;cursor:pointer}
+  .search-row button{flex:0 0 auto;padding:0 18px;background:var(--obi);color:#2A2622;
+    border:0;border-radius:var(--r);font-weight:700;cursor:pointer}
   .results{
     display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:16px;
     max-height:44vh;overflow-y:auto;overscroll-behavior:contain;
@@ -189,26 +195,26 @@
   .results::-webkit-scrollbar{width:6px}
   .results::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
   .results button{
-    padding:0;border:1px solid var(--line);background:var(--panel);border-radius:2px;
+    padding:0;border:1px solid var(--line);background:var(--panel);border-radius:var(--r);
     aspect-ratio:var(--ratio,1);overflow:hidden;cursor:pointer;position:relative;
   }
   .results button:hover{border-color:var(--obi)}
   .results img{width:100%;height:100%;object-fit:var(--fit,cover);object-position:center 30%;display:block}
   .results .tag{
-    position:absolute;top:0;left:0;background:var(--obi);color:#101216;
+    position:absolute;top:0;left:0;background:var(--obi);color:#2A2622;
     font-size:9px;font-weight:700;padding:2px 5px;letter-spacing:.04em;
   }
   .results .rel{
     position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.72);
     color:#fff;font-size:9px;padding:4px 2px;letter-spacing:.04em;
   }
-  .results .rel:hover{background:var(--obi);color:#101216}
+  .results .rel:hover{background:var(--obi);color:#2A2622}
   .seg-sm button{font-size:12px;padding:8px 4px}
-  .seg-sm button[aria-pressed=true]{background:var(--obi);color:#101216;font-weight:700}
+  .seg-sm button[aria-pressed=true]{background:var(--obi);color:#2A2622;font-weight:700}
   .people{list-style:none;margin:0 0 16px;padding:0}
   .people li{
     display:flex;align-items:center;gap:10px;padding:9px 10px;cursor:pointer;
-    border:1px solid var(--line);border-radius:2px;margin-bottom:6px;background:var(--panel);
+    border:1px solid var(--line);border-radius:var(--r);margin-bottom:6px;background:var(--panel);
   }
   .people li:hover{border-color:var(--obi)}
   .people img{width:36px;height:36px;object-fit:cover;border-radius:50%;flex:0 0 auto;background:var(--panel-2)}
@@ -219,10 +225,10 @@
     font-family:var(--mono);margin-bottom:5px}
   .buys a{
     display:block;text-align:center;padding:10px;margin-bottom:5px;
-    border:1px solid var(--line);border-radius:2px;color:var(--muted);
+    border:1px solid var(--line);border-radius:var(--r);color:var(--muted);
     font-size:13px;text-decoration:none;
   }
-  .buys a:hover{border-color:var(--obi);color:var(--obi)}
+  .buys a:hover{border-color:var(--pop);color:var(--pop);background:#FFF5F7}
 
   /* 横のバナー枠。PCの余白にだけ出し、スマホでは表示しない。
      作る流れと共有の導線には広告を入れない方針のため。 */
@@ -400,7 +406,7 @@
     漫画・アニメのデータは AniList、映画は TMDB（この製品は TMDB の公認ではありません）、
     音楽は Apple Music / iTunes、人物は Wikipedia および Wikimedia Commons（CC BY-SA）を利用しています。
     アップロードした画像はブラウザの中だけで処理されます。
-    <a href="/about" style="color:var(--obi)">このサイトについて</a>
+    <a href="/about" style="color:var(--pop)">このサイトについて</a>
   </footer>
 </div>
 
@@ -1060,11 +1066,11 @@
     const mincho = '"Hiragino Mincho ProN","Yu Mincho",serif';
     const gothic = '"Hiragino Sans","Yu Gothic",sans-serif';
 
-    x.fillStyle = '#111318'; x.fillRect(0,0,W,H);
+    x.fillStyle = '#FFFDF8'; x.fillRect(0,0,W,H);
 
     // 帯（obi）
-    x.fillStyle = '#f2c230'; x.fillRect(0,0,OBI,H);
-    x.fillStyle = '#101216';
+    x.fillStyle = '#FFCB2E'; x.fillRect(0,0,OBI,H);
+    x.fillStyle = '#2A2622';
     const t = ($('title').value || COPY[S.mode].title).slice(0,14);
     x.font = `600 40px ${mincho}`; x.textAlign = 'center'; x.textBaseline = 'middle';
     [...t].forEach((ch,i) => x.fillText(ch, OBI/2, 96 + i*46));
@@ -1074,11 +1080,11 @@
 
     // 見出し
     x.textBaseline = 'alphabetic'; x.textAlign = 'left';
-    x.fillStyle = '#efece5'; x.font = `600 58px ${mincho}`;
+    x.fillStyle = '#2A2622'; x.font = `700 58px ${mincho}`;
     x.fillText(t, OBI + PAD, 132);
     const nm = $('name').value.trim();
-    if (nm){ x.fillStyle = '#8b909c'; x.font = `400 26px ${gothic}`; x.fillText(nm, OBI + PAD, 178); }
-    x.strokeStyle = '#31363f'; x.lineWidth = 1;
+    if (nm){ x.fillStyle = '#8A8073'; x.font = `400 26px ${gothic}`; x.fillText(nm, OBI + PAD, 178); }
+    x.strokeStyle = '#E7DFCE'; x.lineWidth = 2;
     x.beginPath(); x.moveTo(OBI+PAD, 206); x.lineTo(W-PAD, 206); x.stroke();
 
     // グリッド
@@ -1086,7 +1092,7 @@
       const col = i % 3, row = (i / 3) | 0;
       const cx = OBI + PAD + col*(cellW+GAP);
       const cy = gridTop + row*(cellH+capH+GAP);
-      x.fillStyle = '#1a1d24'; x.fillRect(cx, cy, cellW, cellH);
+      x.fillStyle = '#F7F2E8'; x.fillRect(cx, cy, cellW, cellH);
       if (it && it.src){
         const im = new Image(); im.crossOrigin = 'anonymous'; im.src = it.src;
         // 同期描画（この時点でデコード済み）。枠を埋めるように中央でトリミング
@@ -1101,27 +1107,27 @@
           x.restore();
         } catch(e){}
       } else {
-        x.strokeStyle = '#31363f'; x.strokeRect(cx+.5, cy+.5, cellW-1, cellH-1);
+        x.strokeStyle = '#E7DFCE'; x.strokeRect(cx+.5, cy+.5, cellW-1, cellH-1);
       }
-      x.fillStyle = '#6f747f'; x.font = `500 15px ${gothic}`;
+      x.fillStyle = '#FF4D74'; x.font = `700 15px ${gothic}`;
       x.fillText(String(i+1).padStart(2,'0'), cx, cy + cellH + 22);
       if (it && it.title){
-        x.fillStyle = '#efece5'; x.font = `500 19px ${gothic}`;
+        x.fillStyle = '#2A2622'; x.font = `600 19px ${gothic}`;
         x.fillText(clip(x, it.title, cellW - 34), cx + 30, cy + cellH + 22);
       }
       if (it && it.sub){
-        x.fillStyle = '#8b909c'; x.font = `400 16px ${gothic}`;
+        x.fillStyle = '#8A8073'; x.font = `400 16px ${gothic}`;
         x.fillText(clip(x, it.sub, cellW), cx, cy + cellH + 42);
       }
     });
 
-    x.fillStyle = '#6f747f'; x.font = `400 18px ${gothic}`;
+    x.fillStyle = '#8A8073'; x.font = `400 18px ${gothic}`;
     x.fillText(COPY[S.mode].grid, OBI + PAD, H - 56 - creditH);
 
     // 著作者表示（CC BY-SA の要件）
     if (credits.length){
       let cy2 = H - creditH - 14;
-      x.fillStyle = '#4e535d'; x.font = `400 15px ${gothic}`;
+      x.fillStyle = '#A79C8C'; x.font = `400 15px ${gothic}`;
       x.fillText('写真クレジット（Wikimedia Commons）', OBI + PAD, cy2);
       x.font = `400 14px ${gothic}`;
       credits.forEach(line => {
