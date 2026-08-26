@@ -186,17 +186,30 @@ const server = http.createServer(async (req, res) => {
           externalId: fromAPI && it.externalId != null ? String(it.externalId).slice(0, 40) : null,
           title:      String(it.title || '').slice(0, 120),
           sub:        String(it.sub || '').slice(0, 120),
+          year:       Number(it.year) || null,
           imageUrl,
         };
       });
 
       // SNSハンドル（@なし・英数字と_のみ）。有名人ページの紐づけに使う
       const handle = String(body.handle || '').replace(/^@/, '').slice(0, 30);
+
+      // 言語。指定が無ければブラウザの Accept-Language から推定する
+      const accept = String(req.headers['accept-language'] || '');
+      const lang = body.lang === 'en' || body.lang === 'ja'
+        ? body.lang
+        : (/^ja/i.test(accept) ? 'ja' : 'en');
+
+      // 年齢ではなく生まれ年で保存する。こうすれば毎年の一斉更新が要らない
+      const thisYear = new Date().getFullYear();
+      const born = Number(body.born) || null;
+      const bornOk = born && born >= thisYear - 100 && born <= thisYear - 5 ? born : null;
       const id = await store.save({
         type: body.type,
         title: String(body.title || '').slice(0, 60),
         name:  String(body.name || '').slice(0, 60),
         handle: /^[A-Za-z0-9_]{1,30}$/.test(handle) ? handle : null,
+        lang, born: bornOk,
         items: clean, ipHash,
       });
       const shareable = clean.filter(x => x && x.imageUrl).length;
@@ -215,6 +228,28 @@ const server = http.createServer(async (req, res) => {
       if (type && !TYPES.has(type)) return send(res, 400, { error: '種別が不正です' });
 
       const items = await store.list({ type, sort, handle, q: kw, limit, offset });
+      return send(res, 200, { items });
+    }
+
+    // 作品ランキング。言語・作品の年代・作った人の年齢層で絞れる
+    if (url.pathname === '/x/top') {
+      const type    = url.searchParams.get('type');
+      const lang    = url.searchParams.get('lang');
+      const decade  = Number(url.searchParams.get('decade')) || null;
+      const ageBand = Number(url.searchParams.get('age')) || null;
+      const limit   = Math.min(Number(url.searchParams.get('limit')) || 9, 30);
+      if (type && !TYPES.has(type)) return send(res, 400, { error: '種別が不正です' });
+
+      const key = `top:${type}:${lang}:${decade}:${ageBand}:${limit}`;
+      const hit = cacheGet(key);
+      if (hit) return send(res, 200, { items: hit, cached: true });
+
+      const items = await store.top({
+        type, limit,
+        lang: lang === 'ja' || lang === 'en' ? lang : null,
+        decade, ageBand,
+      });
+      cacheSet(key, items, 10 * 60e3);      // 10分キャッシュ
       return send(res, 200, { items });
     }
 
@@ -332,7 +367,10 @@ const server = http.createServer(async (req, res) => {
 
     if (url.pathname === '/about') return serveStatic('/about.html', res);
     if (url.pathname === '/terms')  return serveStatic('/terms.html', res);
-    if (url.pathname === '/trends') return serveStatic('/trends.html', res);
+    if (url.pathname === '/trends')  return serveStatic('/trends.html', res);
+    if (url.pathname === '/contact') return serveStatic('/contact.html', res);
+    if (url.pathname === '/privacy-policy' || url.pathname === '/privacy')
+      return serveStatic('/privacy.html', res);
     // /u/ユーザー名 で、その人が作ったものだけを見る
     if (url.pathname.startsWith('/u/')) return serveStatic('/trends.html', res);
 

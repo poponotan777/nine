@@ -60,6 +60,9 @@ function openPostgres() {
     ALTER TABLE cards ADD COLUMN IF NOT EXISTS handle TEXT;
     ALTER TABLE cards ADD COLUMN IF NOT EXISTS views  INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE cards ADD COLUMN IF NOT EXISTS likes  INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE cards ADD COLUMN IF NOT EXISTS lang   TEXT;
+    ALTER TABLE cards ADD COLUMN IF NOT EXISTS born   INTEGER;
+    ALTER TABLE card_items ADD COLUMN IF NOT EXISTS year INTEGER;
     CREATE TABLE IF NOT EXISTS card_items (
       card_id     TEXT NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
       position    INTEGER NOT NULL,
@@ -88,15 +91,15 @@ function openPostgres() {
       try {
         await client.query('BEGIN');
         await client.query(
-          'INSERT INTO cards (id,type,title,name,filled,ip_hash,handle) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+          'INSERT INTO cards (id,type,title,name,filled,ip_hash,handle,lang,born) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
           [id, card.type, card.title || '', card.name || '',
-           card.items.filter(Boolean).length, card.ipHash, card.handle || null]);
+           card.items.filter(Boolean).length, card.ipHash, card.handle || null, card.lang || null, card.born || null]);
         for (let i = 0; i < card.items.length; i++) {
           const it = card.items[i];
           if (!it) continue;
           await client.query(
-            'INSERT INTO card_items (card_id,position,source,external_id,title,sub,image_url) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-            [id, i, it.source || null, it.externalId || null, it.title || '', it.sub || '', it.imageUrl || null]);
+            'INSERT INTO card_items (card_id,position,source,external_id,title,sub,image_url,year) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+            [id, i, it.source || null, it.externalId || null, it.title || '', it.sub || '', it.imageUrl || null, it.year || null]);
         }
         await client.query('COMMIT');
       } catch (e) {
@@ -120,14 +123,28 @@ function openPostgres() {
       return { total: total.rows[0].n, today: today.rows[0].n, byType: map };
     },
 
-    async top(type, limit = 9) {
+    async top({ type = null, lang = null, decade = null, ageBand = null, limit = 9 } = {}) {
       await ready;
+      const where = ['i.external_id IS NOT NULL'];
+      const args = [];
+      if (type)   { args.push(type);   where.push(`c.type = $${args.length}`); }
+      if (lang)   { args.push(lang);   where.push(`c.lang = $${args.length}`); }
+      if (decade) { args.push(decade); where.push(`i.year >= $${args.length} AND i.year < $${args.length} + 10`); }
+      if (ageBand) {
+        // 生まれ年から、その年代の人だけに絞る（例: 1990 → 1990〜1999年生まれ）
+        args.push(ageBand);
+        where.push(`c.born >= $${args.length} AND c.born < $${args.length} + 10`);
+      }
+      args.push(limit);
       const r = await pool.query(`
-        SELECT i.source, i.external_id, MIN(i.title) AS title, MIN(i.sub) AS sub, COUNT(*)::int AS n
+        SELECT i.source, i.external_id,
+               MIN(i.title) AS title, MIN(i.sub) AS sub,
+               MIN(i.image_url) AS image_url, MIN(i.year) AS year,
+               COUNT(*)::int AS n
         FROM card_items i JOIN cards c ON c.id = i.card_id
-        WHERE c.type = $1 AND i.external_id IS NOT NULL
+        WHERE ${where.join(' AND ')}
         GROUP BY i.source, i.external_id
-        ORDER BY n DESC LIMIT $2`, [type, limit]);
+        ORDER BY n DESC LIMIT $${args.length}`, args);
       return r.rows;
     },
 
@@ -220,6 +237,8 @@ function openSqlite() {
       handle     TEXT,
       views      INTEGER NOT NULL DEFAULT 0,
       likes      INTEGER NOT NULL DEFAULT 0,
+      lang       TEXT,
+      born       INTEGER,
       created_at TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS card_items (
@@ -230,6 +249,7 @@ function openSqlite() {
       title       TEXT,
       sub         TEXT,
       image_url   TEXT,
+      year        INTEGER,
       PRIMARY KEY (card_id, position)
     );
     CREATE INDEX IF NOT EXISTS idx_cards_type ON cards(type);
@@ -237,15 +257,18 @@ function openSqlite() {
   `);
 
   const insCard = db.prepare(
-    'INSERT INTO cards (id,type,title,name,filled,ip_hash,handle,created_at) VALUES (?,?,?,?,?,?,?,?)');
+    'INSERT INTO cards (id,type,title,name,filled,ip_hash,handle,lang,born,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)');
   // 既存のDBに後から列を足す場合の保険
   try { db.exec('ALTER TABLE card_items ADD COLUMN image_url TEXT'); } catch {}
   try { db.exec('ALTER TABLE cards ADD COLUMN handle TEXT'); } catch {}
   try { db.exec('ALTER TABLE cards ADD COLUMN views INTEGER NOT NULL DEFAULT 0'); } catch {}
   try { db.exec('ALTER TABLE cards ADD COLUMN likes INTEGER NOT NULL DEFAULT 0'); } catch {}
+  try { db.exec('ALTER TABLE cards ADD COLUMN lang TEXT'); } catch {}
+  try { db.exec('ALTER TABLE cards ADD COLUMN born INTEGER'); } catch {}
+  try { db.exec('ALTER TABLE card_items ADD COLUMN year INTEGER'); } catch {}
 
   const insItem = db.prepare(
-    'INSERT INTO card_items (card_id,position,source,external_id,title,sub,image_url) VALUES (?,?,?,?,?,?,?)');
+    'INSERT INTO card_items (card_id,position,source,external_id,title,sub,image_url,year) VALUES (?,?,?,?,?,?,?,?)');
   const qTotal   = db.prepare('SELECT COUNT(*) AS n FROM cards');
   const qByType  = db.prepare('SELECT type, COUNT(*) AS n FROM cards GROUP BY type');
   const qRecent  = db.prepare(
@@ -266,11 +289,11 @@ function openSqlite() {
       const id = newId();
       const now = new Date().toISOString();
       insCard.run(id, card.type, card.title || '', card.name || '',
-                  card.items.filter(Boolean).length, card.ipHash, card.handle || null, now);
+                  card.items.filter(Boolean).length, card.ipHash, card.handle || null, card.lang || null, card.born || null, now);
       card.items.forEach((it, i) => {
         if (!it) return;
         insItem.run(id, i, it.source || null, it.externalId || null,
-                    it.title || '', it.sub || '', it.imageUrl || null);
+                    it.title || '', it.sub || '', it.imageUrl || null, it.year || null);
       });
       return id;
     },
@@ -280,7 +303,24 @@ function openSqlite() {
       const since = new Date(Date.now() - 24 * 3600e3).toISOString();
       return { total: qTotal.get().n, today: qRecent.get(since).n, byType };
     },
-    top(type, limit = 9) { return qTop.all(type, limit); },
+    top({ type = null, lang = null, decade = null, ageBand = null, limit = 9 } = {}) {
+      const where = ['i.external_id IS NOT NULL'];
+      const args = [];
+      if (type)   { where.push('c.type = ?');  args.push(type); }
+      if (lang)   { where.push('c.lang = ?');  args.push(lang); }
+      if (decade) { where.push('i.year >= ? AND i.year < ? + 10'); args.push(decade, decade); }
+      if (ageBand){ where.push('c.born >= ? AND c.born < ? + 10'); args.push(ageBand, ageBand); }
+      args.push(limit);
+      return db.prepare(`
+        SELECT i.source, i.external_id,
+               MIN(i.title) AS title, MIN(i.sub) AS sub,
+               MIN(i.image_url) AS image_url, MIN(i.year) AS year,
+               COUNT(*) AS n
+        FROM card_items i JOIN cards c ON c.id = i.card_id
+        WHERE ${where.join(' AND ')}
+        GROUP BY i.source, i.external_id
+        ORDER BY n DESC LIMIT ?`).all(...args);
+    },
     countByIP(ipHash, sinceMs) {
       return qIpCount.get(ipHash, new Date(Date.now() - sinceMs).toISOString()).n;
     },
@@ -374,13 +414,17 @@ function openJSON() {
       const today = state.cards.filter(c => new Date(c.created_at).getTime() > since).length;
       return { total: state.cards.length, today, byType };
     },
-    top(type, limit = 9) {
-      const ids = new Set(state.cards.filter(c => c.type === type).map(c => c.id));
+    top({ type = null, lang = null, decade = null, ageBand = null, limit = 9 } = {}) {
+      const ok = c => (!type || c.type === type) && (!lang || c.lang === lang)
+        && (!ageBand || (c.born >= ageBand && c.born < ageBand + 10));
+      const ids = new Set(state.cards.filter(ok).map(c => c.id));
       const bucket = new Map();
       state.items.forEach(it => {
         if (!ids.has(it.card_id) || !it.external_id) return;
+        if (decade && !(it.year >= decade && it.year < decade + 10)) return;
         const k = `${it.source}:${it.external_id}`;
-        const cur = bucket.get(k) || { source: it.source, external_id: it.external_id, title: it.title, sub: it.sub, n: 0 };
+        const cur = bucket.get(k) || { source: it.source, external_id: it.external_id,
+          title: it.title, sub: it.sub, image_url: it.image_url, year: it.year, n: 0 };
         cur.n++; bucket.set(k, cur);
       });
       return [...bucket.values()].sort((a, b) => b.n - a.n).slice(0, limit);

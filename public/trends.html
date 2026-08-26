@@ -32,6 +32,10 @@
   body{margin:0;background:var(--ink);color:var(--text);font-family:var(--gothic);
        -webkit-font-smoothing:antialiased;padding-bottom:60px}
   a{color:var(--pop)}
+  .langbtn{background:transparent;border:1px solid #56624F;color:#A9B6A2;
+    font-family:var(--mono);font-size:10px;letter-spacing:.1em;
+    padding:4px 9px;border-radius:999px;cursor:pointer}
+  .langbtn:hover{border-color:var(--obi);color:var(--obi)}
   header{display:flex;background:var(--head);color:var(--head-text);align-items:stretch}
   .obi-tab{background:var(--obi);color:#2A2622;font-family:var(--mono);font-size:11px;
            letter-spacing:.18em;padding:14px 10px;writing-mode:vertical-rl}
@@ -58,6 +62,22 @@
     border:1px solid var(--line);border-radius:var(--r);font-size:12px;
     text-decoration:none;color:var(--muted)}
   .xlink:hover{border-color:var(--pop);color:var(--pop);background:#FCEFF2}
+
+  .ranksec{margin-bottom:26px}
+  .rank-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+  .rank-head h2{font-family:var(--mincho);font-size:19px;margin:0;flex:1;min-width:180px}
+  .decades{margin-bottom:12px;flex-wrap:wrap}
+  .decades button{font-size:11px;padding:7px 11px}
+  .rank{list-style:none;margin:0 0 10px;padding:0;
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px}
+  .rank li{display:flex;align-items:center;gap:11px;background:var(--panel);
+    border:1px solid var(--line);border-radius:var(--r);padding:9px 11px;box-shadow:var(--shadow)}
+  .rank .no{font-family:var(--mono);font-size:12px;color:var(--muted);width:22px;flex:0 0 auto}
+  .rank img{width:38px;height:52px;object-fit:cover;border-radius:4px;background:var(--panel-2);flex:0 0 auto}
+  .rank .info{min-width:0;flex:1}
+  .rank .rt{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rank .rs{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rank .rn{font-family:var(--mono);font-size:11px;color:var(--pop);flex:0 0 auto}
 
   .cards{display:grid;gap:10px}
   .card{display:flex;align-items:center;gap:14px;background:var(--panel);
@@ -91,7 +111,10 @@
     <h1>みんなの9つ</h1>
     <p>ほかの人が何を選んだかを見る</p>
   </div>
-  <div class="head-meta"><a href="/">自分でつくる</a></div>
+  <div class="head-meta">
+    <button type="button" id="langBtn" class="langbtn">EN</button>
+    <a href="/" id="navMake">自分でつくる</a>
+  </div>
 </header>
 
 <main>
@@ -120,6 +143,20 @@
 
   <div class="bar" id="snslinks"></div>
 
+  <section class="ranksec">
+    <div class="rank-head">
+      <h2 id="rankTitle">人気の作品 TOP 9</h2>
+      <div class="seg" id="scope">
+        <button type="button" data-scope="all" aria-pressed="true" id="scAll">すべて</button>
+        <button type="button" data-scope="lang" aria-pressed="false" id="scLang">日本語</button>
+        <button type="button" data-scope="age" aria-pressed="false" id="scAge">同年代</button>
+      </div>
+    </div>
+    <div class="seg decades" id="decades"></div>
+    <ol class="rank" id="rank"></ol>
+    <p class="note" id="rankNote"></p>
+  </section>
+
   <div id="adTop" style="margin-bottom:16px"></div>
   <div class="cards" id="cards"></div>
   <p class="note" id="note">読み込んでいます…</p>
@@ -129,19 +166,57 @@
 
 <footer>
   <a href="/">トップ</a> ｜ <a href="/about">このサイトについて</a> ｜
-  <a href="/terms">利用規約</a>
+  <a href="/terms">利用規約</a> ｜ <a href="/privacy-policy">プライバシーポリシー</a> ｜ <a href="/contact">お問い合わせ</a>
 </footer>
 
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const LABEL = { cd:'CD', manga:'漫画', book:'書籍', anime:'アニメ',
-                  movie:'映画', person:'有名人', character:'キャラ' };
+  const LABEL_JA = { cd:'CD', manga:'漫画', book:'書籍', anime:'アニメ',
+                     movie:'映画', person:'有名人', character:'キャラ' };
+  const LABEL = new Proxy({}, { get: (_, k) => T().kinds[k] || LABEL_JA[k] });
   const TAG = { '':'MyNineLoves', cd:'私を構成する9枚', manga:'私を構成する9冊', book:'私を構成する9冊',
                 anime:'私を構成する9作', movie:'私を構成する9本',
                 person:'私を構成する9人', character:'私を構成する9キャラ' };
 
-  const state = { sort:'new', type:'', q:'', handle:'', offset:0 };
+  let LANG = 'ja';
+  try { LANG = localStorage.getItem('lang') === 'en' ? 'en' : 'ja'; } catch(e){}
+  let myBorn = null;
+  try { myBorn = Number(localStorage.getItem('born')) || null; } catch(e){}
+
+  const I18N = {
+    ja: {
+      h1:'みんなの9つ', sub:'ほかの人が何を選んだかを見る', make:'自分でつくる',
+      rank:'人気の作品 TOP 9', all:'すべて', langOnly:'日本語', age:'同年代',
+      allDecades:'すべての年代', decade:'{d}年代',
+      newest:'最新', hot:'人気', search:'検索', ph:'作品名や名前で探す',
+      empty:'まだ何もありません。最初の1つを作ってみてください。',
+      loading:'読み込んでいます…', failed:'読み込めませんでした。',
+      more:'もっと見る', like:'♥ いいね', liked:'♥ ありがとう', already:'♥ 済',
+      noAge:'年齢を入れて9つを作ると、同じ年代のランキングが見られます。',
+      noRank:'まだ集計できるデータがありません。',
+      picks:'選', views:'view',
+      kinds:{ '':'すべて', cd:'CD', book:'書籍', manga:'漫画', anime:'アニメ',
+              movie:'映画', person:'有名人', character:'キャラ' },
+    },
+    en: {
+      h1:'Everyone\u2019s nine', sub:'See what other people picked', make:'Make yours',
+      rank:'Most picked \u2014 top 9', all:'All', langOnly:'English', age:'My age group',
+      allDecades:'All decades', decade:'{d}s',
+      newest:'Newest', hot:'Popular', search:'Search', ph:'Search a title or name',
+      empty:'Nothing here yet. Be the first.',
+      loading:'Loading\u2026', failed:'Could not load.',
+      more:'Show more', like:'\u2665 Like', liked:'\u2665 Thanks', already:'\u2665 Done',
+      noAge:'Add your age when you make a nine to unlock this.',
+      noRank:'Not enough data yet.',
+      picks:'picks', views:'views',
+      kinds:{ '':'All', cd:'Albums', book:'Books', manga:'Manga', anime:'Anime',
+              movie:'Films', person:'People', character:'Chars' },
+    },
+  };
+  const T = () => I18N[LANG];
+
+  const state = { sort:'new', type:'', q:'', handle:'', offset:0, scope:'all', decade:'' };
   const LIMIT = 24;
   const liked = new Set();
 
@@ -218,10 +293,10 @@
 
       const num = document.createElement('div');
       num.className = 'num';
-      num.innerHTML = `<b>${c.likes}</b> ♥<br><b>${c.views}</b> view`;
+      num.innerHTML = `<b>${c.likes}</b> ♥<br><b>${c.views}</b> ${T().views}`;
 
       const like = document.createElement('button');
-      like.className = 'like'; like.textContent = '♥ いいね';
+      like.className = 'like'; like.textContent = T().like;
       like.addEventListener('click', async () => {
         if (liked.has(c.id)) return;
         liked.add(c.id); like.disabled = true;
@@ -232,7 +307,7 @@
           });
           const j = await r.json();
           if (j.likes != null) num.innerHTML = `<b>${j.likes}</b> ♥<br><b>${c.views}</b> view`;
-          like.textContent = j.already ? '♥ 済' : '♥ ありがとう';
+          like.textContent = j.already ? T().already : T().liked;
         } catch(e){ like.textContent = '失敗'; }
       });
 
@@ -242,7 +317,7 @@
   }
 
   async function load(append){
-    if (!append){ state.offset = 0; $('note').textContent = '読み込んでいます…'; }
+    if (!append){ state.offset = 0; $('note').textContent = T().loading; }
     const p = new URLSearchParams({ sort: state.sort, limit: LIMIT, offset: state.offset });
     if (state.type) p.set('type', state.type);
     if (state.q) p.set('q', state.q);
@@ -254,10 +329,9 @@
       render(items, append);
       state.offset += items.length;
       $('more').style.display = items.length === LIMIT ? 'block' : 'none';
-      $('note').textContent = $('cards').children.length
-        ? '' : 'まだ何もありません。最初の1つを作ってみてください。';
+      $('note').textContent = $('cards').children.length ? '' : T().empty;
     } catch(e){
-      $('note').textContent = '読み込めませんでした。';
+      $('note').textContent = T().failed;
     }
   }
 
@@ -272,6 +346,7 @@
     state.type = b.dataset.type;
     [...$('kind').children].forEach(x => x.setAttribute('aria-pressed', String(x === b)));
     updateXLink();
+    loadRank();
     load(false);
   });
   $('go').addEventListener('click', () => { state.q = $('q').value.trim(); load(false); });
@@ -288,8 +363,107 @@
     if (adInflow) load(false);   // 広告が来たら描き直して差し込む
   }).catch(() => {});
 
-  updateXLink();
-  load(false);
+  /* ---------- 作品ランキング ---------- */
+  function paintDecades(){
+    const box = $('decades');
+    box.innerHTML = '';
+    const now = Math.floor(new Date().getFullYear() / 10) * 10;
+    const list = [['', T().allDecades]];
+    for (let d = now; d >= 1960; d -= 10) list.push([String(d), T().decade.replace('{d}', d)]);
+    list.forEach(([v, label]) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = label;
+      b.setAttribute('aria-pressed', String(state.decade === v));
+      b.addEventListener('click', () => { state.decade = v; paintDecades(); loadRank(); });
+      box.appendChild(b);
+    });
+  }
+
+  async function loadRank(){
+    $('rankTitle').textContent = T().rank;
+    $('scAll').textContent = T().all;
+    $('scLang').textContent = T().langOnly;
+    $('scAge').textContent = T().age;
+    [...$('scope').children].forEach(b =>
+      b.setAttribute('aria-pressed', String(b.dataset.scope === state.scope)));
+
+    if (state.scope === 'age' && !myBorn){
+      $('rank').innerHTML = ''; $('rankNote').textContent = T().noAge; return;
+    }
+    const p = new URLSearchParams({ limit: 9 });
+    if (state.type) p.set('type', state.type);
+    if (state.decade) p.set('decade', state.decade);
+    if (state.scope === 'lang') p.set('lang', LANG);
+    if (state.scope === 'age' && myBorn) p.set('age', Math.floor(myBorn / 10) * 10);
+
+    $('rankNote').textContent = T().loading;
+    try{
+      const r = await fetch('/x/top?' + p);
+      const j = await r.json();
+      const items = j.items || [];
+      const ol = $('rank'); ol.innerHTML = '';
+      items.forEach((it, i) => {
+        const li = document.createElement('li');
+        const no = document.createElement('span');
+        no.className = 'no'; no.textContent = String(i + 1).padStart(2, '0');
+        li.appendChild(no);
+        if (it.image_url){
+          const im = new Image(); im.src = it.image_url; im.alt = ''; im.loading = 'lazy';
+          li.appendChild(im);
+        }
+        const info = document.createElement('div');
+        info.className = 'info';
+        const rt = document.createElement('div');
+        rt.className = 'rt'; rt.textContent = it.title || '';
+        const rs = document.createElement('div');
+        rs.className = 'rs';
+        rs.textContent = [it.sub, it.year].filter(Boolean).join(' ・ ');
+        info.appendChild(rt); info.appendChild(rs);
+        li.appendChild(info);
+        const rn = document.createElement('span');
+        rn.className = 'rn'; rn.textContent = `${it.n} ${T().picks}`;
+        li.appendChild(rn);
+        ol.appendChild(li);
+      });
+      $('rankNote').textContent = items.length ? '' : T().noRank;
+    } catch(e){ $('rankNote').textContent = T().failed; }
+  }
+
+  $('scope').addEventListener('click', e => {
+    const b = e.target.closest('button[data-scope]'); if (!b) return;
+    state.scope = b.dataset.scope; loadRank();
+  });
+
+  /* ---------- 言語の適用 ---------- */
+  function applyLang(){
+    document.documentElement.lang = LANG;
+    $('langBtn').textContent = LANG === 'en' ? '日本語' : 'EN';
+    document.querySelector('.head-text h1').textContent = T().h1;
+    document.querySelector('.head-text p').textContent =
+      state.handle ? `@${state.handle}` : T().sub;
+    $('navMake').textContent = T().make;
+    $('q').placeholder = T().ph;
+    $('go').textContent = T().search;
+    $('more').textContent = T().more;
+    [...$('sort').children].forEach(b => {
+      b.textContent = b.dataset.sort === 'hot' ? T().hot : T().newest;
+    });
+    [...$('kind').children].forEach(b => {
+      b.textContent = T().kinds[b.dataset.type] || b.textContent;
+    });
+    paintDecades();
+    updateXLink();
+    loadRank();
+    load(false);
+  }
+
+  $('langBtn').addEventListener('click', () => {
+    LANG = LANG === 'en' ? 'ja' : 'en';
+    try { localStorage.setItem('lang', LANG); } catch(e){}
+    applyLang();
+  });
+
+  applyLang();
 })();
 </script>
 </body>

@@ -393,7 +393,6 @@
   </p>
 
   <div class="row">
-    <button class="btn ghost" id="sample" data-i18n="btn.sample">サンプルを入れる</button>
     <button class="btn ghost danger" id="clear" data-i18n="btn.clear">全部消す</button>
   </div>
   <div class="row">
@@ -418,7 +417,7 @@
     漫画・アニメのデータは AniList、映画は TMDB（この製品は TMDB の公認ではありません）、
     音楽は Apple Music / iTunes、人物は Wikipedia および Wikimedia Commons（CC BY-SA）を利用しています。
     アップロードした画像はブラウザの中だけで処理されます。
-    <a href="/about" style="color:var(--pop)">このサイトについて</a>
+    <a href="/about" style="color:var(--pop)">このサイトについて</a> ｜ <a href="/terms" style="color:var(--pop)">利用規約</a> ｜ <a href="/privacy-policy" style="color:var(--pop)">プライバシーポリシー</a> ｜ <a href="/contact" style="color:var(--pop)">お問い合わせ</a>
   </footer>
 </div>
 
@@ -463,6 +462,25 @@
   </div>
 </div>
 
+<!-- 年齢（任意）。ランキングを年代で分けるために使う -->
+<div class="veil center" id="agev">
+  <div class="sheet" style="max-width:420px">
+    <h2 id="ageTitle">年代別ランキングに参加しますか</h2>
+    <p class="hint" id="ageNote" style="margin-top:0">
+      年齢を入れると、同じ年代の人が選んだ作品のランキングが見られるようになります。
+      保存されるのは「生まれ年」だけで、名前や個人が分かる情報とは結び付けません。
+    </p>
+    <div class="field">
+      <label class="lbl" for="age" id="ageLbl">年齢（任意）</label>
+      <input type="text" id="age" inputmode="numeric" maxlength="3" placeholder="25">
+    </div>
+    <div class="row">
+      <button class="btn ghost" id="ageSkip">入力しない</button>
+      <button class="btn primary" id="ageOk">決定</button>
+    </div>
+  </div>
+</div>
+
 <!-- 書き出し -->
 <div class="veil center" id="outv">
   <div class="out">
@@ -489,7 +507,7 @@
       'label.kind':'しゅるい', 'label.title':'タイトル', 'label.name':'なまえ',
       'label.handle':'Xのアカウント（任意）',
       'handle.hint':'入れておくと、あなたが作った9つがまとめて見られるページに並びます。',
-      'btn.sample':'サンプルを入れる', 'btn.clear':'全部消す',
+      'btn.clear':'全部消す',
       'btn.export':'画像を書き出す', 'btn.share':'SNSでシェア',
       'btn.search':'検索', 'btn.remove':'消す', 'btn.done':'決定',
       'btn.close':'閉じる', 'btn.save':'保存', 'btn.back':'← 検索結果に戻る',
@@ -513,13 +531,16 @@
       'err.taint':'外部から読み込んだ画像があるため、この環境では画像化できませんでした。',
       'misskey.ask':'お使いのMisskey/Fediverseサーバーを入れてください\n（例: misskey.io, fedibird.com）',
       'credits':'写真クレジット（Wikimedia Commons）',
+      'age.title':'年代別ランキングに参加しますか',
+      'age.note':'年齢を入れると、同じ年代の人が選んだ作品のランキングが見られるようになります。保存されるのは「生まれ年」だけで、名前や個人が分かる情報とは結び付けません。',
+      'age.label':'年齢（任意）', 'age.skip':'入力しない',
     },
     en: {
       'nav.trends':'Everyone\u2019s nine', 'nav.about':'About',
       'label.kind':'Category', 'label.title':'Title', 'label.name':'Your name',
       'label.handle':'X account (optional)',
       'handle.hint':'Add it and all of your nines will appear on one page.',
-      'btn.sample':'Fill with samples', 'btn.clear':'Clear all',
+      'btn.clear':'Clear all',
       'btn.export':'Export image', 'btn.share':'Share',
       'btn.search':'Search', 'btn.remove':'Remove', 'btn.done':'Done',
       'btn.close':'Close', 'btn.save':'Save', 'btn.back':'\u2190 Back to results',
@@ -543,6 +564,9 @@
       'err.taint':'This image came from an external source and could not be exported here.',
       'misskey.ask':'Enter your Misskey / Fediverse server\n(e.g. misskey.io, fedibird.com)',
       'credits':'Photo credits (Wikimedia Commons)',
+      'age.title':'Join the age-based ranking?',
+      'age.note':'Add your age to see what people your age picked. Only the birth year is stored, and it is never linked to your name.',
+      'age.label':'Age (optional)', 'age.skip':'Skip',
     },
   };
   const t = (k, vars) => {
@@ -858,6 +882,7 @@
     pendingRef = {
       source: item.source || null,
       externalId: item.id != null ? String(item.id) : null,
+      year: item.year || null,
       // /img?u=... から元のURLを取り出す（共有ページ用。画像そのものは保存しない）
       imageUrl: (() => {
         try { return decodeURIComponent(new URL(item.img, location.origin).searchParams.get('u') || ''); }
@@ -1120,49 +1145,6 @@
   });
 
   /* ---------- サンプル / クリア ---------- */
-  const SAMPLE = {
-    cd: [['夜明けのロンド','キリエ'],['Blue Hour','the paperbacks'],['海と信号','宮下ハル'],
-         ['LOOP STATION','ヤマウチ'],['遠雷','四月の鳥'],['CITY POP 1984','V.A.'],
-         ['sleeptalk','mio'],['煙の街','ジャンクション'],['Encore','東京カルテット']],
-    manga: [['星降る町の灯','三上ハジメ'],['ブルーピリオド以前','佐々木ノリ'],['鉄と犬','岸本アキ'],
-            ['放課後インベーダー','山田うみ'],['天涯のカルテ','望月レイ'],['ひとくち恋愛','小鳥遊みか'],
-            ['ゴーストタウン学園','大森アキラ'],['海鳴りの夏','井上ナオ'],['最終電車','くらもとゆう']],
-    anime: [['雲の向こうの停留所','スタジオ蒼'],['ハロー、機械仕掛け','ノヴァ'],['夏至のクロニクル','四葉動画'],
-            ['アルカディア急行','スタジオ蒼'],['きみと放課後と','スイングアニメ'],['鋼の遺言','MAPPLE'],
-            ['青いカーテン','ぷりずむ'],['ラストサマー','東雲プロ'],['星屑インターバル','ノヴァ']],
-    movie: [['遠い灯台','1998'],['雨のあとで','2014'],['メトロポリス再訪','1979'],
-            ['ブルーグラス','2007'],['沈黙の週末','1965'],['南回帰線','2021'],
-            ['真夜中の食卓','1993'],['カレイドスコープ','2016'],['最後の教室','1984']],
-    book: [['夜と霧の向こう','水無月ケイ'],['アルジャーノンの庭','三浦タカシ'],['砂の年代記','南雲リョウ'],
-           ['遠くの汽笛','田島ミワ'],['言葉の在処','高梨アキラ'],['冬のいちばん長い日','佐倉レイ'],
-           ['海辺の図書館','大月ソウ'],['名もなき星の','東ハルカ'],['読書の終わり','西野トオル']],
-    character: [['シロガネ','夏至のクロニクル'],['ミナト','鋼の遺言'],['アオイ','青いカーテン'],
-                ['ハル','雲の向こうの停留所'],['クロエ','アルカディア急行'],['タツヤ','最終電車'],
-                ['ノノ','星屑インターバル'],['レン','ラストサマー'],['ユキ','きみと放課後と']],
-    person: [['佐藤ミキ','写真家'],['川上ケイ','映画監督'],['ナガイ','イラストレーター'],
-             ['白鳥アヤ','俳優'],['トモ','動画クリエイター'],['三浦レン','音楽家'],
-             ['あさひ','配信者'],['黒木ソウ','小説家'],['ユキノ','デザイナー']]
-  };
-  function placeholder(text, seed){
-    // サンプル画像も種別の縦横比で作る
-    const W = 400, H = Math.round(W / (RATIO[S.mode] || 1));
-    const c = document.createElement('canvas'); c.width = W; c.height = H;
-    const x = c.getContext('2d');
-    const hue = (seed*47) % 360;
-    const g = x.createLinearGradient(0,0,W,H);
-    g.addColorStop(0, `hsl(${hue} 42% 32%)`); g.addColorStop(1, `hsl(${(hue+48)%360} 46% 16%)`);
-    x.fillStyle = g; x.fillRect(0,0,W,H);
-    x.strokeStyle = 'rgba(255,255,255,.22)'; x.lineWidth = 2;
-    x.beginPath(); x.arc(W/2, H/2, 60 + (seed%4)*22, 0, Math.PI*2); x.stroke();
-    x.fillStyle = 'rgba(255,255,255,.9)';
-    x.font = '600 26px ' + getComputedStyle(document.body).getPropertyValue('--mincho');
-    x.textAlign = 'center'; x.fillText(text.slice(0,8), W/2, H - 60);
-    return c.toDataURL('image/jpeg', .85);
-  }
-  $('sample').addEventListener('click', () => {
-    S.items = SAMPLE[S.mode].map((p,i) => ({src:placeholder(p[0], i+3), title:p[0], sub:p[1]}));
-    render();
-  });
   $('clear').addEventListener('click', () => { S.items = Array(9).fill(null); render(); });
 
   /* ---------- 画像書き出し ---------- */
@@ -1281,6 +1263,36 @@
   }
   fetch('/x/stats').then(r => r.json()).then(s => paintCount(s.total)).catch(() => {});
 
+  /* ---------- 年齢（任意） ----------
+     年齢のまま持つと毎年ずれるので、生まれ年に直して保存する。
+     一度答えたら次からは聞かない。 */
+  let born = null;
+  try { born = Number(localStorage.getItem('born')) || null; } catch(e){}
+  let askedAge = false;
+  try { askedAge = localStorage.getItem('askedAge') === '1'; } catch(e){}
+
+  function askAge(){
+    if (askedAge || born) return Promise.resolve();
+    return new Promise(resolve => {
+      $('agev').classList.add('open');
+      const finish = () => {
+        askedAge = true;
+        try { localStorage.setItem('askedAge', '1'); } catch(e){}
+        $('agev').classList.remove('open');
+        resolve();
+      };
+      $('ageOk').onclick = () => {
+        const n = Number($('age').value);
+        if (n >= 5 && n <= 100){
+          born = new Date().getFullYear() - n;
+          try { localStorage.setItem('born', String(born)); } catch(e){}
+        }
+        finish();
+      };
+      $('ageSkip').onclick = finish;
+    });
+  }
+
   let lastSaved = '';
   /** 書き出し・共有のときに1件記録する。同じ内容を続けて出しても二重に数えない */
   async function recordCard(){
@@ -1289,10 +1301,13 @@
       title: $('title').value,
       name: $('name').value,
       handle: $('handle').value.trim(),
+      lang: LANG,
+      born,
       items: S.items.map(it => it && ({
         source: it.ref?.source || 'upload',
         externalId: it.ref?.externalId || null,
         imageUrl: it.ref?.imageUrl || null,   // アップロード画像はnull。サーバーに送らない
+        year: it.ref?.year || null,
         title: it.title || '', sub: it.sub || '',
       })),
     };
@@ -1368,6 +1383,7 @@
     if (!b) return;
     const url = SNS[b.dataset.sns](shareText() + '\n' + location.origin);
     if (!url) return;
+    await askAge();
     b.disabled = true;
     try{
       const { url: png } = await buildPNG();
@@ -1383,6 +1399,7 @@
 
   $('share').addEventListener('click', async () => {
     const btn = $('share');
+    await askAge();
     btn.disabled = true; btn.textContent = '準備中…';
     try{
       const { blob, url } = await buildPNG();
@@ -1408,6 +1425,7 @@
   });
 
   $('export').addEventListener('click', async () => {
+    await askAge();
     // 画像デコードを待ってから描く
     await Promise.all(S.items.filter(i => i && i.src).map(i => new Promise(res => {
       const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = im.onerror = res; im.src = i.src;
@@ -1495,6 +1513,11 @@
     $('hint').innerHTML = t('grid.hint');
     $('handleHint').textContent = t('handle.hint');
     $('outNote').textContent = t('out.note');
+    $('ageTitle').textContent = t('age.title');
+    $('ageNote').textContent = t('age.note');
+    $('ageLbl').textContent = t('age.label');
+    $('ageSkip').textContent = t('age.skip');
+    $('ageOk').textContent = t('btn.done');
     $('byCreator').textContent = BY_LABEL[S.mode] || (LANG === 'en' ? 'By creator' : '作者で探す');
     $('name').placeholder = LANG === 'en' ? 'your name' : '@yourname';
 

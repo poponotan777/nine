@@ -246,6 +246,7 @@ function shapeAniList(m, kind, relationType, lang = 'ja') {
     img: proxied(m.coverImage?.extraLarge || m.coverImage?.large),
     relatedId: m.id,
     relatedCount: rel.length,
+    year: m.startDate?.year || null,
     // 並べ替え用の別名（ローマ字・英題・別表記）。送信前に削除される
     _alts: [m.title?.romaji, m.title?.english, m.title?.native, ...(m.synonyms || [])].filter(Boolean),
     ...(relationType ? { relationLabel: REL_LABEL[relationType] || '関連' } : {}),
@@ -262,6 +263,7 @@ function shapeAlbum(a) {
     title: a.collectionName || '',
     sub: a.artistName || '',
     img: proxied((a.artworkUrl100 || '').replace('100x100bb', '600x600bb')),
+    year: a.releaseDate ? Number(String(a.releaseDate).slice(0,4)) : null,
     relatedId: a.artistId || null,
     relatedCount: a.artistId ? 1 : 0,
     _alts: [a.collectionCensoredName, a.artistName].filter(Boolean),
@@ -296,6 +298,7 @@ function shapeMovie(m) {
     title: m.title || m.original_title || '',
     sub: (m.release_date || '').slice(0, 4),
     img: m.poster_path ? proxied('https://image.tmdb.org/t/p/w500' + m.poster_path) : '',
+    year: m.release_date ? Number(m.release_date.slice(0, 4)) : null,
     relatedId: m.id, relatedCount: 1,
     _alts: [m.original_title].filter(Boolean),
   };
@@ -838,6 +841,7 @@ function shapeRakutenBook(b) {
     // アフィリエイトリンク。作品の詳細でのみ表示する
     buyUrl: b.affiliateUrl || b.itemUrl || '',
     date: b.salesDate || '',
+    year: (String(b.salesDate || '').match(/(\d{4})/) || [])[1] || null,
     relatedId: null, relatedCount: 0,
     _alts: [b.titleKana, b.subTitle, b.author].filter(Boolean),
   };
