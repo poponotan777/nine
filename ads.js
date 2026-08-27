@@ -3,51 +3,54 @@
  *
  * 方針:
  *   1. 9つを選び終えた人が「その作品にもっと触れたい」と思う導線だけを置く
- *   2. 作る流れと共有の導線には出さない（詳細・レール・trends のみ）
- *   3. 文脈と無関係な案件は置かない。数字が出ないうえ、体験を汚す
+ *   2. 作る流れと共有の導線には出さない（詳細・レール・本文内・trends のみ）
+ *   3. 文脈と無関係な案件は置かない
  *
- * バナーHTMLは環境変数 ADS_JSON で渡す。未設定なら何も表示されない。
+ * 環境変数 ADS_JSON にバナーHTMLをJSONで渡す。未設定なら枠ごと消える。
  *
- *   ADS_JSON='{"book_rail":"<a href=...>...</a>","movie_bar":"..."}'
+ * キーの形: {種類}_{場所}_{言語}   ← 言語は省略可
+ *   種類  book / manga / cd / anime / movie / person / character / trends / about / common
+ *   場所  rail（PC右）/ rail2（PC左）/ inflow（本文内）/ bar（スマホ下部）
+ *   言語  ja / en
  *
- * キーの命名: {種類}_{場所}
- *   種類: book / manga / cd / anime / movie / person / character / trends / common
- *   場所: rail（PC横）/ bar（スマホ下部）/ detail（作品の詳細）
+ * 探す順番は次のとおり。見つかった時点で採用する。
+ *   book_rail_ja → book_rail → common_rail_ja → common_rail
+ *
+ * 値を配列にすると、その中からランダムで1つ選ぶ。
+ * アフィリエイトとアドセンスを半々で出したいときはこう書く:
+ *   "book_inflow_ja": ["<A8のバナー>", "<アドセンスのコード>"]
  */
 
 function safeJSON(t) { try { return JSON.parse(t); } catch { return {}; } }
 
 const ADS = safeJSON(process.env.ADS_JSON || '{}');
 
-/** 種類と場所に合うバナーHTMLを返す。無ければ共通、それも無ければ空 */
-function slot(kind, place) {
-  return ADS[`${kind}_${place}`] || ADS[`common_${place}`] || '';
+/** 配列なら1つ選ぶ。文字列ならそのまま */
+function pick(v) {
+  if (Array.isArray(v)) return v.length ? v[Math.floor(Math.random() * v.length)] : '';
+  return v || '';
 }
 
-/** 画面に渡す広告一式。HTMLをそのまま埋め込む */
-function adsFor(kind) {
+function slot(kind, place, lang) {
+  const keys = [
+    `${kind}_${place}_${lang}`,
+    `${kind}_${place}`,
+    `common_${place}_${lang}`,
+    `common_${place}`,
+  ];
+  for (const k of keys) if (ADS[k] != null) return pick(ADS[k]);
+  return '';
+}
+
+/** 画面に渡す広告一式 */
+function adsFor(kind, lang = 'ja') {
+  const L = lang === 'en' ? 'en' : 'ja';
   return {
-    rail:     slot(kind, 'rail'),
-    railLeft: ADS[`${kind}_rail2`] || ADS['common_rail2'] || '',
-    bar:      slot(kind, 'bar'),
-    // 本文の流れの中（スマホ向け）。バナーよりレクタングルが馴染む
-    inflow:   ADS[`${kind}_inflow`] || ADS['common_inflow'] || '',
+    rail:     slot(kind, 'rail', L),
+    railLeft: slot(kind, 'rail2', L),
+    inflow:   slot(kind, 'inflow', L),
+    bar:      slot(kind, 'bar', L),
   };
 }
-
-/**
- * 案件選定の指針（実際のバナーはA8等で発行して ADS_JSON に入れる）
- *
- *   book / manga  … BOOK☆WALKER、audiobook.jp、Kindle Unlimited、コミックシーモア
- *   cd            … Amazon Music、楽天ミュージック
- *   anime         … ABEMAプレミアム、DMM TV
- *   movie         … U-NEXT、DMM TV、ゲオ宅配レンタル
- *   trends        … TSUTAYA DISCAS、ゲオ宅配レンタル
- *   person /
- *   character     … 該当する商材が無い。common を出すか、空のままでよい
- *
- * 承認率の低い案件（無料期間だけで解約されると否認など）は
- * 表示報酬額だけで選ばないこと。成果条件を必ず読む。
- */
 
 module.exports = { adsFor, hasAds: () => Object.keys(ADS).length > 0 };

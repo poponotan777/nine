@@ -1464,13 +1464,14 @@
      中身が無ければ枠ごと消えるので、未設定でも見た目は崩れない */
   let adCache = {};
   async function loadAds(kind){
-    if (!(kind in adCache)){
+    const key = kind + ':' + LANG;
+    if (!(key in adCache)){
       try {
-        const r = await fetch('/x/ads?kind=' + encodeURIComponent(kind));
-        adCache[kind] = await r.json();
-      } catch(e){ adCache[kind] = { rail:'', railLeft:'', bar:'' }; }
+        const r = await fetch('/x/ads?lang=' + LANG + '&kind=' + encodeURIComponent(kind));
+        adCache[key] = await r.json();
+      } catch(e){ adCache[key] = { rail:'', railLeft:'', inflow:'', bar:'' }; }
     }
-    const a = adCache[kind];
+    const a = adCache[key];
     put('adRail', a.rail);
     put('adRailLeft', a.railLeft);
     put('adBarSlot', a.bar);

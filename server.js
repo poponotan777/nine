@@ -271,11 +271,12 @@ const server = http.createServer(async (req, res) => {
     // 種類ごとの広告。中身が無ければ空文字が返るだけ
     if (url.pathname === '/x/ads') {
       const kind = (url.searchParams.get('kind') || 'common').slice(0, 20);
+      const alang = url.searchParams.get('lang') === 'en' ? 'en' : 'ja';
       res.writeHead(200, {
         'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'public, max-age=600',
       });
-      return res.end(JSON.stringify(adsFor(kind)));
+      return res.end(JSON.stringify(adsFor(kind, alang)));
     }
 
     if (url.pathname === '/x/config') {

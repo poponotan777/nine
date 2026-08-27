@@ -356,7 +356,7 @@
   $('more').addEventListener('click', () => load(true));
 
   // このページ用の広告（作品を探しに来た層なので、レンタル・配信が合う）
-  fetch('/x/ads?kind=trends').then(r => r.json()).then(a => {
+  fetch('/x/ads?kind=trends&lang=' + LANG).then(r => r.json()).then(a => {
     adInflow = a.inflow || '';
     if (a.rail) $('adTop').innerHTML = '<div style="font-family:var(--mono);font-size:9px;'
       + 'letter-spacing:.2em;color:var(--muted);margin-bottom:6px">PR</div>' + a.rail;
