@@ -274,7 +274,9 @@
     color:var(--muted);margin-bottom:8px;
   }
   .inflow img,.inflow iframe{max-width:100%;height:auto}
-  @media (min-width:1100px){ .inflow{display:none} }
+  .inflow > div{display:flex;justify-content:center}
+  /* 本文内の広告はPCでも自然に収まるので、幅を問わず表示する */
+  .inflow{max-width:100%}
 
   /* スマホ用の下部バー。固定表示だが操作は覆わない */
   .adbar{
