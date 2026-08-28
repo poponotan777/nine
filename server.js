@@ -102,6 +102,15 @@ function send(res, code, obj) {
 /* Googleアナリティクス。GA_ID があるときだけHTMLに差し込む。
    4つのHTMLを個別に編集しなくて済み、IDもGitに載らない。 */
 const GA_ID = process.env.GA_ID || '';
+
+/* バリューコマースのLinkSwitch。VC_LINKSWITCH_ID を設定すると全ページに入る。
+   ページ内のYahoo!ショッピングへの通常リンクが自動でアフィリエイト化される。 */
+const VC_ID = process.env.VC_LINKSWITCH_ID || '';
+const VC_TAG = VC_ID ? `
+<script type="text/javascript" language="javascript">
+  var vc_pid = "${VC_ID}";
+</script>
+<script type="text/javascript" src="//aml.valuecommerce.com/vcdal.js" async></script>` : '';
 const GA_TAG = GA_ID ? `
 <script async src="https://www.googletagmanager.com/gtag/js?id=${GA_ID}"></script>
 <script>
@@ -118,8 +127,8 @@ function serveStatic(pathname, res) {
   fs.readFile(file, (err, buf) => {
     if (err) return send(res, 404, { error: 'not found' });
     const type = MIME[path.extname(file)] || 'application/octet-stream';
-    if (GA_TAG && type.startsWith('text/html')) {
-      const html = buf.toString('utf8').replace('</head>', GA_TAG + '\n</head>');
+    if ((GA_TAG || VC_TAG) && type.startsWith('text/html')) {
+      const html = buf.toString('utf8').replace('</head>', GA_TAG + VC_TAG + '\n</head>');
       res.writeHead(200, { 'Content-Type': type });
       return res.end(html);
     }

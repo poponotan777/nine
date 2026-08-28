@@ -1044,19 +1044,19 @@ function safeJSON(t) { try { return JSON.parse(t); } catch { return null; } }
 
 /**
  * Yahoo!ショッピングの検索リンク。
- * バリューコマースのMyLink（LinkSwitch非対応の枠でも使える形）を想定。
- * VC_YAHOO_TEMPLATE に {q} を含むURLを入れると有効になる。
- *   例: https://ck.jp.ap.valuecommerce.com/servlet/referral?sid=...&url={q}
- * 未設定なら素のYahooリンク（報酬は発生しない）を出さず、何も表示しない。
+ *
+ * MyLinkは「登録した1つのURL」への固定リンクなので、作品ごとに変えられない。
+ * 代わりにLinkSwitchを使う。サイトに1行スクリプトを貼っておくと、
+ * ページ内の通常のYahoo!ショッピングリンクが自動でアフィリエイト化される。
+ * したがってここでは素の検索URLを出力すればよい。
+ *
+ * VC_LINKSWITCH に 'on' を設定すると表示される。
  */
-const VC_YAHOO = process.env.VC_YAHOO_TEMPLATE || '';
+const VC_ON = process.env.VC_LINKSWITCH === 'on';
 
 function yahooSearch(keyword) {
-  if (!VC_YAHOO) return null;
-  const target = 'https://shopping.yahoo.co.jp/search?p=' + encodeURIComponent(keyword);
-  return VC_YAHOO.includes('{q}')
-    ? VC_YAHOO.replace('{q}', encodeURIComponent(target))
-    : VC_YAHOO + encodeURIComponent(target);
+  if (!VC_ON) return null;
+  return 'https://shopping.yahoo.co.jp/search?p=' + encodeURIComponent(keyword);
 }
 
 function amazonSearch(keyword, category) {

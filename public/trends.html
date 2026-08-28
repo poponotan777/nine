@@ -148,7 +148,8 @@
       <h2 id="rankTitle">人気の作品 TOP 9</h2>
       <div class="seg" id="scope">
         <button type="button" data-scope="all" aria-pressed="true" id="scAll">すべて</button>
-        <button type="button" data-scope="lang" aria-pressed="false" id="scLang">日本語</button>
+        <button type="button" data-scope="ja" aria-pressed="false" id="scJa">日本語</button>
+        <button type="button" data-scope="en" aria-pressed="false" id="scEn">英語</button>
         <button type="button" data-scope="age" aria-pressed="false" id="scAge">同年代</button>
       </div>
     </div>
@@ -187,7 +188,7 @@
   const I18N = {
     ja: {
       h1:'みんなの9つ', sub:'ほかの人が何を選んだかを見る', make:'自分でつくる',
-      rank:'人気の作品 TOP 9', all:'すべて', langOnly:'日本語', age:'同年代',
+      rank:'人気の作品 TOP 9', all:'すべて', ja:'日本語', en:'英語', age:'同年代',
       allDecades:'すべての年代', decade:'{d}年代',
       newest:'最新', hot:'人気', search:'検索', ph:'作品名や名前で探す',
       empty:'まだ何もありません。最初の1つを作ってみてください。',
@@ -201,7 +202,7 @@
     },
     en: {
       h1:'Everyone\u2019s nine', sub:'See what other people picked', make:'Make yours',
-      rank:'Most picked \u2014 top 9', all:'All', langOnly:'English', age:'My age group',
+      rank:'Most picked \u2014 top 9', all:'All', ja:'Japanese', en:'English', age:'My age group',
       allDecades:'All decades', decade:'{d}s',
       newest:'Newest', hot:'Popular', search:'Search', ph:'Search a title or name',
       empty:'Nothing here yet. Be the first.',
@@ -382,7 +383,8 @@
   async function loadRank(){
     $('rankTitle').textContent = T().rank;
     $('scAll').textContent = T().all;
-    $('scLang').textContent = T().langOnly;
+    $('scJa').textContent = T().ja;
+    $('scEn').textContent = T().en;
     $('scAge').textContent = T().age;
     [...$('scope').children].forEach(b =>
       b.setAttribute('aria-pressed', String(b.dataset.scope === state.scope)));
@@ -393,7 +395,8 @@
     const p = new URLSearchParams({ limit: 9 });
     if (state.type) p.set('type', state.type);
     if (state.decade) p.set('decade', state.decade);
-    if (state.scope === 'lang') p.set('lang', LANG);
+    if (state.scope === 'ja') p.set('lang', 'ja');
+    if (state.scope === 'en') p.set('lang', 'en');
     if (state.scope === 'age' && myBorn) p.set('age', Math.floor(myBorn / 10) * 10);
 
     $('rankNote').textContent = T().loading;
