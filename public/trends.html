@@ -44,6 +44,33 @@
   .head-text p{margin:0;font-size:12px;color:#A9B6A2}
   .head-meta{margin-left:auto;padding:18px;display:flex;align-items:center;gap:14px;font-size:11px;color:#A9B6A2}
   main{max-width:760px;margin:0 auto;padding:24px 20px}
+  .tabs{display:flex;background:var(--panel);border-bottom:1px solid var(--line);overflow-x:auto}
+  .tab{padding:13px 20px;font-size:13px;color:var(--muted);text-decoration:none;
+    white-space:nowrap;border-bottom:3px solid transparent;font-weight:500}
+  .tab:hover{color:var(--text);background:var(--panel-2)}
+  .tab.on{color:var(--text);font-weight:700;border-bottom-color:var(--obi)}
+
+  /* 年代の切り替え。数が多いので、セグメントではなく個別のチップにして折り返す */
+  .decades{display:flex;flex-wrap:wrap;gap:6px;border:0;margin-bottom:12px}
+  .decades button{
+    border:1px solid var(--line);background:var(--panel);color:var(--muted);
+    font-family:var(--gothic);font-size:11px;padding:7px 12px;
+    border-radius:999px;cursor:pointer;
+  }
+  .decades button[aria-pressed=true]{background:var(--obi);color:#2A2622;
+    border-color:var(--obi-deep);font-weight:700}
+
+  /* 左右のレール */
+  .rail{display:none}
+  @media (min-width:1180px){
+    .rail{position:fixed;top:150px;width:170px;display:block;
+      font-size:9px;color:var(--muted);text-align:center;
+      letter-spacing:.16em;font-family:var(--mono)}
+    .rail-l{right:calc(50% + 396px)}
+    .rail-r{left:calc(50% + 396px)}
+    .rail .slot-ad{display:flex;align-items:flex-start;justify-content:center;margin-top:6px}
+    .rail img{max-width:100%;height:auto}
+  }
 
   .bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
   .seg{display:flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
@@ -113,9 +140,21 @@
   </div>
   <div class="head-meta">
     <button type="button" id="langBtn" class="langbtn">EN</button>
-    <a href="/" id="navMake">自分でつくる</a>
   </div>
 </header>
+
+<nav class="tabs">
+  <a href="/" class="tab" id="navMake">つくる</a>
+  <a href="/trends" class="tab on" id="navTrends">みんなの9つ</a>
+  <a href="/about" class="tab" id="navAbout">このサイトについて</a>
+</nav>
+
+<aside class="rail rail-r" id="railR" aria-label="広告" style="display:none">
+  <span>PR</span><div class="slot-ad" id="adRail"></div>
+</aside>
+<aside class="rail rail-l" id="railL" aria-label="広告" style="display:none">
+  <span>PR</span><div class="slot-ad" id="adRailLeft"></div>
+</aside>
 
 <main>
 
@@ -187,7 +226,7 @@
 
   const I18N = {
     ja: {
-      h1:'みんなの9つ', sub:'ほかの人が何を選んだかを見る', make:'自分でつくる',
+      h1:'みんなの9つ', sub:'ほかの人が何を選んだかを見る', make:'つくる', about:'このサイトについて',
       rank:'人気の作品 TOP 9', all:'すべて', ja:'日本語', en:'英語', age:'同年代',
       allDecades:'すべての年代', decade:'{d}年代',
       newest:'最新', hot:'人気', search:'検索', ph:'作品名や名前で探す',
@@ -201,7 +240,7 @@
               movie:'映画', person:'有名人', character:'キャラ' },
     },
     en: {
-      h1:'Everyone\u2019s nine', sub:'See what other people picked', make:'Make yours',
+      h1:'Everyone\u2019s nine', sub:'See what other people picked', make:'Make', about:'About',
       rank:'Most picked \u2014 top 9', all:'All', ja:'Japanese', en:'English', age:'My age group',
       allDecades:'All decades', decade:'{d}s',
       newest:'Newest', hot:'Popular', search:'Search', ph:'Search a title or name',
@@ -357,12 +396,18 @@
   $('more').addEventListener('click', () => load(true));
 
   // このページ用の広告（作品を探しに来た層なので、レンタル・配信が合う）
-  fetch('/x/ads?kind=trends&lang=' + LANG).then(r => r.json()).then(a => {
-    adInflow = a.inflow || '';
-    if (a.rail) $('adTop').innerHTML = '<div style="font-family:var(--mono);font-size:9px;'
-      + 'letter-spacing:.2em;color:var(--muted);margin-bottom:6px">PR</div>' + a.rail;
-    if (adInflow) load(false);   // 広告が来たら描き直して差し込む
-  }).catch(() => {});
+  function loadAds(){
+    fetch('/x/ads?kind=trends&lang=' + LANG).then(r => r.json()).then(a => {
+      adInflow = a.inflow || '';
+      $('adRail').innerHTML = a.rail || '';
+      $('adRailLeft').innerHTML = a.railLeft || '';
+      $('railR').style.display = a.rail ? '' : 'none';
+      $('railL').style.display = a.railLeft ? '' : 'none';
+      $('adTop').innerHTML = '';
+      if (adInflow) load(false);   // 広告が来たら描き直して差し込む
+    }).catch(() => {});
+  }
+  loadAds();
 
   /* ---------- 作品ランキング ---------- */
   function paintDecades(){
@@ -445,6 +490,8 @@
     document.querySelector('.head-text p').textContent =
       state.handle ? `@${state.handle}` : T().sub;
     $('navMake').textContent = T().make;
+    $('navTrends').textContent = T().h1;
+    $('navAbout').textContent = T().about;
     $('q').placeholder = T().ph;
     $('go').textContent = T().search;
     $('more').textContent = T().more;
@@ -464,6 +511,7 @@
     LANG = LANG === 'en' ? 'ja' : 'en';
     try { localStorage.setItem('lang', LANG); } catch(e){}
     applyLang();
+    loadAds();
   });
 
   applyLang();

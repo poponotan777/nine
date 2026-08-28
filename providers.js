@@ -1059,6 +1059,18 @@ function yahooSearch(keyword) {
   return 'https://shopping.yahoo.co.jp/search?p=' + encodeURIComponent(keyword);
 }
 
+/**
+ * 楽天市場の検索リンク。アフィリエイトIDがあれば経由させる。
+ * 書籍の「楽天ブックスで見る」は商品ページへの直リンクだが、
+ * こちらは種類を問わず使える検索リンク。
+ */
+function rakutenSearch(keyword) {
+  const target = 'https://search.rakuten.co.jp/search/mall/' + encodeURIComponent(keyword) + '/';
+  if (!RAKUTEN_AFF) return null;
+  return 'https://hb.afl.rakuten.co.jp/hgc/' + RAKUTEN_AFF + '/?pc='
+    + encodeURIComponent(target) + '&m=' + encodeURIComponent(target);
+}
+
 function amazonSearch(keyword, category) {
   if (!AMAZON_TAG) return null;
   const u = new URL('https://www.amazon.co.jp/s');
@@ -1090,6 +1102,10 @@ function buyLinks(type, item) {
   if (CATEGORY[type] !== undefined && CATEGORY[type] !== null) {
     const url = amazonSearch(q, CATEGORY[type]);
     if (url) out.push({ label: 'Amazonで探す', url, kind: 'shop' });
+    if (!item.buyUrl) {
+      const r = rakutenSearch(q);
+      if (r) out.push({ label: '楽天市場で探す', url: r, kind: 'shop' });
+    }
     const y = yahooSearch(q);
     if (y) out.push({ label: 'Yahoo!ショッピングで探す', url: y, kind: 'shop' });
   }

@@ -60,6 +60,17 @@
   .head-meta .made{font-size:11px;color:#A9B6A2;white-space:nowrap}
   .head-meta .made strong{font-family:var(--mono);color:var(--obi);font-size:14px;font-weight:700}
   .head-meta a{font-size:11px;color:#A9B6A2;white-space:nowrap;text-decoration:none}
+  /* ページ切替のタブ。ヘッダーのすぐ下に置いて行き来しやすくする */
+  .tabs{
+    display:flex;gap:0;background:var(--panel);border-bottom:1px solid var(--line);
+    margin-bottom:24px;overflow-x:auto;
+  }
+  .tab{
+    padding:13px 20px;font-size:13px;color:var(--muted);text-decoration:none;
+    white-space:nowrap;border-bottom:3px solid transparent;font-weight:500;
+  }
+  .tab:hover{color:var(--text);background:var(--panel-2)}
+  .tab.on{color:var(--text);font-weight:700;border-bottom-color:var(--obi)}
   .head-meta a:hover{color:var(--obi)}
   .langbtn{
     background:transparent;border:1px solid #56624F;color:#A9B6A2;
@@ -245,24 +256,27 @@
      作る流れと共有の導線には広告を入れない方針のため。 */
   /* 左右のレール。本体（最大560px）の両脇に置く。
      160px + 余白 が両側に取れる幅（約1100px）から左右そろえて出す */
+  /* 左右のレール。本文（最大560px）の脇に、余白の中央へ置く。
+     広告が入っていない側は枠ごと消える（loadAdsが display を切り替える）。 */
   .rail{display:none}
-  @media (min-width:1100px){
+  @media (min-width:1180px){
     .rail{
-      display:block;position:fixed;top:110px;width:160px;
-      font-size:10px;color:var(--muted);text-align:center;
-      letter-spacing:.12em;
+      display:block;position:fixed;top:150px;width:170px;
+      font-size:9px;color:var(--muted);text-align:center;
+      letter-spacing:.16em;font-family:var(--mono);
     }
-    .rail-l{right:calc(50% + 300px)}
-    .rail-r{left:calc(50% + 300px)}
+    .rail-l{right:calc(50% + 296px)}
+    .rail-r{left:calc(50% + 296px)}
     .rail .slot-ad{
-      min-height:600px;display:flex;align-items:center;justify-content:center;
+      display:flex;align-items:flex-start;justify-content:center;
       margin-top:6px;overflow:hidden;
     }
+    .rail img{max-width:100%;height:auto}
   }
-  @media (min-width:1360px){
-    .rail{width:180px}
-    .rail-l{right:calc(50% + 320px)}
-    .rail-r{left:calc(50% + 320px)}
+  /* さらに広い画面では本文から少し離して余白を活かす */
+  @media (min-width:1500px){
+    .rail-l{right:calc(50% + 340px)}
+    .rail-r{left:calc(50% + 340px)}
   }
 
   /* 本文の流れの中に置く広告。枠線で囲わず、区切り線だけにして馴染ませる */
@@ -320,10 +334,14 @@
   <div class="head-meta">
     <span class="made"><strong id="madeCount">–</strong> <span data-i18n="made">枚つくられました</span></span>
     <button type="button" id="langBtn" class="langbtn">EN</button>
-    <a href="/trends" data-i18n="nav.trends">みんなの9つ</a>
-    <a href="/about" data-i18n="nav.about">このサイトについて</a>
   </div>
 </header>
+
+<nav class="tabs">
+  <a href="/" class="tab on" data-i18n="nav.make">つくる</a>
+  <a href="/trends" class="tab" data-i18n="nav.trends">みんなの9つ</a>
+  <a href="/about" class="tab" data-i18n="nav.about">このサイトについて</a>
+</nav>
 
 <aside class="rail rail-r" aria-label="広告">
   <span>PR</span>
@@ -505,7 +523,7 @@
 
   const I18N = {
     ja: {
-      'nav.trends':'みんなの9つ', 'nav.about':'このサイトについて',
+      'nav.make':'つくる', 'nav.trends':'みんなの9つ', 'nav.about':'このサイトについて',
       'label.kind':'しゅるい', 'label.title':'タイトル', 'label.name':'なまえ',
       'label.handle':'Xのアカウント（任意）',
       'handle.hint':'入れておくと、あなたが作った9つがまとめて見られるページに並びます。',
@@ -538,7 +556,7 @@
       'age.label':'年齢（任意）', 'age.skip':'入力しない',
     },
     en: {
-      'nav.trends':'Everyone\u2019s nine', 'nav.about':'About',
+      'nav.make':'Make', 'nav.trends':'Everyone\u2019s nine', 'nav.about':'About',
       'label.kind':'Category', 'label.title':'Title', 'label.name':'Your name',
       'label.handle':'X account (optional)',
       'handle.hint':'Add it and all of your nines will appear on one page.',
