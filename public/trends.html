@@ -63,12 +63,13 @@
   /* 左右のレール */
   .rail{display:none}
   @media (min-width:1180px){
-    .rail{position:fixed;top:150px;width:170px;display:block;
+    .rail{position:fixed;top:260px;width:170px;display:block;
       font-size:9px;color:var(--muted);text-align:center;
       letter-spacing:.16em;font-family:var(--mono)}
     .rail-l{right:calc(50% + 396px)}
     .rail-r{left:calc(50% + 396px)}
-    .rail .slot-ad{display:flex;align-items:flex-start;justify-content:center;margin-top:6px}
+    .rail .slot-ad{display:flex;align-items:flex-start;justify-content:center;
+      margin-top:6px;max-height:calc(100vh - 290px);overflow:hidden}
     .rail img{max-width:100%;height:auto}
   }
 
@@ -92,6 +93,7 @@
 
   .ranksec{margin-bottom:26px}
   .rank-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+  .rank-head .seg{flex-wrap:wrap}
   .rank-head h2{font-family:var(--mincho);font-size:19px;margin:0;flex:1;min-width:180px}
   .decades{margin-bottom:12px;flex-wrap:wrap}
   .decades button{font-size:11px;padding:7px 11px}
@@ -192,7 +194,7 @@
         <button type="button" data-scope="age" aria-pressed="false" id="scAge">同年代</button>
       </div>
     </div>
-    <div class="seg decades" id="decades"></div>
+    <div class="decades" id="decades"></div>
     <ol class="rank" id="rank"></ol>
     <p class="note" id="rankNote"></p>
   </section>

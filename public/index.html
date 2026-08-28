@@ -42,7 +42,6 @@
   header{
     display:flex;align-items:stretch;gap:0;
     background:var(--head);color:var(--head-text);
-    margin-bottom:28px;
   }
   .obi-tab{
     background:var(--obi);color:#2A2622;
@@ -63,7 +62,7 @@
   /* ページ切替のタブ。ヘッダーのすぐ下に置いて行き来しやすくする */
   .tabs{
     display:flex;gap:0;background:var(--panel);border-bottom:1px solid var(--line);
-    margin-bottom:24px;overflow-x:auto;
+    margin:0 0 26px;overflow-x:auto;
   }
   .tab{
     padding:13px 20px;font-size:13px;color:var(--muted);text-decoration:none;
@@ -261,7 +260,7 @@
   .rail{display:none}
   @media (min-width:1180px){
     .rail{
-      display:block;position:fixed;top:150px;width:170px;
+      display:block;position:fixed;top:260px;width:170px;
       font-size:9px;color:var(--muted);text-align:center;
       letter-spacing:.16em;font-family:var(--mono);
     }
@@ -269,7 +268,7 @@
     .rail-r{left:calc(50% + 296px)}
     .rail .slot-ad{
       display:flex;align-items:flex-start;justify-content:center;
-      margin-top:6px;overflow:hidden;
+      margin-top:6px;max-height:calc(100vh - 290px);overflow:hidden;
     }
     .rail img{max-width:100%;height:auto}
   }
