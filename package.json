@@ -8,6 +8,7 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^0.1.60",
     "pg": "^8.13.1"
   },
   "engines": {

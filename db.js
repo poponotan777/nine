@@ -198,7 +198,15 @@ function openPostgres() {
         SELECT id, type, title, name, handle, views, likes, created_at
         FROM cards WHERE ${where.join(' AND ')}
         ORDER BY ${order} LIMIT $${args.length - 1} OFFSET $${args.length}`, args);
-      return r.rows;
+      if (!r.rows.length) return [];
+      // 一覧に9マスの見た目を出すため、各カードの画像URLを添える
+      const ids = r.rows.map(x => x.id);
+      const th = await pool.query(
+        'SELECT card_id, position, image_url FROM card_items WHERE card_id = ANY($1) ORDER BY position',
+        [ids]);
+      const map = {};
+      th.rows.forEach(i => { (map[i.card_id] = map[i.card_id] || [])[i.position] = i.image_url; });
+      return r.rows.map(c => ({ ...c, thumbs: (map[c.id] || []).slice(0, 9) }));
     },
 
     /** 誰にも見られないまま古くなったものだけ消す */
@@ -354,10 +362,16 @@ function openSqlite() {
            (1 + (julianday('now') - julianday(created_at))) DESC, created_at DESC`
         : 'created_at DESC';
       args.push(limit, offset);
-      return db.prepare(`
+      const rows = db.prepare(`
         SELECT id, type, title, name, handle, views, likes, created_at
         FROM cards WHERE ${where.join(' AND ')}
         ORDER BY ${order} LIMIT ? OFFSET ?`).all(...args);
+      const q2 = db.prepare('SELECT position, image_url FROM card_items WHERE card_id = ? ORDER BY position');
+      return rows.map(c => {
+        const t = [];
+        q2.all(c.id).forEach(i => { t[i.position] = i.image_url; });
+        return { ...c, thumbs: t.slice(0, 9) };
+      });
     },
 
     cleanup(days = 90) {
@@ -471,7 +485,12 @@ function openJSON() {
       rows.sort(sort === 'hot'
         ? (a, b) => score(b) - score(a)
         : (a, b) => b.created_at.localeCompare(a.created_at));
-      return rows.slice(offset, offset + limit);
+      return rows.slice(offset, offset + limit).map(c => {
+        const t = [];
+        state.items.filter(i => i.card_id === c.id)
+          .forEach(i => { t[i.position] = i.image_url; });
+        return { ...c, thumbs: t.slice(0, 9) };
+      });
     },
 
     cleanup(days = 90) {

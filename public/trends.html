@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/favicon.svg">
 <title>みんなの9つ | MY NINE LOVES</title>
 <meta name="description" content="みんなが選んだ9つを、最新順・人気順で見られます。">
 <style>
@@ -31,11 +33,14 @@
   *{box-sizing:border-box}
   body{margin:0;background:var(--ink);color:var(--text);font-family:var(--gothic);
        -webkit-font-smoothing:antialiased;padding-bottom:60px}
+  @media (min-width:1024px){ body{zoom:1.10} }
+  @media (min-width:1600px){ body{zoom:1.15} }
   a{color:var(--pop)}
-  .langbtn{background:transparent;border:1px solid #56624F;color:#A9B6A2;
-    font-family:var(--mono);font-size:10px;letter-spacing:.1em;
-    padding:4px 9px;border-radius:999px;cursor:pointer}
-  .langbtn:hover{border-color:var(--obi);color:var(--obi)}
+  .langsw{display:flex;border:1px solid #56624F;border-radius:999px;overflow:hidden}
+  .langopt{background:transparent;border:0;color:#A9B6A2;cursor:pointer;
+    font-family:var(--gothic);font-size:11px;padding:6px 13px;white-space:nowrap}
+  .langopt:hover{color:var(--obi)}
+  .langopt[aria-pressed=true]{background:var(--obi);color:#2A2622;font-weight:700}
   header{display:flex;background:var(--head);color:var(--head-text);align-items:stretch}
   .obi-tab{background:var(--obi);color:#2A2622;font-family:var(--mono);font-size:11px;
            letter-spacing:.18em;padding:14px 10px;writing-mode:vertical-rl}
@@ -114,6 +119,15 @@
     box-shadow:var(--shadow)}
   .card:hover{border-color:var(--obi)}
   .card .body{flex:1;min-width:0}
+  .mini{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:2px;
+    width:66px;flex:0 0 auto;text-decoration:none;
+  }
+  .mini span{
+    aspect-ratio:.72;background:var(--panel-2);border-radius:2px;overflow:hidden;
+    display:block;
+  }
+  .mini img{width:100%;height:100%;object-fit:cover;display:block}
   .card .t{font-family:var(--mincho);font-size:16px;margin-bottom:3px;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .card .m{font-size:11px;color:var(--muted)}
@@ -141,7 +155,10 @@
     <p>ほかの人が何を選んだかを見る</p>
   </div>
   <div class="head-meta">
-    <button type="button" id="langBtn" class="langbtn">EN</button>
+    <div class="langsw" role="group" aria-label="Language">
+      <button type="button" class="langopt" data-lang="ja">日本語</button>
+      <button type="button" class="langopt" data-lang="en">English</button>
+    </div>
   </div>
 </header>
 
@@ -217,9 +234,10 @@
   const LABEL_JA = { cd:'CD', manga:'漫画', book:'書籍', anime:'アニメ',
                      movie:'映画', person:'有名人', character:'キャラ' };
   const LABEL = new Proxy({}, { get: (_, k) => T().kinds[k] || LABEL_JA[k] });
-  const TAG = { '':'MyNineLoves', cd:'私を構成する9枚', manga:'私を構成する9冊', book:'私を構成する9冊',
-                anime:'私を構成する9作', movie:'私を構成する9本',
-                person:'私を構成する9人', character:'私を構成する9キャラ' };
+  // 共有時に必ず付く共通タグ。種類別タグは補助なので、ここでは共通タグを追う
+  const TAG = { '':'MyNineLoves', cd:'MyNineLoves', manga:'MyNineLoves', book:'MyNineLoves',
+                anime:'MyNineLoves', movie:'MyNineLoves',
+                person:'MyNineLoves', character:'MyNineLoves' };
 
   let LANG = 'ja';
   try { LANG = localStorage.getItem('lang') === 'en' ? 'en' : 'ja'; } catch(e){}
@@ -318,6 +336,19 @@
       }
       const el = document.createElement('div');
       el.className = 'card';
+
+      // 作った9マスをそのまま小さく再現する
+      const grid = document.createElement('a');
+      grid.className = 'mini';
+      grid.href = '/u/' + (c.handle || '');
+      if (!c.handle) { grid.removeAttribute('href'); grid.style.cursor = 'default'; }
+      for (let i = 0; i < 9; i++){
+        const cell = document.createElement('span');
+        const src = (c.thumbs || [])[i];
+        if (src){ const im = new Image(); im.src = src; im.alt = ''; im.loading = 'lazy'; cell.appendChild(im); }
+        grid.appendChild(cell);
+      }
+      el.appendChild(grid);
 
       const body = document.createElement('div');
       body.className = 'body';
@@ -487,7 +518,8 @@
   /* ---------- 言語の適用 ---------- */
   function applyLang(){
     document.documentElement.lang = LANG;
-    $('langBtn').textContent = LANG === 'en' ? '日本語' : 'EN';
+    document.querySelectorAll('.langopt').forEach(b =>
+      b.setAttribute('aria-pressed', String(b.dataset.lang === LANG)));
     document.querySelector('.head-text h1').textContent = T().h1;
     document.querySelector('.head-text p').textContent =
       state.handle ? `@${state.handle}` : T().sub;
@@ -502,15 +534,23 @@
     });
     [...$('kind').children].forEach(b => {
       b.textContent = T().kinds[b.dataset.type] || b.textContent;
+      // 書籍は日本の楽天ブックスに依存しているため、英語では出さない
+      if (b.dataset.type === 'book') b.style.display = LANG === 'en' ? 'none' : '';
     });
+    if (LANG === 'en' && state.type === 'book'){
+      state.type = '';
+      [...$('kind').children].forEach(b => b.setAttribute('aria-pressed', String(!b.dataset.type)));
+    }
     paintDecades();
     updateXLink();
     loadRank();
     load(false);
   }
 
-  $('langBtn').addEventListener('click', () => {
-    LANG = LANG === 'en' ? 'ja' : 'en';
+  document.querySelector('.langsw').addEventListener('click', e => {
+    const b = e.target.closest('.langopt');
+    if (!b || b.dataset.lang === LANG) return;
+    LANG = b.dataset.lang;
     try { localStorage.setItem('lang', LANG); } catch(e){}
     applyLang();
     loadAds();

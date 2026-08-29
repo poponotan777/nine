@@ -17,6 +17,7 @@ const path = require('path');
 const P    = require('./providers');
 const { store, hashIP } = require('./db');
 const { adsFor, hasAds } = require('./ads');
+const ogimage = require('./ogimage');
 
 const PORT = process.env.PORT || 3000;
 const TYPES = new Set(['album', 'manga', 'anime', 'movie', 'person', 'character', 'book']);
@@ -68,6 +69,30 @@ function imageAllowed(url) {
   } catch { return false; }
 }
 
+/** 許可ホストの画像をBufferで取得する（キャッシュ共用） */
+async function getImageBuffer(target) {
+  if (!imageAllowed(target)) return null;
+  const key = 'img:' + target;
+  const hit = cacheGet(key);
+  if (hit) return hit.body;
+  const upstream = await fetch(target, { headers: { 'User-Agent': 'MyNine/1.0' } });
+  if (!upstream.ok) return null;
+  const type = upstream.headers.get('content-type') || 'image/jpeg';
+  if (!type.startsWith('image/')) return null;
+  const body = Buffer.from(await upstream.arrayBuffer());
+  if (body.length < 3_000_000) cacheSet(key, { body, type }, TTL.img);
+  return body;
+}
+
+/** /img?u=... の形で保存されているURLから、元のURLを取り出す */
+function originalURL(stored) {
+  if (!stored) return '';
+  if (stored.startsWith('/img?u=')) {
+    try { return decodeURIComponent(stored.slice(7)); } catch { return ''; }
+  }
+  return stored;
+}
+
 async function serveImage(target, res) {
   if (!imageAllowed(target)) return send(res, 400, { error: '許可されていない画像ホストです' });
 
@@ -93,7 +118,8 @@ async function serveImage(target, res) {
  * 静的配信
  * ------------------------------------------------------------------ */
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript',
-               '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
+               '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
+               '.webmanifest': 'application/manifest+json' };
 
 function send(res, code, obj) {
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -150,6 +176,151 @@ function readBody(req, limit = 64 * 1024) {
     });
     req.on('error', reject);
   });
+}
+
+/* ------------------------------------------------------------------ *
+ * 共有ページのHTML
+ * SNSのクローラーはJavaScriptを実行しないので、サーバー側で組み立てる。
+ * ------------------------------------------------------------------ */
+const KIND_LABEL = {
+  album:'CD', manga:'漫画', book:'書籍', anime:'アニメ',
+  movie:'映画', person:'有名人', character:'キャラクター',
+};
+const KIND_RATIO = {
+  album:'1/1', manga:'460/654', book:'2/3', anime:'460/654',
+  movie:'2/3', person:'3/4', character:'460/654',
+};
+
+const esc = t => String(t == null ? '' : t)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;');
+
+function serveCard(card, res) {
+  const base = process.env.CONTACT_URL || 'https://mynineloves.com';
+  const title = card.title || '私を構成する9つ';
+  const kind = KIND_LABEL[card.type] || '';
+  const names = (card.items || []).map(i => i && i.title).filter(Boolean);
+  const desc = names.length
+    ? names.slice(0, 5).join(' ・ ') + (names.length > 5 ? ' ほか' : '')
+    : `${kind}を9つ選んで1枚の画像にできます。`;
+  const ogUrl = `${base}/og/${card.id}.png`;
+
+  const cells = [];
+  for (let i = 0; i < 9; i++) {
+    const it = (card.items || []).find(v => v && v.position === i);
+    const img = it && it.image_url
+      ? `<img src="${esc(it.image_url)}" alt="${esc(it.title)}" loading="lazy">`
+      : '';
+    const cap = it && it.title
+      ? `<span class="cap">${esc(it.title)}</span>` : '';
+    cells.push(`<div class="cell">${img}${cap}</div>`);
+  }
+
+  const html = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<title>${esc(title)} | MY NINE LOVES</title>
+<meta name="description" content="${esc(desc)}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="MY NINE LOVES">
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(desc)}">
+<meta property="og:image" content="${esc(ogUrl)}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="${esc(base)}/c/${esc(card.id)}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${esc(title)}">
+<meta name="twitter:description" content="${esc(desc)}">
+<meta name="twitter:image" content="${esc(ogUrl)}">
+<style>
+  :root{
+    --ink:#EFF2E8;--panel:#FFF;--panel-2:#E4E9DA;--line:#C8D0BB;--text:#1B1F19;
+    --muted:#5F6858;--obi:#FFC61A;--obi-deep:#E09600;--pop:#E03A5F;
+    --head:#25302A;--head-text:#F2F6EC;--shadow:0 2px 0 rgba(200,208,187,.8);--r:12px;
+    --mincho:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;
+    --gothic:"Hiragino Sans","Yu Gothic","Noto Sans JP",system-ui,sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ink);color:var(--text);font-family:var(--gothic);
+    -webkit-font-smoothing:antialiased;padding-bottom:60px}
+  @media (min-width:1024px){body{zoom:1.10}}
+  a{color:var(--pop)}
+  header{display:flex;background:var(--head);color:var(--head-text)}
+  .obi-tab{background:var(--obi);color:#2A2622;font-family:var(--mono);font-size:11px;
+    letter-spacing:.18em;padding:14px 10px;writing-mode:vertical-rl}
+  .head-text{padding:18px 16px}
+  .head-text h1{font-family:var(--mincho);font-weight:700;font-size:22px;margin:0 0 4px}
+  .head-text p{margin:0;font-size:12px;color:#A9B6A2}
+  .tabs{display:flex;background:var(--panel);border-bottom:1px solid var(--line);overflow-x:auto}
+  .tab{padding:13px 18px;font-size:13px;color:var(--muted);text-decoration:none;white-space:nowrap}
+  .tab:hover{color:var(--text);background:var(--panel-2)}
+  main{max-width:560px;margin:0 auto;padding:26px 20px}
+  .meta{display:flex;gap:14px;align-items:baseline;font-size:12px;color:var(--muted);
+    margin-bottom:16px;flex-wrap:wrap}
+  .meta .kind{color:var(--pop);font-weight:700}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px}
+  .cell{position:relative;aspect-ratio:${KIND_RATIO[card.type] || '1/1'};
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+    overflow:hidden;box-shadow:var(--shadow)}
+  .cell img{width:100%;height:100%;object-fit:contain;display:block}
+  .cell .cap{position:absolute;left:0;right:0;bottom:0;
+    background:linear-gradient(transparent,rgba(0,0,0,.8));color:#fff;font-size:10px;
+    padding:14px 5px 5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .note{font-size:11px;color:var(--muted);margin:14px 0 22px;line-height:1.8}
+  .cta{display:block;text-align:center;background:var(--obi);color:#2A2622;font-weight:800;
+    padding:16px;border-radius:var(--r);text-decoration:none;
+    box-shadow:0 3px 0 var(--obi-deep);margin-bottom:10px}
+  .sub{display:block;text-align:center;padding:13px;border:2px solid var(--line);
+    border-radius:var(--r);text-decoration:none;color:var(--text);font-size:13px;
+    background:var(--panel)}
+  footer{max-width:560px;margin:32px auto 0;padding:18px 20px 0;
+    border-top:1px solid var(--line);font-size:11px;color:var(--muted);line-height:1.9}
+</style>
+</head>
+<body>
+<header>
+  <div class="obi-tab">MY NINE LOVES</div>
+  <div class="head-text">
+    <h1>${esc(title)}</h1>
+    <p>${esc(kind)}を9つ選んだカード</p>
+  </div>
+</header>
+<nav class="tabs">
+  <a href="/" class="tab">つくる</a>
+  <a href="/trends" class="tab">みんなの9つ</a>
+  <a href="/about" class="tab">このサイトについて</a>
+</nav>
+<main>
+  <div class="meta">
+    <span class="kind">${esc(kind)}</span>
+    ${card.handle ? `<a href="/u/${esc(card.handle)}">@${esc(card.handle)}</a>` : ''}
+    <span>${Number(card.views) || 0} view ・ ${Number(card.likes) || 0} ♥</span>
+  </div>
+  <div class="grid">${cells.join('')}</div>
+  <p class="note">
+    自分で追加した画像は、この共有ページには表示されません（端末の中だけで処理され、
+    サーバーには保存していないためです）。
+  </p>
+  <a class="cta" href="/">自分の9つをつくる</a>
+  <a class="sub" href="/trends">みんなが選んだ9つを見る</a>
+</main>
+<footer>
+  <p>
+    <a href="/">トップ</a> ｜ <a href="/about">このサイトについて</a> ｜
+    <a href="/terms">利用規約</a> ｜ <a href="/contact">お問い合わせ</a>
+  </p>
+  <p>&copy; 2026 MY NINE LOVES</p>
+</footer>
+</body>
+</html>`;
+
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+  res.end(html);
 }
 
 /* ------------------------------------------------------------------ *
@@ -379,6 +550,44 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/terms')  return serveStatic('/terms.html', res);
     if (url.pathname === '/trends')  return serveStatic('/trends.html', res);
     if (url.pathname === '/contact') return serveStatic('/contact.html', res);
+    if (url.pathname === '/favicon.ico') return serveStatic('/favicon.svg', res);
+
+    /* ---------- 共有ページ ----------
+       /c/xxxxxxxx  … 9つを見せるページ（OGPタグ付き）
+       /og/xxxxxxxx.png … SNSのサムネイル用画像
+       アップロードされた画像は保存していないため、その枠は空欄で表示される。 */
+    if (url.pathname.startsWith('/og/') && url.pathname.endsWith('.png')) {
+      const id = url.pathname.slice(4, -4);
+      if (!/^[\w-]{4,20}$/.test(id)) return send(res, 400, { error: 'idが不正です' });
+
+      const key = 'og:' + id;
+      const hit = cacheGet(key);
+      if (hit) {
+        res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' });
+        return res.end(hit);
+      }
+      const card = await store.get(id);
+      if (!card) return send(res, 404, { error: 'not found' });
+
+      const png = await ogimage.render(card, u => getImageBuffer(originalURL(u)));
+      cacheSet(key, png, TTL.img);
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' });
+      return res.end(png);
+    }
+
+    if (url.pathname.startsWith('/c/')) {
+      const id = url.pathname.slice(3).replace(/\/$/, '');
+      if (!/^[\w-]{4,20}$/.test(id)) return serveStatic('/index.html', res);
+
+      const card = await store.get(id);
+      if (!card) {
+        res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end('<meta charset="utf-8"><p>このページは見つかりませんでした。'
+          + '<a href="/">トップへ</a></p>');
+      }
+      Promise.resolve(store.view(id)).catch(() => {});   // 閲覧数を数える
+      return serveCard(card, res);
+    }
     if (url.pathname === '/privacy-policy' || url.pathname === '/privacy')
       return serveStatic('/privacy.html', res);
     // /u/ユーザー名 で、その人が作ったものだけを見る
