@@ -97,40 +97,59 @@
     text-decoration:none;color:var(--muted)}
   .xlink:hover{border-color:var(--pop);color:var(--pop);background:#FCEFF2}
 
-  .ranksec{margin-bottom:26px}
-  .rank-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
-  .rank-head .seg{flex-wrap:wrap}
-  .rank-head h2{font-family:var(--mincho);font-size:19px;margin:0;flex:1;min-width:180px}
+  .sec{margin-bottom:34px}
+  .sec-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+  .sec-head .seg{flex-wrap:wrap}
+  .sec-head h2{font-family:var(--mincho);font-size:20px;margin:0;flex:1;min-width:170px}
+  .sec-note{font-size:12px;color:var(--muted);margin:-4px 0 14px}
+
+  /* 上位9件を3×3のかたまりで見せる */
+  .pack{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+    padding:10px;box-shadow:var(--shadow);margin-bottom:12px}
+  .pack .p{position:relative;aspect-ratio:var(--ratio,.72);background:var(--panel-2);
+    border-radius:6px;overflow:hidden;cursor:pointer;display:block;text-decoration:none}
+  .pack .p img{width:100%;height:100%;object-fit:contain;display:block}
+  .pack .p .no{position:absolute;top:3px;left:4px;font-family:var(--mono);font-size:10px;
+    color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.9)}
+  .pack .p .nm{position:absolute;left:0;right:0;bottom:0;font-size:10px;color:#fff;
+    background:linear-gradient(transparent,rgba(0,0,0,.85));padding:12px 4px 4px;
+    overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
   .decades{margin-bottom:12px;flex-wrap:wrap}
   .decades button{font-size:11px;padding:7px 11px}
   .rank{list-style:none;margin:0 0 10px;padding:0;
     display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px}
-  .rank li{display:flex;align-items:center;gap:11px;background:var(--panel);
-    border:1px solid var(--line);border-radius:var(--r);padding:9px 11px;box-shadow:var(--shadow)}
-  .rank .no{font-family:var(--mono);font-size:12px;color:var(--muted);width:22px;flex:0 0 auto}
-  .rank img{width:38px;height:52px;object-fit:cover;border-radius:4px;background:var(--panel-2);flex:0 0 auto}
+  .rank li{display:flex;align-items:center;gap:12px;background:var(--panel);
+    border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;box-shadow:var(--shadow)}
+  .rank .no{font-family:var(--mono);font-size:12px;color:var(--muted);width:24px;flex:0 0 auto}
+  .rank img{width:56px;height:78px;object-fit:contain;border-radius:4px;
+    background:var(--panel-2);flex:0 0 auto}
   .rank .info{min-width:0;flex:1}
   .rank .rt{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .rank .rs{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .rank .rn{font-family:var(--mono);font-size:11px;color:var(--pop);flex:0 0 auto}
 
-  .cards{display:grid;gap:10px}
-  .card{display:flex;align-items:center;gap:14px;background:var(--panel);
-    border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;
-    box-shadow:var(--shadow)}
+  .cards{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+  .card{display:flex;flex-direction:column;gap:10px;background:var(--panel);
+    border:1px solid var(--line);border-radius:var(--r);padding:12px;
+    box-shadow:var(--shadow);cursor:pointer}
+  .card-foot{display:flex;align-items:center;gap:10px}
   .card:hover{border-color:var(--obi)}
   .card .body{flex:1;min-width:0}
   .mini{
-    display:grid;grid-template-columns:repeat(3,1fr);gap:2px;
-    width:66px;flex:0 0 auto;text-decoration:none;
+    display:grid;grid-template-columns:repeat(3,1fr);gap:3px;
+    width:100%;text-decoration:none;
   }
   .mini span{
     aspect-ratio:.72;background:var(--panel-2);border-radius:2px;overflow:hidden;
     display:block;
   }
   .mini img{width:100%;height:100%;object-fit:cover;display:block}
-  .card .t{font-family:var(--mincho);font-size:16px;margin-bottom:3px;
+  .card .t{font-family:var(--mincho);font-size:15px;margin-bottom:2px;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mini span{aspect-ratio:var(--ratio,.72);background:var(--panel-2);border-radius:3px;
+    overflow:hidden;display:block}
+  .mini img{width:100%;height:100%;object-fit:contain;display:block}
   .card .m{font-size:11px;color:var(--muted)}
   .card .m .kind{color:var(--pop);font-weight:700}
   .card .num{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:right;flex:0 0 auto}
@@ -140,7 +159,37 @@
   .like:hover{border-color:var(--pop);color:var(--pop);background:#FCEFF2}
   .like[disabled]{opacity:.5;cursor:default}
 
-  .note{font-size:12px;color:var(--muted);text-align:center;padding:28px 0;line-height:1.8}
+  .note{font-size:12px;color:var(--muted);text-align:center;padding:22px 0;line-height:1.8}
+
+  /* カードの拡大表示 */
+  .veil{position:fixed;inset:0;background:rgba(42,38,34,.55);z-index:60;
+    display:none;align-items:center;justify-content:center;padding:16px}
+  .veil.open{display:flex}
+  .sheet{background:var(--ink);border:1px solid var(--line);border-radius:var(--r);
+    width:100%;max-width:520px;max-height:92vh;overflow:auto;padding:20px;position:relative}
+  .sheet h3{font-family:var(--mincho);font-size:19px;margin:0 0 4px;padding-right:34px}
+  .cv-meta{font-size:12px;color:var(--muted);margin:0 0 14px}
+  .x{position:absolute;top:12px;right:12px;width:30px;height:30px;border-radius:50%;
+    border:1px solid var(--line);background:var(--panel);color:var(--muted);
+    font-size:15px;line-height:1;cursor:pointer}
+  .cv-actions{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 6px}
+  .cv-actions .btn{flex:1;min-width:120px;padding:11px;border:1px solid var(--line);
+    background:var(--panel);border-radius:var(--r);font-size:13px;color:var(--text);
+    text-align:center;text-decoration:none;cursor:pointer;font-family:var(--gothic)}
+  .cv-actions .btn:hover{border-color:var(--pop);color:var(--pop)}
+  .cv-actions .like[aria-pressed=true]{background:var(--pop);color:#fff;border-color:var(--pop)}
+  .cv-item{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+    padding:12px;margin-top:10px}
+  .cv-item .h{display:flex;gap:10px;align-items:center;margin-bottom:8px}
+  .cv-item img{width:46px;height:62px;object-fit:contain;background:var(--panel-2);border-radius:4px}
+  .cv-item .t{font-size:14px;font-weight:700}
+  .cv-item .s{font-size:11px;color:var(--muted)}
+  .cv-item .pr{font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--muted);
+    display:block;margin-bottom:5px}
+  .cv-item a.buy{display:block;text-align:center;padding:9px;margin-bottom:4px;
+    border:1px solid var(--line);border-radius:var(--r);font-size:12px;
+    color:var(--muted);text-decoration:none}
+  .cv-item a.buy:hover{border-color:var(--pop);color:var(--pop);background:#FCEFF2}
   .more{display:block;width:100%;margin-top:14px;padding:13px;background:var(--panel);
     border:1px solid var(--line);color:var(--text);border-radius:var(--r);cursor:pointer;font-size:13px}
   footer{max-width:760px;margin:40px auto 0;padding:20px;border-top:1px solid var(--line);
@@ -179,10 +228,6 @@
 <main>
 
   <div class="bar">
-    <div class="seg" id="sort" role="group">
-      <button type="button" data-sort="new" aria-pressed="true">最新</button>
-      <button type="button" data-sort="hot" aria-pressed="false">人気</button>
-    </div>
     <div class="seg" id="kind" role="group">
       <button type="button" data-type="" aria-pressed="true">すべて</button>
       <button type="button" data-type="cd" aria-pressed="false">CD</button>
@@ -195,15 +240,9 @@
     </div>
   </div>
 
-  <div class="search bar">
-    <input type="text" id="q" placeholder="作品名や名前で探す" autocomplete="off">
-    <button type="button" id="go">検索</button>
-  </div>
-
-  <div class="bar" id="snslinks"></div>
-
-  <section class="ranksec">
-    <div class="rank-head">
+  <!-- 人気の作品 -->
+  <section class="sec">
+    <div class="sec-head">
       <h2 id="rankTitle">人気の作品 TOP 9</h2>
       <div class="seg" id="scope">
         <button type="button" data-scope="all" aria-pressed="true" id="scAll">すべて</button>
@@ -213,16 +252,52 @@
       </div>
     </div>
     <div class="decades" id="decades"></div>
+
+    <!-- 上位9件は3×3で見せる -->
+    <div class="pack" id="rank9"></div>
+    <!-- 10位以降はリスト -->
     <ol class="rank" id="rank"></ol>
+    <button class="more" id="rankMore" style="display:none">10位以降を見る</button>
     <p class="note" id="rankNote"></p>
   </section>
 
-  <div id="adTop" style="margin-bottom:16px"></div>
-  <div class="cards" id="cards"></div>
-  <p class="note" id="note">読み込んでいます…</p>
-  <button class="more" id="more" style="display:none">もっと見る</button>
+  <div id="adTop" style="margin:22px 0"></div>
+
+  <!-- みんなが作ったカード -->
+  <section class="sec">
+    <div class="sec-head">
+      <h2 id="my9Title">作成されたMY9</h2>
+      <div class="seg" id="sort">
+        <button type="button" data-sort="new" aria-pressed="true">最新</button>
+        <button type="button" data-sort="hot" aria-pressed="false">人気</button>
+      </div>
+    </div>
+    <p class="sec-note" id="my9Note">ほかの人が選んだ9つ。タップすると大きく見られます。</p>
+    <div class="cards" id="cards"></div>
+    <p class="note" id="note">読み込んでいます…</p>
+    <button class="more" id="more" style="display:none">もっと見る</button>
+  </section>
+
+  <div class="bar" id="snslinks" style="margin-top:26px"></div>
 
 </main>
+
+<!-- カードの拡大表示 -->
+<div class="veil" id="cardv">
+  <div class="sheet">
+    <button class="x" id="cardClose" aria-label="閉じる">×</button>
+    <h3 id="cvTitle"></h3>
+    <p class="cv-meta"><span id="cvMeta"></span></p>
+    <div class="pack" id="cvGrid"></div>
+    <div class="cv-actions">
+      <button class="btn like" id="cvLike">♥ <span id="cvLikeN">0</span></button>
+      <a class="btn" id="cvUser" href="#" target="_blank" rel="noopener">作った人を見る</a>
+      <a class="btn" id="cvOpen" href="#">カードのページへ</a>
+    </div>
+    <div id="cvDetail"></div>
+  </div>
+</div>
+
 
 <footer>
   <a href="/">トップ</a> ｜ <a href="/about">このサイトについて</a> ｜
@@ -257,6 +332,9 @@
       noAge:'年齢を入れて9つを作ると、同じ年代のランキングが見られます。',
       noRank:'まだ集計できるデータがありません。',
       picks:'選', views:'view',
+      my9:'作成されたMY9', my9note:'ほかの人が選んだ9つ。タップすると大きく見られます。',
+      rankMore:'10位以降を見る', openCard:'カードのページへ',
+      pr:'PR（アフィリエイトリンク）', user:'作った人を見る',
       kinds:{ '':'すべて', cd:'CD', book:'書籍', manga:'漫画', anime:'アニメ',
               movie:'映画', person:'有名人', character:'キャラ' },
     },
@@ -271,6 +349,9 @@
       noAge:'Add your age when you make a nine to unlock this.',
       noRank:'Not enough data yet.',
       picks:'picks', views:'views',
+      my9:'Cards people made', my9note:'Tap a card to see it bigger.',
+      rankMore:'Show 10th and below', openCard:'Open the card page',
+      pr:'PR (affiliate link)', user:'See the creator',
       kinds:{ '':'All', cd:'Albums', book:'Books', manga:'Manga', anime:'Anime',
               movie:'Films', person:'People', character:'Chars' },
     },
@@ -279,7 +360,6 @@
 
   const state = { sort:'new', type:'', q:'', handle:'', offset:0, scope:'all', decade:'' };
   const LIMIT = 24;
-  const liked = new Set();
 
   // URLの ?handle=xxx で、その人の作品だけを見られる
   const params = new URLSearchParams(location.search);
@@ -288,7 +368,6 @@
     ? decodeURIComponent(location.pathname.slice(3)) : '';
   state.handle = (fromPath || params.get('handle') || '').replace(/^@/, '');
   if (state.handle){
-    $('q').placeholder = `@${state.handle} さんの9つ`;
     document.querySelector('.head-text p').textContent = `@${state.handle} さんが選んだもの`;
   }
 
@@ -326,23 +405,22 @@
     const box = $('cards');
     if (!append) box.innerHTML = '';
     items.forEach((c, idx) => {
-      // 一覧の途中に1つだけ挟む。カードと同じ見た目にせず、PRと明示する
-      if (!append && idx === 5 && adInflow){
+      // 一覧の途中に1つだけ広告を挟む
+      if (!append && idx === 6 && adInflow){
         const ad = document.createElement('div');
-        ad.style.cssText = 'padding:14px 16px;border:1px solid var(--line);'
-          + 'border-radius:var(--r);background:var(--panel)';
-        ad.innerHTML = '<div style="font-family:var(--mono);font-size:9px;'
-          + 'letter-spacing:.2em;color:var(--muted);margin-bottom:8px">PR</div>' + adInflow;
+        ad.className = 'card'; ad.style.cursor = 'default';
+        ad.innerHTML = '<div style="font-family:var(--mono);font-size:9px;letter-spacing:.2em;'
+          + 'color:var(--muted);margin-bottom:8px">PR</div>' + adInflow;
         box.appendChild(ad);
       }
+
       const el = document.createElement('div');
       el.className = 'card';
+      el.addEventListener('click', () => openCard(c.id));
 
-      // 作った9マスをそのまま小さく再現する
-      const grid = document.createElement('a');
+      // 選んだ9マスをそのまま並べる
+      const grid = document.createElement('div');
       grid.className = 'mini';
-      grid.href = '/u/' + (c.handle || '');
-      if (!c.handle) { grid.removeAttribute('href'); grid.style.cursor = 'default'; }
       for (let i = 0; i < 9; i++){
         const cell = document.createElement('span');
         const src = (c.thumbs || [])[i];
@@ -351,6 +429,8 @@
       }
       el.appendChild(grid);
 
+      const foot = document.createElement('div');
+      foot.className = 'card-foot';
       const body = document.createElement('div');
       body.className = 'body';
       const t = document.createElement('div');
@@ -360,32 +440,17 @@
       const kind = document.createElement('span');
       kind.className = 'kind'; kind.textContent = LABEL[c.type] || c.type;
       m.appendChild(kind);
-      const rest = document.createTextNode(
-        `${c.name ? ' ・ ' + c.name : ''}${c.handle ? ' ・ @' + c.handle : ''} ・ ${since(c.created_at)}`);
-      m.appendChild(rest);
+      m.appendChild(document.createTextNode(
+        `${c.handle ? ' ・ @' + c.handle : ''} ・ ${since(c.created_at)}`));
       body.appendChild(t); body.appendChild(m);
+      foot.appendChild(body);
 
       const num = document.createElement('div');
       num.className = 'num';
-      num.innerHTML = `<b>${c.likes}</b> ♥<br><b>${c.views}</b> ${T().views}`;
+      num.innerHTML = `<b>${c.likes}</b> ♥ / <b>${c.views}</b> ${T().views}`;
+      foot.appendChild(num);
 
-      const like = document.createElement('button');
-      like.className = 'like'; like.textContent = T().like;
-      like.addEventListener('click', async () => {
-        if (liked.has(c.id)) return;
-        liked.add(c.id); like.disabled = true;
-        try{
-          const r = await fetch('/x/like', {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ id: c.id }),
-          });
-          const j = await r.json();
-          if (j.likes != null) num.innerHTML = `<b>${j.likes}</b> ♥<br><b>${c.views}</b> view`;
-          like.textContent = j.already ? T().already : T().liked;
-        } catch(e){ like.textContent = '失敗'; }
-      });
-
-      el.appendChild(body); el.appendChild(num); el.appendChild(like);
+      el.appendChild(foot);
       box.appendChild(el);
     });
   }
@@ -394,7 +459,6 @@
     if (!append){ state.offset = 0; $('note').textContent = T().loading; }
     const p = new URLSearchParams({ sort: state.sort, limit: LIMIT, offset: state.offset });
     if (state.type) p.set('type', state.type);
-    if (state.q) p.set('q', state.q);
     if (state.handle) p.set('handle', state.handle);
     try{
       const r = await fetch('/x/cards?' + p);
@@ -423,10 +487,6 @@
     loadRank();
     load(false);
   });
-  $('go').addEventListener('click', () => { state.q = $('q').value.trim(); load(false); });
-  $('q').addEventListener('keydown', e => {
-    if (e.key === 'Enter'){ state.q = $('q').value.trim(); load(false); }
-  });
   $('more').addEventListener('click', () => load(true));
 
   // このページ用の広告（作品を探しに来た層なので、レンタル・配信が合う）
@@ -444,6 +504,9 @@
   loadAds();
 
   /* ---------- 作品ランキング ---------- */
+  const RATIO = { cd:'1/1', manga:'.7', book:'.67', anime:'.7',
+                  movie:'.67', person:'.75', character:'.7' };
+
   function paintDecades(){
     const box = $('decades');
     box.innerHTML = '';
@@ -459,6 +522,8 @@
     });
   }
 
+  let rankRest = [];
+
   async function loadRank(){
     $('rankTitle').textContent = T().rank;
     $('scAll').textContent = T().all;
@@ -468,52 +533,185 @@
     [...$('scope').children].forEach(b =>
       b.setAttribute('aria-pressed', String(b.dataset.scope === state.scope)));
 
+    document.documentElement.style.setProperty('--ratio', RATIO[state.type] || '.72');
+
     if (state.scope === 'age' && !myBorn){
-      $('rank').innerHTML = ''; $('rankNote').textContent = T().noAge; return;
+      $('rank9').innerHTML = ''; $('rank').innerHTML = '';
+      $('rankMore').style.display = 'none';
+      $('rankNote').textContent = T().noAge;
+      return;
     }
-    const p = new URLSearchParams({ limit: 9 });
+    const p = new URLSearchParams({ limit: 30 });
     if (state.type) p.set('type', state.type);
     if (state.decade) p.set('decade', state.decade);
     if (state.scope === 'ja') p.set('lang', 'ja');
     if (state.scope === 'en') p.set('lang', 'en');
-    if (state.scope === 'age' && myBorn) p.set('age', Math.floor(myBorn / 10) * 10);
 
     $('rankNote').textContent = T().loading;
     try{
-      const r = await fetch('/x/top?' + p);
-      const j = await r.json();
+      const j = await (await fetch('/x/top?' + p)).json();
       const items = j.items || [];
-      const ol = $('rank'); ol.innerHTML = '';
-      items.forEach((it, i) => {
-        const li = document.createElement('li');
-        const no = document.createElement('span');
-        no.className = 'no'; no.textContent = String(i + 1).padStart(2, '0');
-        li.appendChild(no);
-        if (it.image_url){
-          const im = new Image(); im.src = it.image_url; im.alt = ''; im.loading = 'lazy';
-          li.appendChild(im);
+      const top9 = items.slice(0, 9);
+      rankRest = items.slice(9);
+
+      // 上位9件は3×3のかたまりで
+      const pack = $('rank9');
+      pack.innerHTML = '';
+      for (let i = 0; i < 9; i++){
+        const it = top9[i];
+        const cell = document.createElement('div');
+        cell.className = 'p';
+        if (it){
+          if (it.image_url){
+            const im = new Image(); im.src = it.image_url; im.alt = it.title || ''; im.loading = 'lazy';
+            cell.appendChild(im);
+          }
+          const no = document.createElement('span');
+          no.className = 'no'; no.textContent = String(i + 1).padStart(2, '0');
+          cell.appendChild(no);
+          const nm = document.createElement('span');
+          nm.className = 'nm'; nm.textContent = `${it.title} (${it.n})`;
+          cell.appendChild(nm);
+          cell.title = `${it.title}　${it.n} ${T().picks}`;
         }
-        const info = document.createElement('div');
-        info.className = 'info';
-        const rt = document.createElement('div');
-        rt.className = 'rt'; rt.textContent = it.title || '';
-        const rs = document.createElement('div');
-        rs.className = 'rs';
-        rs.textContent = [it.sub, it.year].filter(Boolean).join(' ・ ');
-        info.appendChild(rt); info.appendChild(rs);
-        li.appendChild(info);
-        const rn = document.createElement('span');
-        rn.className = 'rn'; rn.textContent = `${it.n} ${T().picks}`;
-        li.appendChild(rn);
-        ol.appendChild(li);
-      });
+        pack.appendChild(cell);
+      }
+
+      $('rank').innerHTML = '';
+      $('rankMore').style.display = rankRest.length ? 'block' : 'none';
+      $('rankMore').textContent = T().rankMore;
       $('rankNote').textContent = items.length ? '' : T().noRank;
     } catch(e){ $('rankNote').textContent = T().failed; }
   }
 
+  function showRankRest(){
+    const ol = $('rank');
+    ol.innerHTML = '';
+    rankRest.forEach((it, i) => {
+      const li = document.createElement('li');
+      const no = document.createElement('span');
+      no.className = 'no'; no.textContent = String(i + 10);
+      li.appendChild(no);
+      if (it.image_url){
+        const im = new Image(); im.src = it.image_url; im.alt = ''; im.loading = 'lazy';
+        li.appendChild(im);
+      }
+      const info = document.createElement('div');
+      info.className = 'info';
+      const rt = document.createElement('div'); rt.className = 'rt'; rt.textContent = it.title || '';
+      const rs = document.createElement('div'); rs.className = 'rs';
+      rs.textContent = [it.sub, it.year].filter(Boolean).join(' ・ ');
+      info.appendChild(rt); info.appendChild(rs);
+      li.appendChild(info);
+      const rn = document.createElement('span');
+      rn.className = 'rn'; rn.textContent = `${it.n} ${T().picks}`;
+      li.appendChild(rn);
+      ol.appendChild(li);
+    });
+    $('rankMore').style.display = 'none';
+  }
+  $('rankMore').addEventListener('click', showRankRest);
+
   $('scope').addEventListener('click', e => {
     const b = e.target.closest('button[data-scope]'); if (!b) return;
     state.scope = b.dataset.scope; loadRank();
+  });
+
+  /* ---------- カードの拡大表示 ---------- */
+  const liked = new Set();
+  let cvId = null;
+
+  async function openCard(id){
+    cvId = id;
+    $('cardv').classList.add('open');
+    $('cvTitle').textContent = T().loading;
+    $('cvGrid').innerHTML = ''; $('cvDetail').innerHTML = '';
+    try{
+      const c = await (await fetch('/x/card?id=' + encodeURIComponent(id))).json();
+      $('cvTitle').textContent = c.title || '';
+      $('cvMeta').textContent =
+        `${LABEL[c.type] || c.type} ・ ${c.views} ${T().views} ・ ${c.likes} ♥`;
+      $('cvLikeN').textContent = c.likes;
+      $('cvLike').setAttribute('aria-pressed', String(liked.has(id)));
+      $('cvOpen').href = '/c/' + id;
+      $('cvOpen').textContent = T().openCard;
+      if (c.handle){
+        $('cvUser').href = 'https://x.com/' + c.handle;
+        $('cvUser').textContent = '@' + c.handle;
+        $('cvUser').style.display = '';
+      } else $('cvUser').style.display = 'none';
+
+      document.documentElement.style.setProperty('--ratio', RATIO[c.type] || '.72');
+
+      const grid = $('cvGrid');
+      grid.innerHTML = '';
+      for (let i = 0; i < 9; i++){
+        const it = (c.items || []).find(v => v.position === i);
+        const cell = document.createElement('div');
+        cell.className = 'p';
+        if (it){
+          if (it.image_url){
+            const im = new Image(); im.src = it.image_url; im.alt = it.title || ''; im.loading = 'lazy';
+            cell.appendChild(im);
+          }
+          const nm = document.createElement('span');
+          nm.className = 'nm'; nm.textContent = it.title || '';
+          cell.appendChild(nm);
+          cell.addEventListener('click', () => showItem(it));
+        }
+        grid.appendChild(cell);
+      }
+    } catch(e){ $('cvTitle').textContent = T().failed; }
+  }
+
+  /** 作品をタップしたときの詳細と購入先 */
+  function showItem(it){
+    const box = $('cvDetail');
+    box.innerHTML = '';
+    const d = document.createElement('div');
+    d.className = 'cv-item';
+    const h = document.createElement('div');
+    h.className = 'h';
+    if (it.image_url){ const im = new Image(); im.src = it.image_url; im.alt = ''; h.appendChild(im); }
+    const tw = document.createElement('div');
+    tw.innerHTML = `<div class="t"></div><div class="s"></div>`;
+    tw.querySelector('.t').textContent = it.title || '';
+    tw.querySelector('.s').textContent = [it.sub, it.year].filter(Boolean).join(' ・ ');
+    h.appendChild(tw);
+    d.appendChild(h);
+
+    if ((it.links || []).length){
+      const pr = document.createElement('span');
+      pr.className = 'pr'; pr.textContent = T().pr;
+      d.appendChild(pr);
+      it.links.forEach(l => {
+        const a = document.createElement('a');
+        a.className = 'buy'; a.href = l.url; a.target = '_blank';
+        a.rel = 'noopener sponsored nofollow'; a.textContent = l.label;
+        d.appendChild(a);
+      });
+    }
+    box.appendChild(d);
+    d.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  }
+
+  $('cvLike').addEventListener('click', async () => {
+    if (!cvId || liked.has(cvId)) return;
+    liked.add(cvId);
+    $('cvLike').setAttribute('aria-pressed', 'true');
+    try{
+      const r = await fetch('/x/like', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ id: cvId }),
+      });
+      const j = await r.json();
+      if (j.likes != null) $('cvLikeN').textContent = j.likes;
+    } catch(e){}
+  });
+  $('cardClose').addEventListener('click', () => $('cardv').classList.remove('open'));
+  $('cardv').addEventListener('click', e => { if (e.target.id === 'cardv') $('cardv').classList.remove('open'); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') $('cardv').classList.remove('open');
   });
 
   /* ---------- 言語の適用 ---------- */
@@ -527,8 +725,6 @@
     $('navMake').textContent = T().make;
     $('navTrends').textContent = T().h1;
     $('navAbout').textContent = T().about;
-    $('q').placeholder = T().ph;
-    $('go').textContent = T().search;
     $('more').textContent = T().more;
     [...$('sort').children].forEach(b => {
       b.textContent = b.dataset.sort === 'hot' ? T().hot : T().newest;
@@ -542,6 +738,10 @@
       state.type = '';
       [...$('kind').children].forEach(b => b.setAttribute('aria-pressed', String(!b.dataset.type)));
     }
+    $('my9Title').textContent = T().my9;
+    $('my9Note').textContent = T().my9note;
+    $('rankMore').textContent = T().rankMore;
+    if (!$('cvUser').textContent.startsWith('@')) $('cvUser').textContent = T().user;
     paintDecades();
     updateXLink();
     loadRank();

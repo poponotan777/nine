@@ -457,6 +457,27 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { items });
     }
 
+    // カード1件の中身。みんなの9つで拡大表示するときに使う
+    if (url.pathname === '/x/card') {
+      const id = (url.searchParams.get('id') || '').trim();
+      if (!/^[\w-]{4,20}$/.test(id)) return send(res, 400, { error: 'idが不正です' });
+
+      const card = await store.get(id);
+      if (!card) return send(res, 404, { error: '見つかりません' });
+
+      Promise.resolve(store.view(id)).catch(() => {});   // 閲覧数を数える
+      const items = (card.items || []).map(it => ({
+        position: it.position, title: it.title, sub: it.sub,
+        image_url: it.image_url, year: it.year,
+        links: P.buyLinks(card.type, { title: it.title, buyUrl: it.buy_url || '' }),
+      }));
+      return send(res, 200, {
+        id: card.id, type: card.type, title: card.title, name: card.name,
+        handle: card.handle, views: card.views, likes: card.likes,
+        created_at: card.created_at, items,
+      });
+    }
+
     // 作品ランキング。言語・作品の年代・作った人の年齢層で絞れる
     if (url.pathname === '/x/top') {
       const type    = url.searchParams.get('type');

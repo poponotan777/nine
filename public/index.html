@@ -435,15 +435,15 @@
   </div>
   <div class="finish">
     <div class="finish-col">
-      <button class="btn primary" id="share" data-i18n="btn.share">画像でシェア</button>
+      <button class="btn" id="share" data-i18n="btn.share">3×3の画像で保存</button>
       <p class="finish-note" id="noteImg">
-        9つを1枚の絵にして送ります。見たままが届きます。
+        プレビューから保存できます。投稿するときはハッシュタグを添えてください。
       </p>
     </div>
     <div class="finish-col">
-      <button class="btn" id="export" data-i18n="btn.export">カードのURLを作る</button>
+      <button class="btn primary" id="export" data-i18n="btn.export">カードのURLでシェア</button>
       <p class="finish-note" id="noteUrl">
-        作品名や購入先まで見られるページになります。
+        作品名や購入先まで見られるページ。SNSにそのまま貼れます。
       </p>
     </div>
   </div>
@@ -533,6 +533,16 @@
     <p id="outMode" style="font-family:var(--mincho);font-size:16px;margin:0 0 12px"></p>
     <img id="outImg" alt="書き出した9枚の画像">
     <p id="outNote">スマホは画像を長押しして保存、PCは右クリックで保存できます。</p>
+    <div id="tagBox" style="display:none;margin-bottom:12px">
+      <p class="hint" id="tagNote" style="margin:0 0 6px">
+        投稿するときは、このハッシュタグを添えてください。
+      </p>
+      <div style="display:flex;gap:6px">
+        <input type="text" id="tagText" readonly style="flex:1;font-size:12px">
+        <button class="btn" id="copyTag" style="flex:0 0 auto;padding:10px 14px">コピー</button>
+      </div>
+    </div>
+
     <div id="shareUrlBox" style="display:none;margin-bottom:12px">
       <p class="hint" id="shareUrlNote" style="margin:0 0 6px">
         このURLを貼ると、9つがそのまま見られるページになります。
@@ -564,9 +574,9 @@
       'label.handle':'Xのアカウント（任意）',
       'handle.hint':'入れておくと、あなたが作った9つがまとめて見られるページに並びます。',
       'btn.clear':'全部消す',
-      'btn.export':'カードのURLを作る', 'btn.share':'画像でシェア',
-      'note.img':'9つを1枚の絵にして送ります。見たままが届きます。',
-      'note.url':'作品名や購入先まで見られるページになります。',
+      'btn.export':'カードのURLでシェア', 'btn.share':'3×3の画像で保存',
+      'note.img':'プレビューから保存できます。投稿するときはハッシュタグを添えてください。',
+      'note.url':'作品名や購入先まで見られるページ。SNSにそのまま貼れます。',
       'btn.search':'検索', 'btn.remove':'消す', 'btn.done':'決定',
       'btn.close':'閉じる', 'btn.save':'保存', 'btn.back':'← 検索結果に戻る',
       'by.work':'作品名で探す',
@@ -595,6 +605,8 @@
       'age.label':'年齢（任意）', 'age.skip':'入力しない',
       'copy':'コピー', 'copied':'コピーしました',
       'out.card':'カードができました',
+      'out.image':'画像ができました',
+      'tag.note':'投稿するときは、このハッシュタグを添えてください。',
       'shareUrl.note':'このURLを貼ると、9つがそのまま見られるページになります。',
     },
     en: {
@@ -603,9 +615,9 @@
       'label.handle':'X account (optional)',
       'handle.hint':'Add it and all of your nines will appear on one page.',
       'btn.clear':'Clear all',
-      'btn.export':'Get a card link', 'btn.share':'Share as image',
-      'note.img':'Sends your nine as one picture.',
-      'note.url':'A page with titles and where to get them.',
+      'btn.export':'Share the card link', 'btn.share':'Save as image',
+      'note.img':'Save it from the preview. Please add the hashtags when you post.',
+      'note.url':'A page with titles and where to get them. Paste it anywhere.',
       'btn.search':'Search', 'btn.remove':'Remove', 'btn.done':'Done',
       'btn.close':'Close', 'btn.save':'Save', 'btn.back':'\u2190 Back to results',
       'by.work':'By title',
@@ -634,6 +646,8 @@
       'age.label':'Age (optional)', 'age.skip':'Skip',
       'copy':'Copy', 'copied':'Copied',
       'out.card':'Your card is ready',
+      'out.image':'Your image is ready',
+      'tag.note':'Please add these hashtags when you post.',
       'shareUrl.note':'Paste this link and people can see your nine.',
     },
   };
@@ -645,7 +659,7 @@
 
   const COPY = {
     cd:   {h1:'9枚で自分を紹介する', sub:'好きなジャケットを9つ選んで、1枚の画像にする',
-           title:'私を構成する9枚', unit:'枚目', f1:'作品名', f2:'アーティスト', grid:'SELECT NINE ALBUMS'},
+           title:'を構成する9枚', unit:'枚目', f1:'作品名', f2:'アーティスト', grid:'SELECT NINE ALBUMS'},
     manga: {h1:'9冊で自分を紹介する', sub:'好きな漫画を9作選んで、1枚の画像にする',
            title:'を構成する9冊', unit:'冊目', f1:'作品名', f2:'作者', grid:'SELECT NINE MANGA'},
     anime: {h1:'9作で自分を紹介する', sub:'好きなアニメを9作選んで、1枚の画像にする',
@@ -1467,6 +1481,14 @@
     $('shareUrl').value = u;
     box.style.display = 'block';
   }
+  $('copyTag').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText($('tagText').value);
+      $('copyTag').textContent = t('copied');
+      setTimeout(() => { $('copyTag').textContent = t('copy'); }, 1600);
+    } catch(e){ $('tagText').select(); }
+  });
+
   $('copyUrl').addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText($('shareUrl').value);
@@ -1480,54 +1502,60 @@
     return `${fullTitle()}\n#${tag} #MyNineLoves`;
   }
 
+  // 3×3の画像で保存。プレビューを出し、そこから保存してもらう
   $('share').addEventListener('click', async () => {
     const btn = $('share');
     await askAge();
     btn.disabled = true; btn.textContent = '準備中…';
     try{
-      const { blob, url } = await buildPNG();
+      const { url } = await buildPNG();
       await recordCard();
-      const file = new File([blob], 'my-nine.png', { type:'image/png' });
-
-      // スマホはOSの共有シートを開く（X・LINE・Instagramなど何にでも送れる）
-      if (navigator.canShare && navigator.canShare({ files:[file] })){
-        // 画像だけを送る。文章とURLを混ぜると送り先で崩れるため、
-        // 本文はクリップボードに控えるだけにする
-        try { await navigator.clipboard.writeText(shareText()); } catch(e){}
-        await navigator.share({ files:[file] });
-      } else {
-        // 非対応環境は「画像を保存 → 投稿画面を開く」の2段構え
-        const a = document.createElement('a');
-        a.href = url; a.download = 'my-nine.png'; a.click();
-        window.open('https://x.com/intent/post?text=' + encodeURIComponent(shareText()), '_blank', 'noopener');
-        $('outImg').src = url; $('outDl').href = url;
-        $('outv').classList.add('open');
-      }
+      $('outMode').textContent = t('out.image');
+      $('outImg').src = url; $('outDl').href = url;
+      $('shareUrlBox').style.display = 'none';     // 画像の保存ではURLは出さない
+      $('tagBox').style.display = 'block';
+      $('tagText').value = shareText();
+      $('outv').classList.add('open');
     } catch(e){
-      if (e && e.name !== 'AbortError') alert(t('err.share'));
+      alert(t('err.png'));
     } finally {
-      btn.disabled = false; btn.textContent = 'SNSでシェア';
+      btn.disabled = false; btn.textContent = t('btn.share');
     }
   });
 
+  // カードのURLでシェア。画像は添えず、リンクとハッシュタグを送る
   $('export').addEventListener('click', async () => {
+    const btn = $('export');
     await askAge();
-    $('outMode').textContent = t('out.card');
-    // 画像デコードを待ってから描く
-    await Promise.all(S.items.filter(i => i && i.src).map(i => new Promise(res => {
-      const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = im.onerror = res; im.src = i.src;
-    })));
-    let url;
-    try { url = draw().toDataURL('image/png'); }
-    catch(e){
-      alert(t('err.taint'));
-      return;
+    btn.disabled = true; btn.textContent = '準備中…';
+    try{
+      await Promise.all(S.items.filter(i => i && i.src).map(i => new Promise(res => {
+        const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = im.onerror = res; im.src = i.src;
+      })));
+      let url;
+      try { url = draw().toDataURL('image/png'); }
+      catch(e){ alert(t('err.taint')); return; }
+
+      await recordCard();
+      showShareUrl();
+      $('outMode').textContent = t('out.card');
+      $('outImg').src = url; $('outDl').href = url;
+      $('tagBox').style.display = 'none';
+      $('outv').classList.add('open');
+
+      // 共有シートが使えるなら、そのままリンクを送れるようにする
+      const link = lastCardId ? `${location.origin}/c/${lastCardId}` : location.origin;
+      const text = `${shareText()}\n${link}`;
+      if (navigator.share){
+        try { await navigator.share({ text }); } catch(e){ /* 閉じられただけ */ }
+      } else {
+        try { await navigator.clipboard.writeText(text); } catch(e){}
+      }
+    } finally {
+      btn.disabled = false; btn.textContent = t('btn.export');
     }
-    await recordCard();
-    showShareUrl();
-    $('outImg').src = url; $('outDl').href = url;
-    $('outv').classList.add('open');
   });
+
   $('outClose').addEventListener('click', () => $('outv').classList.remove('open'));
   $('outv').addEventListener('click', e => { if (e.target.id === 'outv') $('outv').classList.remove('open'); });
 
@@ -1611,6 +1639,8 @@
     $('copyUrl').textContent = t('copy');
     $('noteImg').textContent = t('note.img');
     $('noteUrl').textContent = t('note.url');
+    $('copyTag').textContent = t('copy');
+    $('tagNote').textContent = t('tag.note');
     $('shareUrlNote').textContent = t('shareUrl.note');
     $('byCreator').textContent = BY_LABEL[S.mode] || (LANG === 'en' ? 'By creator' : '作者で探す');
     $('name').placeholder = LANG === 'en' ? 'your name' : '太郎';

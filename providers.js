@@ -269,10 +269,34 @@ function shapeAlbum(a) {
     _alts: [a.collectionCensoredName, a.artistName].filter(Boolean),
   };
 }
+/**
+ * iTunesのアルバム検索。
+ * entity=album だけだと、曲名やサウンドトラックで引っかからないことが多い。
+ * 見つからないときは曲（musicTrack）も探し、その曲が入っているアルバムに読み替える。
+ */
 const itunesSearch = async (term, limit = 18) => {
-  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=album&country=JP&limit=${limit}`;
-  const json = await q.itunes(() => getJSON(url));
-  return (json.results || []).map(shapeAlbum).filter(x => x.img);
+  const base = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&country=JP`;
+
+  const albums = await q.itunes(() => getJSON(`${base}&entity=album&limit=${limit}`))
+    .then(j => (j.results || []).map(shapeAlbum).filter(x => x.img))
+    .catch(() => []);
+
+  if (albums.length >= 6) return albums;
+
+  // 曲名から辿る（サウンドトラックや、アルバム名と曲名が違うものに効く）
+  const tracks = await q.itunes(() => getJSON(`${base}&entity=musicTrack&limit=${limit}`))
+    .then(j => (j.results || []).map(t => shapeAlbum({
+      collectionId: t.collectionId,
+      collectionName: t.collectionName,
+      artistName: t.artistName,
+      artworkUrl100: t.artworkUrl100,
+      releaseDate: t.releaseDate,
+      artistId: t.artistId,
+      collectionCensoredName: t.collectionCensoredName,
+    })).filter(x => x.img && x.title))
+    .catch(() => []);
+
+  return mergeBy(x => `${x.source}:${x.id}`, albums, tracks);
 };
 
 /* ================================================================== *
@@ -817,10 +841,22 @@ function rakutenURL(params) {
   return u.toString();
 }
 
-const rakutenHeaders = () => ({
-  Referer: RAKUTEN_ORIGIN,
-  Origin: RAKUTEN_ORIGIN,
-});
+const rakutenHeaders = (withOrigin = true) => {
+  const h = { Referer: RAKUTEN_ORIGIN.replace(/\/$/, '') + '/' };
+  if (withOrigin) h.Origin = RAKUTEN_ORIGIN.replace(/\/$/, '');
+  return h;
+};
+
+/** 楽天を叩く。403のときはOriginを外して1度だけやり直す */
+async function rakutenGet(url) {
+  try {
+    return await q.rakuten(() => getJSON(url, { headers: rakutenHeaders(true) }));
+  } catch (e) {
+    if (!/403/.test(e.message)) throw e;
+    console.warn('楽天が403。Originを外して再試行します');
+    return q.rakuten(() => getJSON(url, { headers: rakutenHeaders(false) }));
+  }
+}
 
 /** 版の違いを無視して同じ作品にまとめるためのキー */
 function bookKey(title) {
@@ -872,7 +908,7 @@ async function searchRakutenBooks(term, field = 'title') {
     e.status = 503;
     throw e;
   }
-  const json = await q.rakuten(() => getJSON(rakutenURL({ [field]: term }), { headers: rakutenHeaders() }));
+  const json = await rakutenGet(rakutenURL({ [field]: term }));
   return (json.Items || []).map(x => shapeRakutenBook(x.Item || x)).filter(b => b.img && b.title);
 }
 
@@ -907,7 +943,7 @@ async function searchKobo(term, field = 'title') {
   u.searchParams.set('hits', '30');
   u.searchParams.set(field, term);
   try {
-    const json = await q.rakuten(() => getJSON(u.toString(), { headers: rakutenHeaders() }));
+    const json = await rakutenGet(u.toString());
     return (json.Items || []).map(x => shapeKobo(x.Item || x)).filter(b => b.img && b.title);
   } catch (e) {
     console.warn('Kobo検索に失敗（紙の結果は維持）:', e.message);
