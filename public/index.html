@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="/favicon.svg">
+<link rel="icon" href="/icon-32.png" sizes="32x32">
+<link rel="icon" href="/icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="/icon-180.png">
 <title>MY NINE LOVES — 9枚で自分を紹介する</title>
 <style>
   :root{
@@ -172,9 +173,11 @@
     font-weight:800;letter-spacing:.04em;box-shadow:0 3px 0 var(--obi-deep)}
   .btn.primary:active{transform:translateY(2px);box-shadow:0 1px 0 var(--obi-deep)}
   .btn.ghost{flex:0 0 auto;padding:14px 16px;font-size:12px;color:var(--text);font-weight:500}
-  .btn.sns{padding:12px;font-size:13px;color:var(--text);font-weight:700;
-    background:var(--panel);box-shadow:var(--shadow)}
-  .btn.sns:hover{border-color:var(--pop);color:var(--pop);background:#FCEFF2}
+  /* 仕上げの2択。何が起きるかを添えて選びやすくする */
+  .finish{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+  .finish-col{flex:1;min-width:200px;display:flex;flex-direction:column}
+  .finish-col .btn{width:100%}
+  .finish-note{font-size:11px;color:var(--muted);line-height:1.7;margin:7px 2px 0}
   .btn.danger{color:var(--alert)}
 
   /* ---- sheet ---- */
@@ -395,13 +398,13 @@
   </div>
 
   <div class="field">
-    <label class="lbl" for="title" data-i18n="label.title">タイトル</label>
-    <input type="text" id="title" maxlength="24" value="私を構成する9枚">
+    <label class="lbl" for="name" data-i18n="label.name">なまえ</label>
+    <input type="text" id="name" maxlength="20" placeholder="太郎">
   </div>
 
   <div class="field">
-    <label class="lbl" for="name" data-i18n="label.name">なまえ</label>
-    <input type="text" id="name" maxlength="20" placeholder="@yourname">
+    <label class="lbl" for="title" data-i18n="label.title">つづき</label>
+    <input type="text" id="title" maxlength="24" value="を構成する9枚">
   </div>
 
   <p class="preview-line">→ <strong id="preview">私を構成する9枚</strong></p>
@@ -430,17 +433,21 @@
   <div class="row">
     <button class="btn ghost danger" id="clear" data-i18n="btn.clear">全部消す</button>
   </div>
-  <div class="row">
-    <button class="btn" id="export" data-i18n="btn.export">画像を書き出す</button>
-    <button class="btn primary" id="share" data-i18n="btn.share">SNSでシェア</button>
+  <div class="finish">
+    <div class="finish-col">
+      <button class="btn primary" id="share" data-i18n="btn.share">画像でシェア</button>
+      <p class="finish-note" id="noteImg">
+        9つを1枚の絵にして送ります。見たままが届きます。
+      </p>
+    </div>
+    <div class="finish-col">
+      <button class="btn" id="export" data-i18n="btn.export">カードのURLを作る</button>
+      <p class="finish-note" id="noteUrl">
+        作品名や購入先まで見られるページになります。
+      </p>
+    </div>
   </div>
-  <div class="row" id="snsRow">
-    <button class="btn sns" data-sns="x">X</button>
-    <button class="btn sns" data-sns="bluesky">Bluesky</button>
-    <button class="btn sns" data-sns="threads">Threads</button>
-    <button class="btn sns" data-sns="misskey">Misskey</button>
-  </div>
-  <p class="hint" id="shareNote" style="margin-top:10px"></p>
+  <p class="hint" id="shareNote" style="margin-top:12px"></p>
 
   <!-- 本文内の広告。300×250を2つ並べる（狭い画面では縦に積まれる） -->
   <div class="inflow" id="inflow" hidden>
@@ -523,6 +530,7 @@
 <!-- 書き出し -->
 <div class="veil center" id="outv">
   <div class="out">
+    <p id="outMode" style="font-family:var(--mincho);font-size:16px;margin:0 0 12px"></p>
     <img id="outImg" alt="書き出した9枚の画像">
     <p id="outNote">スマホは画像を長押しして保存、PCは右クリックで保存できます。</p>
     <div id="shareUrlBox" style="display:none;margin-bottom:12px">
@@ -552,11 +560,13 @@
   const I18N = {
     ja: {
       'nav.make':'つくる', 'nav.trends':'みんなの9つ', 'nav.about':'このサイトについて',
-      'label.kind':'しゅるい', 'label.title':'タイトル', 'label.name':'なまえ',
+      'label.kind':'しゅるい', 'label.title':'つづき（なまえのあとに付きます）', 'label.name':'なまえ',
       'label.handle':'Xのアカウント（任意）',
       'handle.hint':'入れておくと、あなたが作った9つがまとめて見られるページに並びます。',
       'btn.clear':'全部消す',
-      'btn.export':'画像を書き出す', 'btn.share':'SNSでシェア',
+      'btn.export':'カードのURLを作る', 'btn.share':'画像でシェア',
+      'note.img':'9つを1枚の絵にして送ります。見たままが届きます。',
+      'note.url':'作品名や購入先まで見られるページになります。',
       'btn.search':'検索', 'btn.remove':'消す', 'btn.done':'決定',
       'btn.close':'閉じる', 'btn.save':'保存', 'btn.back':'← 検索結果に戻る',
       'by.work':'作品名で探す',
@@ -584,15 +594,18 @@
       'age.note':'年齢を入れると、同じ年代の人が選んだ作品のランキングが見られるようになります。保存されるのは「生まれ年」だけで、名前や個人が分かる情報とは結び付けません。',
       'age.label':'年齢（任意）', 'age.skip':'入力しない',
       'copy':'コピー', 'copied':'コピーしました',
+      'out.card':'カードができました',
       'shareUrl.note':'このURLを貼ると、9つがそのまま見られるページになります。',
     },
     en: {
       'nav.make':'Make', 'nav.trends':'Everyone\u2019s nine', 'nav.about':'About',
-      'label.kind':'Category', 'label.title':'Title', 'label.name':'Your name',
+      'label.kind':'Category', 'label.title':'Rest of the title', 'label.name':'Your name',
       'label.handle':'X account (optional)',
       'handle.hint':'Add it and all of your nines will appear on one page.',
       'btn.clear':'Clear all',
-      'btn.export':'Export image', 'btn.share':'Share',
+      'btn.export':'Get a card link', 'btn.share':'Share as image',
+      'note.img':'Sends your nine as one picture.',
+      'note.url':'A page with titles and where to get them.',
       'btn.search':'Search', 'btn.remove':'Remove', 'btn.done':'Done',
       'btn.close':'Close', 'btn.save':'Save', 'btn.back':'\u2190 Back to results',
       'by.work':'By title',
@@ -620,6 +633,7 @@
       'age.note':'Add your age to see what people your age picked. Only the birth year is stored, and it is never linked to your name.',
       'age.label':'Age (optional)', 'age.skip':'Skip',
       'copy':'Copy', 'copied':'Copied',
+      'out.card':'Your card is ready',
       'shareUrl.note':'Paste this link and people can see your nine.',
     },
   };
@@ -961,6 +975,7 @@
       source: item.source || null,
       externalId: item.id != null ? String(item.id) : null,
       year: item.year || null,
+      buyUrl: item.buyUrl || null,
       // /img?u=... から元のURLを取り出す（共有ページ用。画像そのものは保存しない）
       imageUrl: (() => {
         try { return decodeURIComponent(new URL(item.img, location.origin).searchParams.get('u') || ''); }
@@ -1381,8 +1396,8 @@
   async function recordCard(){
     const payload = {
       type: API_TYPE[S.mode],
-      title: $('title').value,
-      name: $('name').value,
+      title: fullTitle(),                    // 「太郎を構成する9冊」の形で保存する
+      name: $('name').value.trim(),
       handle: $('handle').value.trim(),
       lang: LANG,
       born,
@@ -1391,6 +1406,7 @@
         externalId: it.ref?.externalId || null,
         imageUrl: it.ref?.imageUrl || null,   // アップロード画像はnull。サーバーに送らない
         year: it.ref?.year || null,
+        buyUrl: it.ref?.buyUrl || null,
         title: it.title || '', sub: it.sub || '',
       })),
     };
@@ -1461,53 +1477,8 @@
 
   function shareText(){
     const tag = LANG === 'en' ? TAG_EN[S.mode] : TAG[S.mode];
-    const link = lastCardId ? `\n${location.origin}/c/${lastCardId}` : `\n${location.origin}`;
-    return `${fullTitle()}\n#${tag} #MyNineLoves${link}`;
+    return `${fullTitle()}\n#${tag} #MyNineLoves`;
   }
-
-  /* ---------- SNSごとの投稿画面 ----------
-     どれも画像は自動添付できない（どのSNSのWeb投稿画面もそういう仕様）。
-     先に画像を保存してから、本文が入った状態の投稿画面を開く。
-     MisskeyはサーバーごとにURLが違うので、初回だけ聞いて覚えておく。 */
-  let misskeyHost = '';
-
-  const SNS = {
-    x: text => 'https://x.com/intent/post?text=' + encodeURIComponent(text),
-    bluesky: text => 'https://bsky.app/intent/compose?text=' + encodeURIComponent(text),
-    // Threads の Web Intents。2025年に .net から .com へ移行済み
-    threads: text => 'https://www.threads.com/intent/post?text=' + encodeURIComponent(text),
-    misskey: text => {
-      if (!misskeyHost){
-        const input = prompt(
-          t('misskey.ask'),
-          'misskey.io');
-        if (!input) return null;
-        misskeyHost = input.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
-      }
-      return `https://${misskeyHost}/share?text=` + encodeURIComponent(text);
-    },
-  };
-
-  $('snsRow').addEventListener('click', async e => {
-    const b = e.target.closest('button[data-sns]');
-    if (!b) return;
-    await askAge();
-    b.disabled = true;
-    try{
-      const { url: png } = await buildPNG();
-      await recordCard();
-      const url = SNS[b.dataset.sns](shareText());
-      if (!url){ b.disabled = false; return; }
-      // 投稿画面には本文が入るが、画像は手動添付になる。
-      // 本文もクリップボードに控えておくと貼り直しが楽。
-      try { await navigator.clipboard.writeText(shareText() + '\n' + location.origin); } catch(e){}
-      const a = document.createElement('a');
-      a.href = png; a.download = 'my-nine.png'; a.click();
-      setTimeout(() => window.open(url, '_blank', 'noopener'), 400);
-    } catch(err){
-      alert(t('err.png'));
-    } finally { b.disabled = false; }
-  });
 
   $('share').addEventListener('click', async () => {
     const btn = $('share');
@@ -1520,10 +1491,10 @@
 
       // スマホはOSの共有シートを開く（X・LINE・Instagramなど何にでも送れる）
       if (navigator.canShare && navigator.canShare({ files:[file] })){
-        const text = shareText();
-        // 送り先によってはテキストが落ちるので、控えとしてクリップボードにも入れる
-        try { await navigator.clipboard.writeText(text); } catch(e){}
-        await navigator.share({ files:[file], text, title: fullTitle() });
+        // 画像だけを送る。文章とURLを混ぜると送り先で崩れるため、
+        // 本文はクリップボードに控えるだけにする
+        try { await navigator.clipboard.writeText(shareText()); } catch(e){}
+        await navigator.share({ files:[file] });
       } else {
         // 非対応環境は「画像を保存 → 投稿画面を開く」の2段構え
         const a = document.createElement('a');
@@ -1541,6 +1512,7 @@
 
   $('export').addEventListener('click', async () => {
     await askAge();
+    $('outMode').textContent = t('out.card');
     // 画像デコードを待ってから描く
     await Promise.all(S.items.filter(i => i && i.src).map(i => new Promise(res => {
       const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = im.onerror = res; im.src = i.src;
@@ -1637,6 +1609,8 @@
     $('ageSkip').textContent = t('age.skip');
     $('ageOk').textContent = t('btn.done');
     $('copyUrl').textContent = t('copy');
+    $('noteImg').textContent = t('note.img');
+    $('noteUrl').textContent = t('note.url');
     $('shareUrlNote').textContent = t('shareUrl.note');
     $('byCreator').textContent = BY_LABEL[S.mode] || (LANG === 'en' ? 'By creator' : '作者で探す');
     $('name').placeholder = LANG === 'en' ? 'your name' : '太郎';

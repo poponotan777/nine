@@ -63,6 +63,7 @@ function openPostgres() {
     ALTER TABLE cards ADD COLUMN IF NOT EXISTS lang   TEXT;
     ALTER TABLE cards ADD COLUMN IF NOT EXISTS born   INTEGER;
     ALTER TABLE card_items ADD COLUMN IF NOT EXISTS year INTEGER;
+    ALTER TABLE card_items ADD COLUMN IF NOT EXISTS buy_url TEXT;
     CREATE TABLE IF NOT EXISTS card_items (
       card_id     TEXT NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
       position    INTEGER NOT NULL,
@@ -98,8 +99,8 @@ function openPostgres() {
           const it = card.items[i];
           if (!it) continue;
           await client.query(
-            'INSERT INTO card_items (card_id,position,source,external_id,title,sub,image_url,year) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-            [id, i, it.source || null, it.externalId || null, it.title || '', it.sub || '', it.imageUrl || null, it.year || null]);
+            'INSERT INTO card_items (card_id,position,source,external_id,title,sub,image_url,year,buy_url) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+            [id, i, it.source || null, it.externalId || null, it.title || '', it.sub || '', it.imageUrl || null, it.year || null, it.buyUrl || null]);
         }
         await client.query('COMMIT');
       } catch (e) {
@@ -258,6 +259,7 @@ function openSqlite() {
       sub         TEXT,
       image_url   TEXT,
       year        INTEGER,
+      buy_url     TEXT,
       PRIMARY KEY (card_id, position)
     );
     CREATE INDEX IF NOT EXISTS idx_cards_type ON cards(type);
@@ -274,9 +276,10 @@ function openSqlite() {
   try { db.exec('ALTER TABLE cards ADD COLUMN lang TEXT'); } catch {}
   try { db.exec('ALTER TABLE cards ADD COLUMN born INTEGER'); } catch {}
   try { db.exec('ALTER TABLE card_items ADD COLUMN year INTEGER'); } catch {}
+  try { db.exec('ALTER TABLE card_items ADD COLUMN buy_url TEXT'); } catch {}
 
   const insItem = db.prepare(
-    'INSERT INTO card_items (card_id,position,source,external_id,title,sub,image_url,year) VALUES (?,?,?,?,?,?,?,?)');
+    'INSERT INTO card_items (card_id,position,source,external_id,title,sub,image_url,year,buy_url) VALUES (?,?,?,?,?,?,?,?,?)');
   const qTotal   = db.prepare('SELECT COUNT(*) AS n FROM cards');
   const qByType  = db.prepare('SELECT type, COUNT(*) AS n FROM cards GROUP BY type');
   const qRecent  = db.prepare(
@@ -301,7 +304,7 @@ function openSqlite() {
       card.items.forEach((it, i) => {
         if (!it) return;
         insItem.run(id, i, it.source || null, it.externalId || null,
-                    it.title || '', it.sub || '', it.imageUrl || null, it.year || null);
+                    it.title || '', it.sub || '', it.imageUrl || null, it.year || null, it.buyUrl || null);
       });
       return id;
     },
@@ -415,7 +418,7 @@ function openJSON() {
         state.items.push({
           card_id: id, position: i, source: it.source || null,
           external_id: it.externalId || null, title: it.title || '', sub: it.sub || '',
-          image_url: it.imageUrl || null,
+          image_url: it.imageUrl || null, buy_url: it.buyUrl || null,
         });
       });
       flush();

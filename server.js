@@ -206,14 +206,38 @@ function serveCard(card, res) {
   const ogUrl = `${base}/og/${card.id}.png`;
 
   const cells = [];
+  const details = [];
   for (let i = 0; i < 9; i++) {
     const it = (card.items || []).find(v => v && v.position === i);
-    const img = it && it.image_url
+    if (!it) { cells.push('<div class="cell"></div>'); continue; }
+
+    const img = it.image_url
       ? `<img src="${esc(it.image_url)}" alt="${esc(it.title)}" loading="lazy">`
       : '';
-    const cap = it && it.title
-      ? `<span class="cap">${esc(it.title)}</span>` : '';
-    cells.push(`<div class="cell">${img}${cap}</div>`);
+    const cap = it.title ? `<span class="cap">${esc(it.title)}</span>` : '';
+    // タップで下の詳細へ移動する
+    cells.push(`<a class="cell" href="#i${i}" data-i="${i}">${img}${cap}</a>`);
+
+    // 詳細（作品名・作者・購入先）
+    const links = P.buyLinks(card.type, {
+      title: it.title, buyUrl: it.buy_url || '', year: it.year,
+    }) || [];
+    const linkHtml = links.length
+      ? `<div class="buys"><span class="pr">PR（アフィリエイトリンク）</span>`
+        + links.map(l => `<a href="${esc(l.url)}" target="_blank"
+            rel="noopener sponsored nofollow">${esc(l.label)}</a>`).join('')
+        + `</div>`
+      : '';
+    details.push(`<div class="detail" id="i${i}">
+      <div class="d-head">
+        ${it.image_url ? `<img src="${esc(it.image_url)}" alt="" loading="lazy">` : ''}
+        <div>
+          <div class="d-title">${esc(it.title)}</div>
+          ${it.sub ? `<div class="d-sub">${esc(it.sub)}</div>` : ''}
+        </div>
+      </div>
+      ${linkHtml}
+    </div>`);
   }
 
   const html = `<!DOCTYPE html>
@@ -221,7 +245,8 @@ function serveCard(card, res) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/icon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="/icon-180.png">
 <title>${esc(title)} | MY NINE LOVES</title>
 <meta name="description" content="${esc(desc)}">
 <meta property="og:type" content="website">
@@ -272,6 +297,23 @@ function serveCard(card, res) {
     background:linear-gradient(transparent,rgba(0,0,0,.8));color:#fff;font-size:10px;
     padding:14px 5px 5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
   .note{font-size:11px;color:var(--muted);margin:14px 0 22px;line-height:1.8}
+  .tap-hint{font-size:11px;color:var(--muted);margin:10px 0 18px}
+  .details{display:flex;flex-direction:column;gap:10px;margin-bottom:22px}
+  .detail{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+    padding:14px 16px;box-shadow:var(--shadow);scroll-margin-top:20px}
+  .detail:target{border-color:var(--obi-deep);box-shadow:0 0 0 3px rgba(255,198,26,.35)}
+  .d-head{display:flex;gap:12px;align-items:center;margin-bottom:10px}
+  .d-head img{width:52px;height:70px;object-fit:contain;background:var(--panel-2);
+    border-radius:4px;flex:0 0 auto}
+  .d-title{font-size:15px;font-weight:700;line-height:1.4}
+  .d-sub{font-size:12px;color:var(--muted);margin-top:3px}
+  .buys .pr{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.16em;
+    color:var(--muted);margin-bottom:6px}
+  .buys a{display:block;text-align:center;padding:10px;margin-bottom:5px;
+    border:1px solid var(--line);border-radius:var(--r);color:var(--muted);
+    font-size:13px;text-decoration:none}
+  .buys a:hover{border-color:var(--pop);color:var(--pop);background:#FCEFF2}
+  a.cell{display:block;text-decoration:none}
   .cta{display:block;text-align:center;background:var(--obi);color:#2A2622;font-weight:800;
     padding:16px;border-radius:var(--r);text-decoration:none;
     box-shadow:0 3px 0 var(--obi-deep);margin-bottom:10px}
@@ -302,6 +344,8 @@ function serveCard(card, res) {
     <span>${Number(card.views) || 0} view ・ ${Number(card.likes) || 0} ♥</span>
   </div>
   <div class="grid">${cells.join('')}</div>
+  <p class="tap-hint">作品をタップすると、くわしい情報と購入先が見られます。</p>
+  <div class="details">${details.join('')}</div>
   <p class="note">
     自分で追加した画像は、この共有ページには表示されません（端末の中だけで処理され、
     サーバーには保存していないためです）。
@@ -367,6 +411,8 @@ const server = http.createServer(async (req, res) => {
           title:      String(it.title || '').slice(0, 120),
           sub:        String(it.sub || '').slice(0, 120),
           year:       Number(it.year) || null,
+          buyUrl:     typeof it.buyUrl === 'string' && /^https:\/\//.test(it.buyUrl)
+                        ? it.buyUrl.slice(0, 400) : null,
           imageUrl,
         };
       });
@@ -550,7 +596,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/terms')  return serveStatic('/terms.html', res);
     if (url.pathname === '/trends')  return serveStatic('/trends.html', res);
     if (url.pathname === '/contact') return serveStatic('/contact.html', res);
-    if (url.pathname === '/favicon.ico') return serveStatic('/favicon.svg', res);
+    if (url.pathname === '/favicon.ico') return serveStatic('/favicon.png', res);
 
     /* ---------- 共有ページ ----------
        /c/xxxxxxxx  … 9つを見せるページ（OGPタグ付き）
