@@ -849,8 +849,13 @@ function rakutenURL(params) {
  * RAKUTEN_REFERER を設定すれば、その値だけを使う。
  */
 function refererCandidates() {
-  const fixed = process.env.RAKUTEN_REFERER;
-  if (fixed) return [fixed];
+  // 複数行やスペース区切りで書かれていても、1つずつの候補として扱う
+  const fixed = (process.env.RAKUTEN_REFERER || '')
+    .split(/[\s,]+/)
+    .map(v => v.trim())
+    .filter(Boolean)
+    .map(v => (/^https?:\/\//.test(v) ? v : 'https://' + v));
+  if (fixed.length) return fixed;
 
   const base = (process.env.CONTACT_URL || 'https://mynineloves.com').replace(/\/+$/, '');
   let host = '';
