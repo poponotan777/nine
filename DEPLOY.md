@@ -315,3 +315,29 @@ MyLinkは「登録した1つのURL」への固定リンクなので、作品ご�
 
 前者で全ページにスクリプトが入り、後者で「Yahoo!ショッピングで探す」リンクが
 作品の詳細に表示されるようになります。
+
+
+---
+
+## 楽天が403を返すとき
+
+エラーに `REQUEST_CONTEXT_BODY_HTTP_REFERRER_MISSING` と出る場合、
+Refererが登録済みドメインと一致していません。
+
+コード側では次の順にRefererを変えて試します。
+
+1. `https://mynineloves.com/`
+2. `https://mynineloves.com`
+3. `https://www.mynineloves.com/`
+
+それでも通らない場合は、楽天ウェブサービスのアプリ設定で
+**Allowed websites** に何を登録したかを確認してください。
+登録値とまったく同じ文字列を、環境変数 `RAKUTEN_REFERER` に入れると、
+その値だけが使われます。
+
+| キー | 値の例 |
+|---|---|
+| `RAKUTEN_REFERER` | `https://mynineloves.com/` |
+
+Renderのログに「楽天 Referer="..." で失敗」と出るので、
+どの形が試されたかを確認できます。

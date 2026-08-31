@@ -828,7 +828,6 @@ const RAKUTEN_AFF = process.env.RAKUTEN_AFFILIATE_ID || '';
  * さらにリクエスト元が厳格にチェックされるため、Referer と Origin を明示して送る。
  * 送り先は、アプリ登録時に「許可されたWebサイト」に入れたドメインと一致させること。
  */
-const RAKUTEN_ORIGIN = process.env.CONTACT_URL || 'https://nine-1jsh.onrender.com';
 
 function rakutenURL(params) {
   const u = new URL('https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404');
@@ -842,28 +841,40 @@ function rakutenURL(params) {
   return u.toString();
 }
 
-const rakutenHeaders = (withOrigin = true) => {
-  const h = { Referer: RAKUTEN_ORIGIN.replace(/\/$/, '') + '/' };
-  if (withOrigin) h.Origin = RAKUTEN_ORIGIN.replace(/\/$/, '');
-  return h;
-};
+/**
+ * 楽天はRefererを厳格に見る。
+ * REQUEST_CONTEXT_BODY_HTTP_REFERRER_MISSING は
+ * 「Refererが無い、または登録済みドメインと一致しない」という意味。
+ * 末尾スラッシュやwwwの有無で一致しないことがあるため、形を変えて順に試す。
+ * RAKUTEN_REFERER を設定すれば、その値だけを使う。
+ */
+function refererCandidates() {
+  const fixed = process.env.RAKUTEN_REFERER;
+  if (fixed) return [fixed];
 
-/** 楽天を叩く。403のときはOriginを外して1度だけやり直す */
+  const base = (process.env.CONTACT_URL || 'https://mynineloves.com').replace(/\/+$/, '');
+  let host = '';
+  try { host = new URL(base).host; } catch { host = base.replace(/^https?:\/\//, ''); }
+  const bare = host.replace(/^www\./, '');
+  return [
+    `https://${bare}/`,
+    `https://${bare}`,
+    `https://www.${bare}/`,
+    base + '/',
+  ].filter((v, i, a) => a.indexOf(v) === i);
+}
+
+/** 楽天を叩く。Refererの形を変えながら順に試す */
 async function rakutenGet(url) {
-  // 送り方を変えながら順に試す。403の原因はリクエスト元の判定であることが多い
-  const attempts = [
-    { name: 'Referer+Origin', headers: rakutenHeaders(true) },
-    { name: 'Refererのみ',    headers: rakutenHeaders(false) },
-    { name: 'ヘッダーなし',    headers: {} },
-  ];
   let last;
-  for (const a of attempts) {
+  for (const ref of refererCandidates()) {
     try {
-      return await q.rakuten(() => getJSON(url, { headers: a.headers }));
+      // Originは付けない。付けるとブラウザ扱いになり別の理由で弾かれることがある
+      return await q.rakuten(() => getJSON(url, { headers: { Referer: ref } }));
     } catch (e) {
       last = e;
       if (!/403|400/.test(e.message)) throw e;
-      console.warn(`楽天 ${a.name} で失敗: ${e.message}`);
+      console.warn(`楽天 Referer="${ref}" で失敗: ${e.message.slice(0, 130)}`);
     }
   }
   throw last;
