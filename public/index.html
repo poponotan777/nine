@@ -773,15 +773,34 @@
       if (d.at && Date.now() - d.at > 7 * 86400e3) return;
       S.byMode = d.byMode || {};
       S.meta = d.meta || {};
+      // 以前の形式（名前入りのタイトル）が残っていたら直す
+      Object.values(S.meta).forEach(m => {
+        if (m && m.title) m.title = stripName(m.title, m.name);
+      });
       if (d.mode) S.mode = d.mode;
     } catch(e){}
   }
   /** 種類を切り替えたとき、その種類の内容を呼び戻す */
+  /** 「私を構成する9枚」のように名前が付いたまま保存された下書きを、
+      「を構成する9枚」の形に戻す（二重に付くのを防ぐ） */
+  function stripName(title, name) {
+    let t = String(title || '');
+    const nm = String(name || '').trim().replace(/^@/, '');
+    if (nm && t.startsWith(nm)) t = t.slice(nm.length);
+    else if (t.startsWith('私')) t = t.slice(1);
+    return t;
+  }
+
   function restore(mode){
     S.items = S.byMode[mode] || Array(9).fill(null);
     const m = S.meta[mode];
-    $('title').value = m ? m.title : C(mode).title;
-    if (m) { $('name').value = m.name; $('handle').value = m.handle || ''; }
+    if (m) {
+      $('name').value = m.name || '';
+      $('handle').value = m.handle || '';
+      $('title').value = stripName(m.title, m.name) || C(mode).title;
+    } else {
+      $('title').value = C(mode).title;
+    }
   }
   const $ = id => document.getElementById(id);
   const grid = $('grid');
@@ -1467,8 +1486,8 @@
   /** 「太郎」＋「を構成する9枚」→「太郎を構成する9枚」
       名前が空なら「私を構成する9枚」にする */
   function fullTitle(){
-    const t = $('title').value || C().title;
     const nm = $('name').value.trim().replace(/^@/, '');
+    const t = stripName($('title').value || C().title, nm);
     if (LANG === 'en') return nm ? `${t} — ${nm}` : t;
     return (nm || '私') + t;
   }

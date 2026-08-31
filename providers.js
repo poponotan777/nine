@@ -175,6 +175,7 @@ async function getJSON(url, opts = {}, retry = true) {
     const body = await res.text().catch(() => '');
     let detail = '';
     try { const j = JSON.parse(body); detail = j.error_description || j.error || ''; } catch {}
+    if (!detail) detail = body.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
     throw new Error(`${new URL(url).hostname} が ${res.status} を返しました${detail ? '：' + detail : ''}`);
   }
   // 429（多すぎ）や503（一時的）は、少し待って1度だけやり直す
@@ -849,13 +850,23 @@ const rakutenHeaders = (withOrigin = true) => {
 
 /** 楽天を叩く。403のときはOriginを外して1度だけやり直す */
 async function rakutenGet(url) {
-  try {
-    return await q.rakuten(() => getJSON(url, { headers: rakutenHeaders(true) }));
-  } catch (e) {
-    if (!/403/.test(e.message)) throw e;
-    console.warn('楽天が403。Originを外して再試行します');
-    return q.rakuten(() => getJSON(url, { headers: rakutenHeaders(false) }));
+  // 送り方を変えながら順に試す。403の原因はリクエスト元の判定であることが多い
+  const attempts = [
+    { name: 'Referer+Origin', headers: rakutenHeaders(true) },
+    { name: 'Refererのみ',    headers: rakutenHeaders(false) },
+    { name: 'ヘッダーなし',    headers: {} },
+  ];
+  let last;
+  for (const a of attempts) {
+    try {
+      return await q.rakuten(() => getJSON(url, { headers: a.headers }));
+    } catch (e) {
+      last = e;
+      if (!/403|400/.test(e.message)) throw e;
+      console.warn(`楽天 ${a.name} で失敗: ${e.message}`);
+    }
   }
+  throw last;
 }
 
 /** 版の違いを無視して同じ作品にまとめるためのキー */
@@ -1131,9 +1142,12 @@ function buyLinks(type, item) {
     out.push({ label: '楽天ブックスで見る', url: item.buyUrl, kind: 'shop' });
   }
 
+  // 内部の種別名は album（CD）。cd と両方を受けておく
   const CATEGORY = {
-    book: 'stripbooks', manga: 'stripbooks', cd: 'popular',
-    movie: 'dvd', anime: 'dvd', character: null, person: null,
+    album: 'popular', cd: 'popular',
+    book: 'stripbooks', manga: 'stripbooks',
+    movie: 'dvd', anime: 'dvd',
+    character: null, person: null,
   };
   if (CATEGORY[type] !== undefined && CATEGORY[type] !== null) {
     const url = amazonSearch(q, CATEGORY[type]);
