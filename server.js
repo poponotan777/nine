@@ -446,14 +446,16 @@ const server = http.createServer(async (req, res) => {
     // 一覧（最新順・人気順・検索・SNSハンドル絞り込み）
     if (url.pathname === '/x/cards' && req.method === 'GET') {
       const type   = url.searchParams.get('type');
+      const notType = url.searchParams.get('notype');
       const sort   = url.searchParams.get('sort') === 'hot' ? 'hot' : 'new';
       const handle = (url.searchParams.get('handle') || '').replace(/^@/, '').slice(0, 30) || null;
       const kw     = (url.searchParams.get('q') || '').slice(0, 40) || null;
       const limit  = Math.min(Number(url.searchParams.get('limit')) || 24, 48);
       const offset = Math.max(Number(url.searchParams.get('offset')) || 0, 0);
       if (type && !TYPES.has(type)) return send(res, 400, { error: '種別が不正です' });
+      if (notType && !TYPES.has(notType)) return send(res, 400, { error: '種別が不正です' });
 
-      const items = await store.list({ type, sort, handle, q: kw, limit, offset });
+      const items = await store.list({ type, notType, sort, handle, q: kw, limit, offset });
       return send(res, 200, { items });
     }
 
@@ -481,18 +483,20 @@ const server = http.createServer(async (req, res) => {
     // 作品ランキング。言語・作品の年代・作った人の年齢層で絞れる
     if (url.pathname === '/x/top') {
       const type    = url.searchParams.get('type');
+      const notType = url.searchParams.get('notype');
       const lang    = url.searchParams.get('lang');
       const decade  = Number(url.searchParams.get('decade')) || null;
       const ageBand = Number(url.searchParams.get('age')) || null;
       const limit   = Math.min(Number(url.searchParams.get('limit')) || 9, 30);
       if (type && !TYPES.has(type)) return send(res, 400, { error: '種別が不正です' });
+      if (notType && !TYPES.has(notType)) return send(res, 400, { error: '種別が不正です' });
 
-      const key = `top:${type}:${lang}:${decade}:${ageBand}:${limit}`;
+      const key = `top:${type}:${notType}:${lang}:${decade}:${ageBand}:${limit}`;
       const hit = cacheGet(key);
       if (hit) return send(res, 200, { items: hit, cached: true });
 
       const items = await store.top({
-        type, limit,
+        type, notType, limit,
         lang: lang === 'ja' || lang === 'en' ? lang : null,
         decade, ageBand,
       });

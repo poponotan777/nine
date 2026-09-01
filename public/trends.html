@@ -254,7 +254,7 @@
   <div class="bar">
     <div class="seg" id="kind" role="group">
       <button type="button" data-type="" aria-pressed="true">すべて</button>
-      <button type="button" data-type="cd" aria-pressed="false">CD</button>
+      <button type="button" data-type="album" aria-pressed="false">CD</button>
       <button type="button" data-type="book" aria-pressed="false">書籍</button>
       <button type="button" data-type="manga" aria-pressed="false">漫画</button>
       <button type="button" data-type="anime" aria-pressed="false">アニメ</button>
@@ -334,11 +334,12 @@
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const LABEL_JA = { cd:'CD', manga:'漫画', book:'書籍', anime:'アニメ',
+  // 保存されている種別名は 'album'。'cd' は画面側の呼び名なので両方を引けるようにする
+  const LABEL_JA = { album:'CD', cd:'CD', manga:'漫画', book:'書籍', anime:'アニメ',
                      movie:'映画', person:'有名人', character:'キャラ' };
   const LABEL = new Proxy({}, { get: (_, k) => T().kinds[k] || LABEL_JA[k] });
   // 共有時に必ず付く共通タグ。種類別タグは補助なので、ここでは共通タグを追う
-  const TAG = { '':'MyNineLoves', cd:'MyNineLoves', manga:'MyNineLoves', book:'MyNineLoves',
+  const TAG = { '':'MyNineLoves', album:'MyNineLoves', cd:'MyNineLoves', manga:'MyNineLoves', book:'MyNineLoves',
                 anime:'MyNineLoves', movie:'MyNineLoves',
                 person:'MyNineLoves', character:'MyNineLoves' };
 
@@ -362,7 +363,7 @@
       my9:'作成されたMY9', my9note:'ほかの人が選んだ9つ。タップすると大きく見られます。',
       rankMore:'10位以降を見る', openCard:'カードのページへ',
       pr:'PR（アフィリエイトリンク）', user:'作った人を見る',
-      kinds:{ '':'すべて', cd:'CD', book:'書籍', manga:'漫画', anime:'アニメ',
+      kinds:{ '':'すべて', album:'CD', cd:'CD', book:'書籍', manga:'漫画', anime:'アニメ',
               movie:'映画', person:'有名人', character:'キャラ' },
     },
     en: {
@@ -379,7 +380,7 @@
       my9:'Cards people made', my9note:'Tap a card to see it bigger.',
       rankMore:'Show 10th and below', openCard:'Open the card page',
       pr:'PR (affiliate link)', user:'See the creator',
-      kinds:{ '':'All', cd:'Albums', book:'Books', manga:'Manga', anime:'Anime',
+      kinds:{ '':'All', album:'Albums', cd:'Albums', book:'Books', manga:'Manga', anime:'Anime',
               movie:'Films', person:'People', character:'Chars' },
     },
   };
@@ -431,8 +432,6 @@
   function render(items, append){
     const box = $('cards');
     if (!append) box.innerHTML = '';
-    // 書籍は日本の楽天ブックスに依存しているため、英語では一覧にも出さない
-    if (LANG === 'en') items = items.filter(c => c.type !== 'book');
     items.forEach((c, idx) => {
       // 一覧の途中に1つだけ広告を挟む
       if (!append && idx === 6 && adInflow){
@@ -488,6 +487,7 @@
     if (!append){ state.offset = 0; $('note').textContent = T().loading; }
     const p = new URLSearchParams({ sort: state.sort, limit: LIMIT, offset: state.offset });
     if (state.type) p.set('type', state.type);
+    if (LANG === 'en') p.set('notype', 'book');   // 書籍は英語では扱わない
     if (state.handle) p.set('handle', state.handle);
     try{
       const r = await fetch('/x/cards?' + p);
@@ -533,7 +533,7 @@
   loadAds();
 
   /* ---------- 作品ランキング ---------- */
-  const RATIO = { cd:'1/1', manga:'.7', book:'.67', anime:'.7',
+  const RATIO = { album:'1/1', cd:'1/1', manga:'.7', book:'.67', anime:'.7',
                   movie:'.67', person:'.75', character:'.7' };
 
   function paintDecades(){
@@ -572,6 +572,7 @@
     }
     const p = new URLSearchParams({ limit: 30 });
     if (state.type) p.set('type', state.type);
+    if (LANG === 'en') p.set('notype', 'book');   // 書籍は英語では扱わない
     if (state.decade) p.set('decade', state.decade);
     if (state.scope === 'ja') p.set('lang', 'ja');
     if (state.scope === 'en') p.set('lang', 'en');

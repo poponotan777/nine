@@ -124,11 +124,13 @@ function openPostgres() {
       return { total: total.rows[0].n, today: today.rows[0].n, byType: map };
     },
 
-    async top({ type = null, lang = null, decade = null, ageBand = null, limit = 9 } = {}) {
+    async top({ type = null, notType = null, lang = null, decade = null, ageBand = null, limit = 9 } = {}) {
       await ready;
       const where = ['i.external_id IS NOT NULL'];
       const args = [];
       if (type)   { args.push(type);   where.push(`c.type = $${args.length}`); }
+      // 特定の種類を集計から外す（英語では書籍を出さない、など）
+      if (notType){ args.push(notType); where.push(`c.type <> $${args.length}`); }
       if (lang)   { args.push(lang);   where.push(`c.lang = $${args.length}`); }
       if (decade) { args.push(decade); where.push(`i.year >= $${args.length} AND i.year < $${args.length} + 10`); }
       if (ageBand) {
@@ -179,11 +181,12 @@ function openPostgres() {
     },
 
     /** 一覧。sort は 'new'（最新）か 'hot'（人気） */
-    async list({ type = null, sort = 'new', handle = null, q: kw = null, limit = 24, offset = 0 } = {}) {
+    async list({ type = null, notType = null, sort = 'new', handle = null, q: kw = null, limit = 24, offset = 0 } = {}) {
       await ready;
       const where = ['filled > 0'];
       const args = [];
       if (type)   { args.push(type);   where.push(`type = $${args.length}`); }
+      if (notType){ args.push(notType); where.push(`type <> $${args.length}`); }
       if (handle) { args.push(handle); where.push(`handle = $${args.length}`); }
       if (kw) {
         args.push('%' + kw + '%');
@@ -314,10 +317,11 @@ function openSqlite() {
       const since = new Date(Date.now() - 24 * 3600e3).toISOString();
       return { total: qTotal.get().n, today: qRecent.get(since).n, byType };
     },
-    top({ type = null, lang = null, decade = null, ageBand = null, limit = 9 } = {}) {
+    top({ type = null, notType = null, lang = null, decade = null, ageBand = null, limit = 9 } = {}) {
       const where = ['i.external_id IS NOT NULL'];
       const args = [];
       if (type)   { where.push('c.type = ?');  args.push(type); }
+      if (notType){ where.push('c.type <> ?'); args.push(notType); }
       if (lang)   { where.push('c.lang = ?');  args.push(lang); }
       if (decade) { where.push('i.year >= ? AND i.year < ? + 10'); args.push(decade, decade); }
       if (ageBand){ where.push('c.born >= ? AND c.born < ? + 10'); args.push(ageBand, ageBand); }
@@ -350,10 +354,11 @@ function openSqlite() {
       return db.prepare('SELECT likes FROM cards WHERE id = ?').get(id)?.likes ?? null;
     },
 
-    list({ type = null, sort = 'new', handle = null, q: kw = null, limit = 24, offset = 0 } = {}) {
+    list({ type = null, notType = null, sort = 'new', handle = null, q: kw = null, limit = 24, offset = 0 } = {}) {
       const where = ['filled > 0'];
       const args = [];
       if (type)   { where.push('type = ?');   args.push(type); }
+      if (notType){ where.push('type <> ?');  args.push(notType); }
       if (handle) { where.push('handle = ?'); args.push(handle); }
       if (kw) {
         where.push(`(title LIKE ? OR name LIKE ?
@@ -431,8 +436,9 @@ function openJSON() {
       const today = state.cards.filter(c => new Date(c.created_at).getTime() > since).length;
       return { total: state.cards.length, today, byType };
     },
-    top({ type = null, lang = null, decade = null, ageBand = null, limit = 9 } = {}) {
-      const ok = c => (!type || c.type === type) && (!lang || c.lang === lang)
+    top({ type = null, notType = null, lang = null, decade = null, ageBand = null, limit = 9 } = {}) {
+      const ok = c => (!type || c.type === type) && (!notType || c.type !== notType)
+        && (!lang || c.lang === lang)
         && (!ageBand || (c.born >= ageBand && c.born < ageBand + 10));
       const ids = new Set(state.cards.filter(ok).map(c => c.id));
       const bucket = new Map();
@@ -469,11 +475,12 @@ function openJSON() {
       return c.likes;
     },
 
-    list({ type = null, sort = 'new', handle = null, q: kw = null, limit = 24, offset = 0 } = {}) {
+    list({ type = null, notType = null, sort = 'new', handle = null, q: kw = null, limit = 24, offset = 0 } = {}) {
       const needle = (kw || '').toLowerCase();
       let rows = state.cards.filter(c => {
         if (!c.filled) return false;
         if (type && c.type !== type) return false;
+        if (notType && c.type === notType) return false;
         if (handle && c.handle !== handle) return false;
         if (needle) {
           const inItems = state.items.some(i =>
