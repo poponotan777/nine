@@ -107,6 +107,22 @@
   .pack{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;
     background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
     padding:10px;box-shadow:var(--shadow);margin-bottom:12px}
+
+  /* 書き出す画像と同じ体裁にそろえる（左に黄色の帯） */
+  .packwrap{display:flex;background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;margin-bottom:12px}
+  .packwrap .obi{flex:0 0 26px;background:var(--obi);display:flex;
+    align-items:flex-end;justify-content:center;padding:10px 0}
+  .packwrap .obi span{writing-mode:vertical-rl;font-family:var(--mono);
+    font-size:9px;letter-spacing:.18em;color:#2A2622;white-space:nowrap}
+  .packwrap .pack{flex:1;min-width:0;border:0;border-radius:0;
+    box-shadow:none;margin:0;background:transparent}
+
+  /* PCでは9つを1画面に収める。高さを決めて、そこに3行を割り付ける */
+  @media (min-width:900px){
+    .packwrap .pack{height:min(62vh,560px);grid-template-rows:repeat(3,1fr)}
+    .packwrap .pack .p{aspect-ratio:auto;height:100%}
+  }
   .pack .p{position:relative;aspect-ratio:var(--ratio,.72);background:var(--panel-2);
     border-radius:6px;overflow:hidden;cursor:pointer;display:block;text-decoration:none}
   .pack .p img{width:100%;height:100%;object-fit:contain;display:block}
@@ -130,6 +146,14 @@
   .rank .rn{font-family:var(--mono);font-size:11px;color:var(--pop);flex:0 0 auto}
 
   .cards{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+  /* スマホは1列だと縦に長くなりすぎるので2列にする */
+  @media (max-width:560px){
+    .cards{grid-template-columns:repeat(2,1fr);gap:8px}
+    .card{padding:8px;gap:7px}
+    .card .t{font-size:12px}
+    .card .m,.card .num{font-size:10px}
+    .like{padding:5px 8px;font-size:11px}
+  }
   .card{display:flex;flex-direction:column;gap:10px;background:var(--panel);
     border:1px solid var(--line);border-radius:var(--r);padding:12px;
     box-shadow:var(--shadow);cursor:pointer}
@@ -253,8 +277,11 @@
     </div>
     <div class="decades" id="decades"></div>
 
-    <!-- 上位9件は3×3で見せる -->
-    <div class="pack" id="rank9"></div>
+    <!-- 上位9件は3×3で見せる。書き出す画像と同じ帯付きの体裁にそろえている -->
+    <div class="packwrap">
+      <div class="obi"><span>MY NINE LOVES</span></div>
+      <div class="pack" id="rank9"></div>
+    </div>
     <!-- 10位以降はリスト -->
     <ol class="rank" id="rank"></ol>
     <button class="more" id="rankMore" style="display:none">10位以降を見る</button>
@@ -404,6 +431,8 @@
   function render(items, append){
     const box = $('cards');
     if (!append) box.innerHTML = '';
+    // 書籍は日本の楽天ブックスに依存しているため、英語では一覧にも出さない
+    if (LANG === 'en') items = items.filter(c => c.type !== 'book');
     items.forEach((c, idx) => {
       // 一覧の途中に1つだけ広告を挟む
       if (!append && idx === 6 && adInflow){

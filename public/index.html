@@ -327,9 +327,18 @@
 
   /* ---- export preview ---- */
   .veil.center{align-items:center}
-  .out{max-width:min(92vw,440px);text-align:center}
-  .out img{width:100%;border:1px solid var(--line);display:block;margin-bottom:14px}
+  .out{max-width:min(92vw,440px);text-align:center;
+       max-height:92vh;overflow:auto;padding:16px;
+       -webkit-overflow-scrolling:touch}
+  .out img{width:100%;max-height:52vh;object-fit:contain;
+           border:1px solid var(--line);display:block;margin-bottom:14px;
+           background:var(--panel)}
   .out p{font-size:12px;color:var(--muted);line-height:1.8;margin:0 0 12px}
+  /* 案内文は薄いと読めないので、本文と同じ濃さにする */
+  .out .say{font-size:13px;color:var(--text);line-height:1.9;margin:0 0 12px}
+  /* ボタンは常に見える位置に貼り付ける */
+  .out .row{position:sticky;bottom:0;background:var(--ink);
+            padding:12px 0 2px;margin-top:4px}
 
   footer{margin-top:34px;padding-top:16px;border-top:1px solid var(--line);
     font-size:11px;color:var(--muted);line-height:1.9}
@@ -532,9 +541,9 @@
   <div class="out">
     <p id="outMode" style="font-family:var(--mincho);font-size:16px;margin:0 0 12px"></p>
     <img id="outImg" alt="書き出した9枚の画像">
-    <p id="outNote">スマホは画像を長押しして保存、PCは右クリックで保存できます。</p>
+    <p class="say" id="outNote">スマホは画像を長押しして保存、PCは右クリックで保存できます。</p>
     <div id="tagBox" style="display:none;margin-bottom:12px">
-      <p class="hint" id="tagNote" style="margin:0 0 6px">
+      <p class="say" id="tagNote" style="margin:0 0 6px">
         投稿するときは、このハッシュタグを添えてください。
       </p>
       <div style="display:flex;gap:6px">
@@ -544,7 +553,7 @@
     </div>
 
     <div id="shareUrlBox" style="display:none;margin-bottom:12px">
-      <p class="hint" id="shareUrlNote" style="margin:0 0 6px">
+      <p class="say" id="shareUrlNote" style="margin:0 0 6px">
         このURLを貼ると、9つがそのまま見られるページになります。
       </p>
       <div style="display:flex;gap:6px">
@@ -555,6 +564,7 @@
     <div class="row">
       <button class="btn" id="outClose" data-i18n="btn.close">閉じる</button>
       <a class="btn primary" id="outDl" download="my-nine.png" style="text-decoration:none;text-align:center" data-i18n="btn.save">保存</a>
+      <button class="btn primary" id="outShare" style="display:none">シェア</button>
     </div>
   </div>
 </div>
@@ -584,6 +594,8 @@
       'grid.hint':'空きマスをタップして画像を追加。作品名でも作者名でも探せます。<br>右上の <strong>⇅</strong> を押してから別のマスを押すと、順番を入れ替えられます。種類を変えても、それぞれの選択は残ります。',
       'drop':'画像をタップして選ぶ<br><span style="font-size:11px">またはここにドロップ / 貼り付け</span>',
       'out.note':'スマホは画像を長押しして保存、PCは右クリックで保存できます。',
+      'out.ogp':'SNSにこのURLを貼ると、この画像がサムネイルとして表示されます。',
+      'btn.doshare':'シェア',
       'st.searching':'検索中…', 'st.tap':'タップして選ぶ',
       'st.none':'見つかりませんでした。別の言葉で試してください。',
       'st.failed':'検索に失敗しました。画像を直接アップロードすることもできます。',
@@ -625,6 +637,8 @@
       'grid.hint':'Tap an empty cell to add an image. Search by title or by creator.<br>Tap <strong>\u21c5</strong> then another cell to swap them. Your picks are kept per category.',
       'drop':'Tap to choose an image<br><span style="font-size:11px">or drop / paste it here</span>',
       'out.note':'Long-press the image to save on mobile, or right-click on desktop.',
+      'out.ogp':'Paste this URL on social media and this image appears as the thumbnail.',
+      'btn.doshare':'Share',
       'st.searching':'Searching\u2026', 'st.tap':'Tap to choose',
       'st.none':'Nothing found. Try different words.',
       'st.failed':'Search failed. You can also upload an image directly.',
@@ -1517,8 +1531,7 @@
   });
 
   function shareText(){
-    const tag = LANG === 'en' ? TAG_EN[S.mode] : TAG[S.mode];
-    return `${fullTitle()}\n#${tag} #MyNineLoves`;
+    return `${fullTitle()}\n#MyNineLoves`;
   }
 
   // 3×3の画像で保存。プレビューを出し、そこから保存してもらう
@@ -1531,6 +1544,8 @@
       await recordCard();
       $('outMode').textContent = t('out.image');
       $('outImg').src = url; $('outDl').href = url;
+      setOutButtons('save');
+      $('outNote').textContent = t('out.note');
       $('shareUrlBox').style.display = 'none';     // 画像の保存ではURLは出さない
       $('tagBox').style.display = 'block';
       $('tagText').value = shareText();
@@ -1558,21 +1573,42 @@
       await recordCard();
       showShareUrl();
       $('outMode').textContent = t('out.card');
-      $('outImg').src = url; $('outDl').href = url;
+      // SNSに貼ったときに実際に出るのはOGP画像なので、それをそのまま見せる
+      $('outImg').src = lastCardId ? `${location.origin}/og/${lastCardId}.png` : url;
+      $('outDl').href = url;
+      $('outNote').textContent = t('out.ogp');
       $('tagBox').style.display = 'none';
+      setOutButtons('share');
       $('outv').classList.add('open');
-
-      // 共有シートが使えるなら、そのままリンクを送れるようにする
-      const link = lastCardId ? `${location.origin}/c/${lastCardId}` : location.origin;
-      const text = `${shareText()}\n${link}`;
-      if (navigator.share){
-        try { await navigator.share({ text }); } catch(e){ /* 閉じられただけ */ }
-      } else {
-        try { await navigator.clipboard.writeText(text); } catch(e){}
-      }
     } finally {
       btn.disabled = false; btn.textContent = t('btn.export');
     }
+  });
+
+  /** 書き出しモーダルのボタンを切り替える
+      save  … 画像を保存する（3×3の画像で保存）
+      share … リンクを送る（カードのURLでシェア） */
+  function setOutButtons(mode){
+    const share = mode === 'share';
+    $('outDl').style.display    = share ? 'none' : '';
+    $('outShare').style.display = share ? '' : 'none';
+    $('outShare').textContent   = t('btn.doshare');
+  }
+
+  // 押されて初めて共有シートを開く。使えない環境ではコピーで代替する
+  $('outShare').addEventListener('click', async () => {
+    const link = lastCardId ? `${location.origin}/c/${lastCardId}` : location.origin;
+    const text = `${shareText()}\n${link}`;
+    if (navigator.share){
+      try { await navigator.share({ text }); } catch(e){ /* 閉じられただけ */ }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      const b = $('outShare');
+      b.textContent = t('copied');
+      setTimeout(() => { b.textContent = t('btn.doshare'); }, 1600);
+    } catch(e){ $('shareUrl').select(); }
   });
 
   $('outClose').addEventListener('click', () => $('outv').classList.remove('open'));
