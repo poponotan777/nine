@@ -321,23 +321,27 @@ MyLinkは「登録した1つのURL」への固定リンクなので、作品ご�
 
 ## 楽天が403を返すとき
 
-エラーに `REQUEST_CONTEXT_BODY_HTTP_REFERRER_MISSING` と出る場合、
-Refererが登録済みドメインと一致していません。
+エラーに `REQUEST_CONTEXT_BODY_HTTP_REFERRER_MISSING` と出る場合。
 
-コード側では次の順にRefererを変えて試します。
+**文面はRefererだが、実際には `Origin` ヘッダーが必要。**
+2026年2月のAPI刷新でリクエスト元の判定が厳格になり、
+Referer（どのページから来たか）ではなく
+Origin（ドメインだけ）を見ている。
 
-1. `https://mynineloves.com/`
-2. `https://mynineloves.com`
-3. `https://www.mynineloves.com/`
+コード側では次の順に試す。
 
-それでも通らない場合は、楽天ウェブサービスのアプリ設定で
-**Allowed websites** に何を登録したかを確認してください。
-登録値とまったく同じ文字列を、環境変数 `RAKUTEN_REFERER` に入れると、
-その値だけが使われます。
+| | Origin | Referer |
+|---|---|---|
+| 1 | `https://mynineloves.com` | `https://mynineloves.com/` |
+| 2 | `https://www.mynineloves.com` | `https://www.mynineloves.com/` |
 
-| キー | 値の例 |
-|---|---|
-| `RAKUTEN_REFERER` | `https://mynineloves.com/` |
+### それでも通らないとき
 
-Renderのログに「楽天 Referer="..." で失敗」と出るので、
-どの形が試されたかを確認できます。
+1. 楽天ウェブサービスのアプリ設定で **Allowed websites** に
+   `mynineloves.com` が登録されているか確認する（1行に1ドメイン）
+2. 登録後、**反映まで5〜10分**かかることがある
+3. それでも駄目なら、登録値と同じ文字列を環境変数
+   `RAKUTEN_REFERER` に入れる（**1つだけ**。複数入れると壊れる）
+
+Renderのログに「楽天 Origin="..." で失敗」と出るので、
+どの値が試されたか確認できる。

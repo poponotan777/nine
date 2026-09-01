@@ -842,18 +842,19 @@ function rakutenURL(params) {
 }
 
 /**
- * 楽天はRefererを厳格に見る。
- * REQUEST_CONTEXT_BODY_HTTP_REFERRER_MISSING は
- * 「Refererが無い、または登録済みドメインと一致しない」という意味。
- * 末尾スラッシュやwwwの有無で一致しないことがあるため、形を変えて順に試す。
- * RAKUTEN_REFERER を設定すれば、その値だけを使う。
+ * 楽天の新APIは「どこから来たリクエストか」を厳格に見る。
+ *
+ * エラー REQUEST_CONTEXT_BODY_HTTP_REFERRER_MISSING は文面こそRefererだが、
+ * 実際には Origin ヘッダーを付けると通る（複数の移行事例で確認されている）。
+ *   Referer … どのページから来たかまで詳細に送る
+ *   Origin  … ドメイン部分だけを送る（楽天はこちらを見ている）
+ * そのため両方を付け、値の形を変えながら順に試す。
+ *
+ * RAKUTEN_REFERER を設定すると、その値だけを使う。
  */
-function refererCandidates() {
-  // 複数行やスペース区切りで書かれていても、1つずつの候補として扱う
+function originCandidates() {
   const fixed = (process.env.RAKUTEN_REFERER || '')
-    .split(/[\s,]+/)
-    .map(v => v.trim())
-    .filter(Boolean)
+    .split(/[\s,]+/).map(v => v.trim()).filter(Boolean)
     .map(v => (/^https?:\/\//.test(v) ? v : 'https://' + v));
   if (fixed.length) return fixed;
 
@@ -862,24 +863,24 @@ function refererCandidates() {
   try { host = new URL(base).host; } catch { host = base.replace(/^https?:\/\//, ''); }
   const bare = host.replace(/^www\./, '');
   return [
-    `https://${bare}/`,
     `https://${bare}`,
-    `https://www.${bare}/`,
-    base + '/',
+    `https://www.${bare}`,
+    base,
   ].filter((v, i, a) => a.indexOf(v) === i);
 }
 
-/** 楽天を叩く。Refererの形を変えながら順に試す */
+/** 楽天を叩く。Origin と Referer を付け、通る組み合わせを探す */
 async function rakutenGet(url) {
   let last;
-  for (const ref of refererCandidates()) {
+  for (const origin of originCandidates()) {
     try {
-      // Originは付けない。付けるとブラウザ扱いになり別の理由で弾かれることがある
-      return await q.rakuten(() => getJSON(url, { headers: { Referer: ref } }));
+      return await q.rakuten(() => getJSON(url, {
+        headers: { Origin: origin, Referer: origin + '/' },
+      }));
     } catch (e) {
       last = e;
       if (!/403|400/.test(e.message)) throw e;
-      console.warn(`楽天 Referer="${ref}" で失敗: ${e.message.slice(0, 130)}`);
+      console.warn(`楽天 Origin="${origin}" で失敗: ${e.message.slice(0, 130)}`);
     }
   }
   throw last;
