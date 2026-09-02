@@ -47,15 +47,163 @@ function cacheSet(key, value, ttl) {
 }
 
 /* ------------------------------------------------------------------ *
+ * 画像だけは別のキャッシュに分ける
+ *
+ * 以前は本文の結果と同じMapに入れていたが、件数（4000）でしか制限して
+ * いなかったため、表紙やOGP画像が並ぶとメモリを使い切って落ちていた。
+ * ここでは合計バイト数で上限をかける。既定64MB、IMG_CACHE_MB で変えられる。
+ * ------------------------------------------------------------------ */
+const IMG_BUDGET = Number(process.env.IMG_CACHE_MB || 64) * 1024 * 1024;
+const imgCache = new Map();
+let imgBytes = 0;
+
+function imgCacheGet(key) {
+  const hit = imgCache.get(key);
+  if (!hit) return null;
+  if (Date.now() > hit.expires) { imgCache.delete(key); imgBytes -= hit.size; return null; }
+  imgCache.delete(key); imgCache.set(key, hit);      // 使ったものを新しい側へ
+  return hit.value;
+}
+function imgCacheSet(key, value, ttl) {
+  const size = value?.body?.length || value?.length || 0;
+  if (!size || size > IMG_BUDGET / 8) return;        // 極端に大きいものは載せない
+  const old = imgCache.get(key);
+  if (old) imgBytes -= old.size;
+  imgCache.set(key, { value, expires: Date.now() + ttl, size });
+  imgBytes += size;
+  // 上限を超えたら、古いものから捨てる
+  while (imgBytes > IMG_BUDGET && imgCache.size) {
+    const k = imgCache.keys().next().value;
+    imgBytes -= imgCache.get(k).size;
+    imgCache.delete(k);
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * 検索結果は保存先（PostgreSQL等）にも置く
+ *
+ * メモリだけだと、再起動のたびに空になる。無料枠は再デプロイもOOMも
+ * 起きやすく、アクセスが集中している最中ほどキャッシュが消える。
+ * 手前をメモリ、奥をDBの2段にして、外部APIを叩く回数を減らす。
+ * ------------------------------------------------------------------ */
+/* 期限が切れても、すぐには捨てない。
+   古い内容をそのまま返し、裏で取り直す（stale-while-revalidate）。
+
+   作品名や表紙は1日古くても実害がない一方、外部APIの応答を待たせると
+   混雑時に行列ができる。「返すのは即座、更新は後回し」にすることで、
+   利用者を待たせず、送信キューも詰まらせずに済む。
+
+   保存は ttl × GRACE の長さで行い、「本来の期限」は値の中に持たせる。
+   こうするとdb.js側は素朴な期限付きKVのままでよい。 */
+const STALE_GRACE = 6;                 // 期限の6倍までは古い内容を使う
+const refreshing = new Set();          // 裏で取り直し中のキー
+const MAX_REFRESH = 20;                // 同時に走らせる上限
+
+async function cacheGet2(key) {
+  let box = cacheGet(key);
+  if (!box && store && typeof store.cacheGet === 'function') {
+    try {
+      // 同時に来た人が全員DBに聞きに行かないよう、これも1本にまとめる
+      box = await once('kv:' + key, () => store.cacheGet(key));
+      if (box) cacheSet(key, box, 10 * 60e3);   // 手前にも短く置く
+    } catch { box = null; }
+  }
+  if (!box) return null;
+  // 古い形式（包んでいないもの）が残っていても壊れないようにする
+  if (!box || typeof box !== 'object' || !('v' in box)) return { value: box, stale: false };
+  return { value: box.v, stale: Date.now() > box.soft };
+}
+
+function cacheSet2(key, value, ttl) {
+  const box = { v: value, soft: Date.now() + ttl };
+  cacheSet(key, box, Math.min(ttl * STALE_GRACE, 24 * 3600e3));
+  // 空の結果はDBに残さない。書き込むたびにDBを起こすうえ、
+  // 取り直しても安いので、保存容量とCU時間の両方の無駄になる
+  if (Array.isArray(value) && !value.length) return;
+  if (store && typeof store.cacheSet === 'function') {
+    Promise.resolve(store.cacheSet(key, box, ttl * STALE_GRACE)).catch(() => {});
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * 同じ語の取得は1本にまとめる（single-flight）
+ *
+ * キャッシュが無い状態で同じ語を30人が同時に検索すると、全員が
+ * 「キャッシュに無い」と判断してから、それぞれ外部APIを叩いていた。
+ * 1回で済むものが30回になる。拡散した瞬間はこれが千単位で起きる。
+ *
+ * 取得中のキーを覚えておき、後から来た人には同じ約束（Promise）を
+ * 返すことで、外部への問い合わせを1回に抑える。
+ * ------------------------------------------------------------------ */
+const inFlight = new Map();
+
+function once(key, fetcher) {
+  const running = inFlight.get(key);
+  if (running) return running;
+  const p = Promise.resolve()
+    .then(fetcher)
+    .finally(() => inFlight.delete(key));
+  p.catch(() => {});   // 待ち手が付く前に失敗しても落とさない
+  inFlight.set(key, p);
+  return p;
+}
+
+/** 古い内容を返したあと、裏で取り直す。失敗しても古いものが残るだけ */
+function refreshLater(key, ttl, fetcher) {
+  if (refreshing.has(key) || refreshing.size >= MAX_REFRESH) return;
+  refreshing.add(key);
+  Promise.resolve()
+    .then(fetcher)
+    .then(() => {})   // 保存は fetcher の中で済ませている
+    .catch(() => {})
+    .finally(() => refreshing.delete(key));
+}
+
+/* ------------------------------------------------------------------ *
+ * 閲覧数はまとめて書く
+ *
+ * 共有ページが拡散すると「1表示 = 1回のUPDATE」になり、DBが休む間もなく
+ * 起き続ける。Neonの無料枠は稼働時間で数えるため、これが効いてくる。
+ * 数分ぶんをメモリに溜めてから、1回のUPDATEにまとめる。
+ * 落ちたときは溜まっていたぶんだけ失われるが、閲覧数なので影響は小さい。
+ * ------------------------------------------------------------------ */
+const pendingViews = new Map();
+
+function countView(id) {
+  pendingViews.set(id, (pendingViews.get(id) || 0) + 1);
+}
+
+async function flushViews() {
+  if (!pendingViews.size) return;
+  const batch = [...pendingViews];
+  pendingViews.clear();
+  for (const [id, n] of batch) {
+    try { await store.view(id, n); } catch { /* 次の機会に数え直さない */ }
+  }
+}
+setInterval(flushViews, 3 * 60e3).unref?.();
+process.on('SIGTERM', () => { flushViews().finally(() => process.exit(0)); });
+
+/* ------------------------------------------------------------------ *
  * かんたんなIP単位のレート制限
  * ------------------------------------------------------------------ */
 const hits = new Map();
-function rateLimited(ip, limit = 90, windowMs = 60e3) {
+
+/* 日本のスマホ回線は、多数の利用者が同じIPを共有する（CGNAT）。
+   IPだけで厳しく数えると、拡散したときに無関係の人がまとめて弾かれる。
+   そこで全体の上限は緩くし、外部APIを実際に叩くときだけ別枠で数える。 */
+const REQ_PER_MIN      = Number(process.env.RATE_PER_MIN || 600);      // ページや画像を含む全体
+const UPSTREAM_PER_MIN = Number(process.env.UPSTREAM_PER_MIN || 120);  // 外部APIを叩く分だけ
+
+function rateLimited(ip, limit = REQ_PER_MIN, windowMs = 60e3) {
   const now = Date.now();
   const rec = hits.get(ip) || { n: 0, reset: now + windowMs };
   if (now > rec.reset) { rec.n = 0; rec.reset = now + windowMs; }
   rec.n++; hits.set(ip, rec);
-  if (hits.size > 5000) hits.clear();
+  // 古いものから捨てる。全消しにすると、その瞬間だけ制限が消えてしまう
+  if (hits.size > 20000) {
+    for (const [k, v] of hits) { if (now > v.reset) hits.delete(k); if (hits.size <= 10000) break; }
+  }
   return rec.n > limit;
 }
 
@@ -73,15 +221,25 @@ function imageAllowed(url) {
 async function getImageBuffer(target) {
   if (!imageAllowed(target)) return null;
   const key = 'img:' + target;
-  const hit = cacheGet(key);
+  const hit = imgCacheGet(key);
   if (hit) return hit.body;
-  const upstream = await fetch(target, { headers: { 'User-Agent': 'MyNine/1.0' } });
-  if (!upstream.ok) return null;
-  const type = upstream.headers.get('content-type') || 'image/jpeg';
-  if (!type.startsWith('image/')) return null;
-  const body = Buffer.from(await upstream.arrayBuffer());
-  if (body.length < 3_000_000) cacheSet(key, { body, type }, TTL.img);
-  return body;
+  const got = await fetchImageOnce(target);
+  return got ? got.body : null;
+}
+
+/* 同じ画像を同時に何人が求めても、取りに行くのは1回だけにする。
+   表紙は9マス分がまとめて表示されるうえ、拡散すると同じ表紙に
+   一斉にアクセスが来るため、ここを重複させると帯域もメモリも無駄になる。 */
+function fetchImageOnce(target) {
+  return once('imgfetch:' + target, async () => {
+    const upstream = await fetch(target, { headers: { 'User-Agent': 'MyNine/1.0' } });
+    if (!upstream.ok) return null;
+    const type = upstream.headers.get('content-type') || 'image/jpeg';
+    if (!type.startsWith('image/')) return null;
+    const body = Buffer.from(await upstream.arrayBuffer());
+    if (body.length < 3_000_000) imgCacheSet('img:' + target, { body, type }, TTL.img);
+    return { body, type };
+  });
 }
 
 /** /img?u=... の形で保存されているURLから、元のURLを取り出す */
@@ -97,21 +255,16 @@ async function serveImage(target, res) {
   if (!imageAllowed(target)) return send(res, 400, { error: '許可されていない画像ホストです' });
 
   const key = 'img:' + target;
-  const hit = cacheGet(key);
+  const hit = imgCacheGet(key);
   if (hit) {
     res.writeHead(200, { 'Content-Type': hit.type, 'Cache-Control': 'public, max-age=86400', 'X-Cache': 'HIT' });
     return res.end(hit.body);
   }
-  const upstream = await fetch(target, { headers: { 'User-Agent': 'MyNine/1.0' } });
-  if (!upstream.ok) return send(res, 502, { error: '画像を取得できませんでした' });
+  const got = await fetchImageOnce(target);
+  if (!got) return send(res, 502, { error: '画像を取得できませんでした' });
 
-  const type = upstream.headers.get('content-type') || 'image/jpeg';
-  if (!type.startsWith('image/')) return send(res, 415, { error: '画像ではありません' });
-
-  const body = Buffer.from(await upstream.arrayBuffer());
-  if (body.length < 3_000_000) cacheSet(key, { body, type }, TTL.img);
-  res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'public, max-age=86400', 'X-Cache': 'MISS' });
-  res.end(body);
+  res.writeHead(200, { 'Content-Type': got.type, 'Cache-Control': 'public, max-age=86400', 'X-Cache': 'MISS' });
+  res.end(got.body);
 }
 
 /* ------------------------------------------------------------------ *
@@ -146,20 +299,35 @@ const GA_TAG = GA_ID ? `
   gtag('config', '${GA_ID}');
 </script>` : '';
 
+/* 静的ファイルは組み立て済みのものを保つ。
+   index.html は82KBあり、毎回ディスクから読んでGAタグを差し込み直すのは
+   アクセス数にそのまま比例する無駄になる。中身はデプロイまで変わらない。 */
+const staticCache = new Map();
+
 function serveStatic(pathname, res) {
   const root = path.join(__dirname, 'public');
   const file = path.join(root, pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, ''));
   if (!file.startsWith(root)) return send(res, 403, { error: 'forbidden' });
+
+  const ready = staticCache.get(file);
+  if (ready) {
+    res.writeHead(200, { 'Content-Type': ready.type });
+    return res.end(ready.buf);
+  }
+
   fs.readFile(file, (err, buf) => {
     if (err) return send(res, 404, { error: 'not found' });
     const type = MIME[path.extname(file)] || 'application/octet-stream';
+    let out = buf;
     if ((GA_TAG || VC_TAG) && type.startsWith('text/html')) {
-      const html = buf.toString('utf8').replace('</head>', GA_TAG + VC_TAG + '\n</head>');
-      res.writeHead(200, { 'Content-Type': type });
-      return res.end(html);
+      out = Buffer.from(buf.toString('utf8').replace('</head>', GA_TAG + VC_TAG + '\n</head>'), 'utf8');
+    }
+    // 画像やフォントまで抱えるとメモリを食うので、テキストだけ保つ
+    if (out.length < 512 * 1024 && staticCache.size < 40) {
+      staticCache.set(file, { buf: out, type });
     }
     res.writeHead(200, { 'Content-Type': type });
-    res.end(buf);
+    res.end(out);
   });
 }
 
@@ -372,14 +540,34 @@ function serveCard(card, res) {
  * ------------------------------------------------------------------ */
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
-  const ip  = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress;
+  // Cloudflareを前段に置いた場合は CF-Connecting-IP が本当の接続元になる
+  const ip  = req.headers['cf-connecting-ip']
+           || req.headers['x-forwarded-for']?.split(',')[0].trim()
+           || req.socket.remoteAddress;
 
   try {
+    /* 死活監視（UptimeRobot等）用。
+       目的はRenderをスリープさせないことだけなので、DBには一切触れない。
+       トップや /about を叩くと、そのたびにNeonのコンピュートが起きてしまい、
+       無料枠のCU時間（月100＝1日あたり約13時間）を昼夜問わず消費する。
+       応答も2バイトなので、5分間隔で叩いても帯域をほぼ使わない。 */
+    if (url.pathname === '/healthz') {
+      res.writeHead(200, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' });
+      return res.end('ok');
+    }
+
     if (url.pathname === '/img') return await serveImage(url.searchParams.get('u') || '', res);
 
     // 作成数カウンタ
     if (url.pathname === '/x/stats') {
-      const s = await store.stats();
+      // トップを開くたびに走るので、30秒だけ持つ。
+      // 作成数は多少遅れて増えても困らない一方、
+      // 素通しにするとアクセス数がそのままDBの稼働時間になる。
+      let s = cacheGet('stats');
+      if (!s) {
+        s = await once('stats', () => store.stats());
+        cacheSet('stats', s, 30e3);
+      }
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
       return res.end(JSON.stringify(s));
     }
@@ -455,7 +643,17 @@ const server = http.createServer(async (req, res) => {
       if (type && !TYPES.has(type)) return send(res, 400, { error: '種別が不正です' });
       if (notType && !TYPES.has(notType)) return send(res, 400, { error: '種別が不正です' });
 
-      const items = await store.list({ type, notType, sort, handle, q: kw, limit, offset });
+      // /trends を開くたびに走る。30秒だけ持たせてDBの稼働時間を抑える。
+      // 個人ページ（handle）と絞り込み検索（q）は件数が読めないので素通し。
+      const listKey = (handle || kw) ? null
+        : `list:${type}:${notType}:${sort}:${limit}:${offset}`;
+      let items = listKey ? cacheGet(listKey) : null;
+      if (!items) {
+        items = await (listKey
+          ? once(listKey, () => store.list({ type, notType, sort, handle, q: kw, limit, offset }))
+          : store.list({ type, notType, sort, handle, q: kw, limit, offset }));
+        if (listKey) cacheSet(listKey, items, 30e3);
+      }
       return send(res, 200, { items });
     }
 
@@ -467,7 +665,7 @@ const server = http.createServer(async (req, res) => {
       const card = await store.get(id);
       if (!card) return send(res, 404, { error: '見つかりません' });
 
-      Promise.resolve(store.view(id)).catch(() => {});   // 閲覧数を数える
+      countView(id);   // 閲覧数はまとめて書く（3分おき）
       const items = (card.items || []).map(it => ({
         position: it.position, title: it.title, sub: it.sub,
         image_url: it.image_url, year: it.year,
@@ -546,7 +744,7 @@ const server = http.createServer(async (req, res) => {
       const kind = url.pathname.endsWith('suggest') ? 'suggest' : 'search';
 
       // 補完は打鍵のたびに飛んでくるので、IP単位でさらに絞る
-      if (kind === 'suggest' && rateLimited('sg:' + ip, 40, 60e3)) {
+      if (kind === 'suggest' && rateLimited('sg:' + ip, 300, 60e3)) {
         return send(res, 200, { items: [] });   // 静かに空を返す
       }
       const type = url.searchParams.get('type') || '';
@@ -557,13 +755,29 @@ const server = http.createServer(async (req, res) => {
       if (q.length > 80)   return send(res, 400, { error: '検索語が長すぎます' });
 
       const lang = url.searchParams.get('lang') === 'en' ? 'en' : 'ja';
-      const key = `${kind}:${type}:${lang}:${q.toLowerCase()}`;
-      const hit = cacheGet(key);
-      if (hit) return send(res, 200, { items: hit, cached: true });
+      // キャッシュキーは表記ゆれを吸収してから作る。
+      // 「ＮＡＲＵＴＯ」「NARUTO」「NARUTO 」を別々に持つと、同じ作品を
+      // 探しているだけなのに外部APIを何度も叩くことになる。
+      const key = `${kind}:${type}:${lang}:${P.cacheKey(q).toLowerCase()}`;
+      const fetchFresh = async () => {
+        let r = kind === 'suggest' ? await P.suggest(type, q) : await P.search(type, q, lang);
+        if (kind === 'search') r = r.map(it => ({ ...it, links: P.buyLinks(type, it) }));
+        cacheSet2(key, r, TTL[kind]);   // 保存も取得した1人だけが行う
+        return r;
+      };
 
-      let items = kind === 'suggest' ? await P.suggest(type, q) : await P.search(type, q, lang);
-      if (kind === 'search') items = items.map(it => ({ ...it, links: P.buyLinks(type, it) }));
-      cacheSet(key, items, TTL[kind]);
+      const hit = await cacheGet2(key);
+      if (hit) {
+        // 期限切れでも、まず古い内容を返してから裏で取り直す
+        if (hit.stale) refreshLater(key, TTL[kind], fetchFresh);
+        return send(res, 200, { items: hit.value, cached: true, stale: hit.stale || undefined });
+      }
+
+      // ここから先は外部APIを叩く。回数を数えるのはこの時だけ
+      if (rateLimited('up:' + ip, UPSTREAM_PER_MIN, 60e3)) {
+        return send(res, 429, { error: 'リクエストが多すぎます。少し待ってください。' });
+      }
+      const items = await once(key, fetchFresh);
       return send(res, 200, { items });
     }
 
@@ -574,12 +788,22 @@ const server = http.createServer(async (req, res) => {
       if (!qs)              return send(res, 400, { error: '名前を入れてください' });
       if (qs.length > 80)   return send(res, 400, { error: '検索語が長すぎます' });
 
-      const key = `creators:${type}:${qs.toLowerCase()}`;
-      const hit = cacheGet(key);
-      if (hit) return send(res, 200, { items: hit, cached: true });
+      const key = `creators:${type}:${P.cacheKey(qs).toLowerCase()}`;
+      const fetchFresh = async () => {
+        const r = await P.creators(type, qs);
+        cacheSet2(key, r, TTL.search);
+        return r;
+      };
+      const hit = await cacheGet2(key);
+      if (hit) {
+        if (hit.stale) refreshLater(key, TTL.search, fetchFresh);
+        return send(res, 200, { items: hit.value, cached: true, stale: hit.stale || undefined });
+      }
 
-      const items = await P.creators(type, qs);
-      cacheSet(key, items, TTL.search);
+      if (rateLimited('up:' + ip, UPSTREAM_PER_MIN, 60e3)) {
+        return send(res, 429, { error: 'リクエストが多すぎます。少し待ってください。' });
+      }
+      const items = await once(key, fetchFresh);
       return send(res, 200, { items });
     }
 
@@ -591,13 +815,23 @@ const server = http.createServer(async (req, res) => {
       if (type !== 'book' && !/^\d+$/.test(id)) return send(res, 400, { error: 'idが不正です' });
       if (type === 'book' && !author) return send(res, 400, { error: '著者名が必要です' });
 
-      const key = `works:${type}:${id}:${author}`;
-      const hit = cacheGet(key);
-      if (hit) return send(res, 200, { items: hit, cached: true });
+      const key = `works:${type}:${id}:${P.cacheKey(author).toLowerCase()}`;
+      const fetchFresh = async () => {
+        const r = (await P.works(type, id, { author }))
+          .map(it => ({ ...it, links: P.buyLinks(type, it) }));
+        cacheSet2(key, r, TTL.search);
+        return r;
+      };
+      const hit = await cacheGet2(key);
+      if (hit) {
+        if (hit.stale) refreshLater(key, TTL.search, fetchFresh);
+        return send(res, 200, { items: hit.value, cached: true, stale: hit.stale || undefined });
+      }
 
-      const items = (await P.works(type, id, { author }))
-        .map(it => ({ ...it, links: P.buyLinks(type, it) }));
-      cacheSet(key, items, TTL.search);
+      if (rateLimited('up:' + ip, UPSTREAM_PER_MIN, 60e3)) {
+        return send(res, 429, { error: 'リクエストが多すぎます。少し待ってください。' });
+      }
+      const items = await once(key, fetchFresh);
       return send(res, 200, { items });
     }
 
@@ -608,12 +842,22 @@ const server = http.createServer(async (req, res) => {
       if (!/^\d+$/.test(id))  return send(res, 400, { error: 'idが不正です' });
 
       const key = `related:${type}:${id}`;
-      const hit = cacheGet(key);
-      if (hit) return send(res, 200, { items: hit, cached: true });
+      const fetchFresh = async () => {
+        const r = (await P.related(type, id))
+          .map(it => ({ ...it, links: P.buyLinks(type, it) }));
+        cacheSet2(key, r, TTL.search);
+        return r;
+      };
+      const hit = await cacheGet2(key);
+      if (hit) {
+        if (hit.stale) refreshLater(key, TTL.search, fetchFresh);
+        return send(res, 200, { items: hit.value, cached: true, stale: hit.stale || undefined });
+      }
 
-      const items = (await P.related(type, id))
-        .map(it => ({ ...it, links: P.buyLinks(type, it) }));
-      cacheSet(key, items, TTL.search);
+      if (rateLimited('up:' + ip, UPSTREAM_PER_MIN, 60e3)) {
+        return send(res, 429, { error: 'リクエストが多すぎます。少し待ってください。' });
+      }
+      const items = await once(key, fetchFresh);
       return send(res, 200, { items });
     }
 
@@ -632,16 +876,21 @@ const server = http.createServer(async (req, res) => {
       if (!/^[\w-]{4,20}$/.test(id)) return send(res, 400, { error: 'idが不正です' });
 
       const key = 'og:' + id;
-      const hit = cacheGet(key);
+      const hit = imgCacheGet(key);
       if (hit) {
         res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' });
         return res.end(hit);
       }
-      const card = await store.get(id);
-      if (!card) return send(res, 404, { error: 'not found' });
-
-      const png = await ogimage.render(card, u => getImageBuffer(originalURL(u)));
-      cacheSet(key, png, TTL.img);
+      // OGP画像の生成は9枚の画像を合成するためCPUを最も使う。
+      // 同じカードのリンクがSNSに貼られると各社のクローラーが
+      // ほぼ同時に取りに来るので、生成は1回にまとめる。
+      const png = await once('ogrender:' + id, async () => {
+        const card = await store.get(id);
+        if (!card) return null;
+        return ogimage.render(card, u => getImageBuffer(originalURL(u)));
+      });
+      if (!png) return send(res, 404, { error: 'not found' });
+      imgCacheSet(key, png, TTL.img);
       res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' });
       return res.end(png);
     }
@@ -650,13 +899,20 @@ const server = http.createServer(async (req, res) => {
       const id = url.pathname.slice(3).replace(/\/$/, '');
       if (!/^[\w-]{4,20}$/.test(id)) return serveStatic('/index.html', res);
 
-      const card = await store.get(id);
+      // 共有ページは拡散すると同じIDに一斉にアクセスが来る。
+      // 中身は作成後に変わらないので5分持たせ、取得も1本にまとめる。
+      const ckey = 'card:' + id;
+      let card = cacheGet(ckey);
+      if (!card) {
+        card = await once(ckey, () => store.get(id));
+        if (card) cacheSet(ckey, card, 5 * 60e3);
+      }
       if (!card) {
         res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end('<meta charset="utf-8"><p>このページは見つかりませんでした。'
           + '<a href="/">トップへ</a></p>');
       }
-      Promise.resolve(store.view(id)).catch(() => {});   // 閲覧数を数える
+      countView(id);   // 閲覧数はまとめて書く（3分おき）
       return serveCard(card, res);
     }
     if (url.pathname === '/privacy-policy' || url.pathname === '/privacy')
@@ -683,6 +939,11 @@ async function runCleanup() {
   try {
     const n = await store.cleanup(KEEP_DAYS);
     if (n) console.log(`掃除: 未閲覧のまま${KEEP_DAYS}日を過ぎた ${n} 件を削除しました`);
+    // 期限切れの検索キャッシュも落とす。放っておくと保存容量を食う
+    if (typeof store.cacheSweep === 'function') {
+      const m = await store.cacheSweep();
+      if (m) console.log(`掃除: 期限切れのキャッシュ ${m} 件を削除しました`);
+    }
   } catch (e) {
     console.error('掃除に失敗:', e.message);
   }

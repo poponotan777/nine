@@ -80,7 +80,51 @@ function openPostgres() {
     CREATE INDEX IF NOT EXISTS idx_cards_handle  ON cards(handle);
     CREATE INDEX IF NOT EXISTS idx_cards_pop     ON cards(likes DESC, views DESC);
     CREATE INDEX IF NOT EXISTS idx_items_ref     ON card_items(source, external_id);
+
+    -- ランキング用の集計。カードとは寿命が違うので別に持つ。
+    -- カードが90日で消えても、ここに積んだ数字は残る。
+    CREATE TABLE IF NOT EXISTS item_stats (
+      type        TEXT NOT NULL,
+      source      TEXT NOT NULL,
+      external_id TEXT NOT NULL,
+      lang        TEXT NOT NULL DEFAULT '',
+      age_band    INTEGER NOT NULL DEFAULT 0,
+      title       TEXT,
+      sub         TEXT,
+      image_url   TEXT,
+      year        INTEGER,
+      n           INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (type, source, external_id, lang, age_band)
+    );
+    CREATE INDEX IF NOT EXISTS idx_stats_n ON item_stats(type, n DESC);
+
+    -- 外部APIの応答キャッシュ。再起動で消えないようにDBに置く。
+    CREATE TABLE IF NOT EXISTS kv (
+      k       TEXT PRIMARY KEY,
+      v       TEXT NOT NULL,
+      expires TIMESTAMPTZ NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_kv_expires ON kv(expires);
   `).catch(err => { console.error('DBの初期化に失敗:', err.message); throw err; });
+
+  /* 起動時、集計が空でカードがあるなら、既存のカードから積み直す。
+     新しい集計テーブルを入れた直後に、過去のランキングが消えないようにするため。 */
+  const backfilled = ready.then(async () => {
+    const r = await pool.query('SELECT COUNT(*)::int AS n FROM item_stats');
+    if (r.rows[0].n > 0) return;
+    const c = await pool.query('SELECT COUNT(*)::int AS n FROM card_items');
+    if (!c.rows[0].n) return;
+    await pool.query(`
+      INSERT INTO item_stats (type, source, external_id, lang, age_band, title, sub, image_url, year, n)
+      SELECT c.type, i.source, i.external_id,
+             COALESCE(c.lang, ''), COALESCE((c.born / 10) * 10, 0),
+             MIN(i.title), MIN(i.sub), MIN(i.image_url), MIN(i.year), COUNT(*)::int
+      FROM card_items i JOIN cards c ON c.id = i.card_id
+      WHERE i.source IS NOT NULL AND i.external_id IS NOT NULL
+      GROUP BY c.type, i.source, i.external_id, COALESCE(c.lang, ''), COALESCE((c.born / 10) * 10, 0)
+      ON CONFLICT DO NOTHING`);
+    console.log('ランキング集計を既存のカードから作り直しました');
+  }).catch(err => console.error('集計の作り直しに失敗:', err.message));
 
   return {
     kind: 'postgres',
@@ -101,6 +145,19 @@ function openPostgres() {
           await client.query(
             'INSERT INTO card_items (card_id,position,source,external_id,title,sub,image_url,year,buy_url) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
             [id, i, it.source || null, it.externalId || null, it.title || '', it.sub || '', it.imageUrl || null, it.year || null, it.buyUrl || null]);
+        }
+        // ランキング用の集計を同じトランザクションで積む
+        const band = card.born ? Math.floor(card.born / 10) * 10 : 0;
+        for (const it of card.items) {
+          if (!it || !it.source || !it.externalId) continue;
+          await client.query(`
+            INSERT INTO item_stats (type, source, external_id, lang, age_band, title, sub, image_url, year, n)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,1)
+            ON CONFLICT (type, source, external_id, lang, age_band)
+            DO UPDATE SET n = item_stats.n + 1,
+                          image_url = COALESCE(item_stats.image_url, EXCLUDED.image_url)`,
+            [card.type, it.source, it.externalId, card.lang || '', band,
+             it.title || '', it.sub || '', it.imageUrl || null, it.year || null]);
         }
         await client.query('COMMIT');
       } catch (e) {
@@ -124,31 +181,51 @@ function openPostgres() {
       return { total: total.rows[0].n, today: today.rows[0].n, byType: map };
     },
 
+    /* ランキングは item_stats から読む。カードが消えても数字が残る。 */
     async top({ type = null, notType = null, lang = null, decade = null, ageBand = null, limit = 9 } = {}) {
-      await ready;
-      const where = ['i.external_id IS NOT NULL'];
+      await ready; await backfilled;
+      const where = [];
       const args = [];
-      if (type)   { args.push(type);   where.push(`c.type = $${args.length}`); }
+      if (type)   { args.push(type);   where.push(`type = $${args.length}`); }
       // 特定の種類を集計から外す（英語では書籍を出さない、など）
-      if (notType){ args.push(notType); where.push(`c.type <> $${args.length}`); }
-      if (lang)   { args.push(lang);   where.push(`c.lang = $${args.length}`); }
-      if (decade) { args.push(decade); where.push(`i.year >= $${args.length} AND i.year < $${args.length} + 10`); }
+      if (notType){ args.push(notType); where.push(`type <> $${args.length}`); }
+      if (lang)   { args.push(lang);   where.push(`lang = $${args.length}`); }
+      if (decade) { args.push(decade); where.push(`year >= $${args.length} AND year < $${args.length} + 10`); }
       if (ageBand) {
-        // 生まれ年から、その年代の人だけに絞る（例: 1990 → 1990〜1999年生まれ）
-        args.push(ageBand);
-        where.push(`c.born >= $${args.length} AND c.born < $${args.length} + 10`);
+        // 生まれ年の年代で絞る（例: 1990 → 1990〜1999年生まれ）
+        args.push(ageBand); where.push(`age_band = $${args.length}`);
       }
       args.push(limit);
       const r = await pool.query(`
-        SELECT i.source, i.external_id,
-               MIN(i.title) AS title, MIN(i.sub) AS sub,
-               MIN(i.image_url) AS image_url, MIN(i.year) AS year,
-               COUNT(*)::int AS n
-        FROM card_items i JOIN cards c ON c.id = i.card_id
-        WHERE ${where.join(' AND ')}
-        GROUP BY i.source, i.external_id
+        SELECT source, external_id,
+               MIN(title) AS title, MIN(sub) AS sub,
+               MIN(image_url) AS image_url, MIN(year) AS year,
+               SUM(n)::int AS n
+        FROM item_stats
+        ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+        GROUP BY source, external_id
         ORDER BY n DESC LIMIT $${args.length}`, args);
       return r.rows;
+    },
+
+    /* 外部APIの応答キャッシュ */
+    async cacheGet(key) {
+      await ready;
+      const r = await pool.query('SELECT v FROM kv WHERE k = $1 AND expires > now()', [key]);
+      if (!r.rows.length) return null;
+      try { return JSON.parse(r.rows[0].v); } catch { return null; }
+    },
+    async cacheSet(key, value, ttlMs) {
+      await ready;
+      await pool.query(
+        `INSERT INTO kv (k, v, expires) VALUES ($1, $2, now() + ($3 || ' milliseconds')::interval)
+         ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v, expires = EXCLUDED.expires`,
+        [key, JSON.stringify(value), String(ttlMs)]);
+    },
+    async cacheSweep() {
+      await ready;
+      const r = await pool.query('DELETE FROM kv WHERE expires < now()');
+      return r.rowCount || 0;
     },
 
     async countByIP(ipHash, sinceMs) {
@@ -168,9 +245,11 @@ function openPostgres() {
       return { ...c.rows[0], items: items.rows };
     },
 
-    async view(id) {
+    /* n をまとめて足せる。拡散時に1表示=1書き込みにするとDBが休めないため、
+       server.js 側で数分ぶんを溜めてから呼ぶ。 */
+    async view(id, n = 1) {
       await ready;
-      await pool.query('UPDATE cards SET views = views + 1 WHERE id = $1', [id]);
+      await pool.query('UPDATE cards SET views = views + $2 WHERE id = $1', [id, n]);
     },
 
     async like(id) {
@@ -267,6 +346,25 @@ function openSqlite() {
     );
     CREATE INDEX IF NOT EXISTS idx_cards_type ON cards(type);
     CREATE INDEX IF NOT EXISTS idx_items_ref  ON card_items(source, external_id);
+
+    -- ランキング用の集計。カードとは寿命が違うので別に持つ
+    CREATE TABLE IF NOT EXISTS item_stats (
+      type        TEXT NOT NULL,
+      source      TEXT NOT NULL,
+      external_id TEXT NOT NULL,
+      lang        TEXT NOT NULL DEFAULT '',
+      age_band    INTEGER NOT NULL DEFAULT 0,
+      title       TEXT, sub TEXT, image_url TEXT, year INTEGER,
+      n           INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (type, source, external_id, lang, age_band)
+    );
+    CREATE INDEX IF NOT EXISTS idx_stats_n ON item_stats(type, n DESC);
+
+    -- 外部APIの応答キャッシュ
+    CREATE TABLE IF NOT EXISTS kv (
+      k TEXT PRIMARY KEY, v TEXT NOT NULL, expires INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_kv_expires ON kv(expires);
   `);
 
   const insCard = db.prepare(
@@ -296,6 +394,30 @@ function openSqlite() {
     ORDER BY n DESC LIMIT ?`);
   const qIpCount = db.prepare(
     'SELECT COUNT(*) AS n FROM cards WHERE ip_hash = ? AND created_at > ?');
+  const insStat = db.prepare(`
+    INSERT INTO item_stats (type,source,external_id,lang,age_band,title,sub,image_url,year,n)
+    VALUES (?,?,?,?,?,?,?,?,?,1)
+    ON CONFLICT (type,source,external_id,lang,age_band)
+    DO UPDATE SET n = n + 1, image_url = COALESCE(item_stats.image_url, excluded.image_url)`);
+  const qKvGet = db.prepare('SELECT v FROM kv WHERE k = ? AND expires > ?');
+  const qKvSet = db.prepare(
+    'INSERT INTO kv (k,v,expires) VALUES (?,?,?) ON CONFLICT (k) DO UPDATE SET v = excluded.v, expires = excluded.expires');
+
+  /* 集計が空でカードがあるなら、既存のカードから積み直す */
+  try {
+    if (!db.prepare('SELECT COUNT(*) AS n FROM item_stats').get().n
+        && db.prepare('SELECT COUNT(*) AS n FROM card_items').get().n) {
+      db.exec(`
+        INSERT OR IGNORE INTO item_stats (type,source,external_id,lang,age_band,title,sub,image_url,year,n)
+        SELECT c.type, i.source, i.external_id,
+               COALESCE(c.lang,''), COALESCE((c.born/10)*10, 0),
+               MIN(i.title), MIN(i.sub), MIN(i.image_url), MIN(i.year), COUNT(*)
+        FROM card_items i JOIN cards c ON c.id = i.card_id
+        WHERE i.source IS NOT NULL AND i.external_id IS NOT NULL
+        GROUP BY c.type, i.source, i.external_id, COALESCE(c.lang,''), COALESCE((c.born/10)*10, 0)`);
+      console.log('ランキング集計を既存のカードから作り直しました');
+    }
+  } catch (e) { console.error('集計の作り直しに失敗:', e.message); }
 
   return {
     kind: 'sqlite',
@@ -304,10 +426,15 @@ function openSqlite() {
       const now = new Date().toISOString();
       insCard.run(id, card.type, card.title || '', card.name || '',
                   card.items.filter(Boolean).length, card.ipHash, card.handle || null, card.lang || null, card.born || null, now);
+      const band = card.born ? Math.floor(card.born / 10) * 10 : 0;
       card.items.forEach((it, i) => {
         if (!it) return;
         insItem.run(id, i, it.source || null, it.externalId || null,
                     it.title || '', it.sub || '', it.imageUrl || null, it.year || null, it.buyUrl || null);
+        if (it.source && it.externalId) {
+          insStat.run(card.type, it.source, it.externalId, card.lang || '', band,
+                      it.title || '', it.sub || '', it.imageUrl || null, it.year || null);
+        }
       });
       return id;
     },
@@ -317,24 +444,39 @@ function openSqlite() {
       const since = new Date(Date.now() - 24 * 3600e3).toISOString();
       return { total: qTotal.get().n, today: qRecent.get(since).n, byType };
     },
+    /* ランキングは item_stats から読む。カードが消えても数字が残る */
     top({ type = null, notType = null, lang = null, decade = null, ageBand = null, limit = 9 } = {}) {
-      const where = ['i.external_id IS NOT NULL'];
+      const where = [];
       const args = [];
-      if (type)   { where.push('c.type = ?');  args.push(type); }
-      if (notType){ where.push('c.type <> ?'); args.push(notType); }
-      if (lang)   { where.push('c.lang = ?');  args.push(lang); }
-      if (decade) { where.push('i.year >= ? AND i.year < ? + 10'); args.push(decade, decade); }
-      if (ageBand){ where.push('c.born >= ? AND c.born < ? + 10'); args.push(ageBand, ageBand); }
+      if (type)   { where.push('type = ?');  args.push(type); }
+      if (notType){ where.push('type <> ?'); args.push(notType); }
+      if (lang)   { where.push('lang = ?');  args.push(lang); }
+      if (decade) { where.push('year >= ? AND year < ? + 10'); args.push(decade, decade); }
+      if (ageBand){ where.push('age_band = ?'); args.push(ageBand); }
       args.push(limit);
       return db.prepare(`
-        SELECT i.source, i.external_id,
-               MIN(i.title) AS title, MIN(i.sub) AS sub,
-               MIN(i.image_url) AS image_url, MIN(i.year) AS year,
-               COUNT(*) AS n
-        FROM card_items i JOIN cards c ON c.id = i.card_id
-        WHERE ${where.join(' AND ')}
-        GROUP BY i.source, i.external_id
+        SELECT source, external_id,
+               MIN(title) AS title, MIN(sub) AS sub,
+               MIN(image_url) AS image_url, MIN(year) AS year,
+               SUM(n) AS n
+        FROM item_stats
+        ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+        GROUP BY source, external_id
         ORDER BY n DESC LIMIT ?`).all(...args);
+    },
+
+    /* 外部APIの応答キャッシュ */
+    cacheGet(key) {
+      const r = qKvGet.get(key, Date.now());
+      if (!r) return null;
+      try { return JSON.parse(r.v); } catch { return null; }
+    },
+    cacheSet(key, value, ttlMs) {
+      qKvSet.run(key, JSON.stringify(value), Date.now() + ttlMs);
+    },
+    cacheSweep() {
+      const r = db.prepare('DELETE FROM kv WHERE expires < ?').run(Date.now());
+      return r.changes || 0;
     },
     countByIP(ipHash, sinceMs) {
       return qIpCount.get(ipHash, new Date(Date.now() - sinceMs).toISOString()).n;
@@ -347,7 +489,7 @@ function openSqlite() {
       return { ...c, items };
     },
 
-    view(id) { db.prepare('UPDATE cards SET views = views + 1 WHERE id = ?').run(id); },
+    view(id, n = 1) { db.prepare('UPDATE cards SET views = views + ? WHERE id = ?').run(n, id); },
 
     like(id) {
       db.prepare('UPDATE cards SET likes = likes + 1 WHERE id = ?').run(id);
@@ -397,8 +539,26 @@ function openSqlite() {
  * ================================================================== */
 function openJSON() {
   const file = path.join(DATA_DIR, 'nine.json');
-  let state = { cards: [], items: [] };
-  try { state = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {}
+  let state = { cards: [], items: [], stats: {}, kv: {} };
+  try { state = { stats: {}, kv: {}, ...JSON.parse(fs.readFileSync(file, 'utf8')) }; } catch {}
+  if (!state.stats) state.stats = {};
+  if (!state.kv) state.kv = {};
+
+  /* 集計が空でカードがあるなら、既存のカードから積み直す */
+  if (!Object.keys(state.stats).length && state.items.length) {
+    const byCard = new Map(state.cards.map(c => [c.id, c]));
+    state.items.forEach(it => {
+      const c = byCard.get(it.card_id);
+      if (!c || !it.source || !it.external_id) return;
+      const band = c.born ? Math.floor(c.born / 10) * 10 : 0;
+      const k = [c.type, it.source, it.external_id, c.lang || '', band].join('\u0000');
+      const cur = state.stats[k] || { type: c.type, source: it.source, external_id: it.external_id,
+        lang: c.lang || '', age_band: band, title: it.title, sub: it.sub,
+        image_url: it.image_url, year: it.year, n: 0 };
+      cur.n++; state.stats[k] = cur;
+    });
+    console.log('ランキング集計を既存のカードから作り直しました');
+  }
 
   let timer = null;
   const flush = () => {
@@ -418,13 +578,23 @@ function openJSON() {
         ip_hash: card.ipHash, handle: card.handle || null,
         views: 0, likes: 0, created_at: new Date().toISOString(),
       });
+      const band = card.born ? Math.floor(card.born / 10) * 10 : 0;
       card.items.forEach((it, i) => {
         if (!it) return;
         state.items.push({
           card_id: id, position: i, source: it.source || null,
           external_id: it.externalId || null, title: it.title || '', sub: it.sub || '',
-          image_url: it.imageUrl || null, buy_url: it.buyUrl || null,
+          image_url: it.imageUrl || null, year: it.year || null, buy_url: it.buyUrl || null,
         });
+        if (!it.source || !it.externalId) return;
+        const k = [card.type, it.source, it.externalId, card.lang || '', band].join('\u0000');
+        const cur = state.stats[k] || { type: card.type, source: it.source,
+          external_id: it.externalId, lang: card.lang || '', age_band: band,
+          title: it.title || '', sub: it.sub || '', image_url: it.imageUrl || null,
+          year: it.year || null, n: 0 };
+        cur.n++;
+        if (!cur.image_url) cur.image_url = it.imageUrl || null;
+        state.stats[k] = cur;
       });
       flush();
       return id;
@@ -436,21 +606,42 @@ function openJSON() {
       const today = state.cards.filter(c => new Date(c.created_at).getTime() > since).length;
       return { total: state.cards.length, today, byType };
     },
+    /* ランキングは集計から読む。カードが消えても数字が残る */
     top({ type = null, notType = null, lang = null, decade = null, ageBand = null, limit = 9 } = {}) {
-      const ok = c => (!type || c.type === type) && (!notType || c.type !== notType)
-        && (!lang || c.lang === lang)
-        && (!ageBand || (c.born >= ageBand && c.born < ageBand + 10));
-      const ids = new Set(state.cards.filter(ok).map(c => c.id));
       const bucket = new Map();
-      state.items.forEach(it => {
-        if (!ids.has(it.card_id) || !it.external_id) return;
-        if (decade && !(it.year >= decade && it.year < decade + 10)) return;
-        const k = `${it.source}:${it.external_id}`;
-        const cur = bucket.get(k) || { source: it.source, external_id: it.external_id,
-          title: it.title, sub: it.sub, image_url: it.image_url, year: it.year, n: 0 };
-        cur.n++; bucket.set(k, cur);
+      Object.values(state.stats).forEach(r => {
+        if (type && r.type !== type) return;
+        if (notType && r.type === notType) return;
+        if (lang && r.lang !== lang) return;
+        if (ageBand && r.age_band !== ageBand) return;
+        if (decade && !(r.year >= decade && r.year < decade + 10)) return;
+        const k = `${r.source}:${r.external_id}`;
+        const cur = bucket.get(k) || { source: r.source, external_id: r.external_id,
+          title: r.title, sub: r.sub, image_url: r.image_url, year: r.year, n: 0 };
+        cur.n += r.n;
+        if (!cur.image_url) cur.image_url = r.image_url;
+        bucket.set(k, cur);
       });
       return [...bucket.values()].sort((a, b) => b.n - a.n).slice(0, limit);
+    },
+
+    /* 外部APIの応答キャッシュ */
+    cacheGet(key) {
+      const hit = state.kv[key];
+      if (!hit) return null;
+      if (Date.now() > hit.e) { delete state.kv[key]; return null; }
+      return hit.v;
+    },
+    cacheSet(key, value, ttlMs) {
+      state.kv[key] = { v: value, e: Date.now() + ttlMs };
+      flush();
+    },
+    cacheSweep() {
+      const now = Date.now();
+      let n = 0;
+      for (const [k, v] of Object.entries(state.kv)) if (now > v.e) { delete state.kv[k]; n++; }
+      if (n) flush();
+      return n;
     },
     countByIP(ipHash, sinceMs) {
       const since = Date.now() - sinceMs;
@@ -463,9 +654,9 @@ function openJSON() {
       return { ...c, items: state.items.filter(i => i.card_id === id).sort((a, b) => a.position - b.position) };
     },
 
-    view(id) {
+    view(id, n = 1) {
       const c = state.cards.find(x => x.id === id);
-      if (c) { c.views = (c.views || 0) + 1; flush(); }
+      if (c) { c.views = (c.views || 0) + n; flush(); }
     },
 
     like(id) {

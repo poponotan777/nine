@@ -31,8 +31,6 @@ const IMG_HOSTS = [
   /^i\.ytimg\.com$/,
   /^lh\d\.googleusercontent\.com$/,
   /^thumbnail\.image\.rakuten\.co\.jp$/,
-  /^books\.google\.com$/,
-  /^books\.google\.co\.jp$/,
 ];
 
 const proxied = url => (url ? '/img?u=' + encodeURIComponent(url) : '');
@@ -162,7 +160,6 @@ const q = {
   commons: makeQueue(1200),   // 画像クレジット。別キューにして本体を邪魔しない
   yt: makeQueue(120),
   rakuten: makeQueue(1100),   // 楽天は1秒1リクエストが目安
-  gbooks: makeQueue(200),
 };
 
 async function getJSON(url, opts = {}, retry = true) {
@@ -448,18 +445,12 @@ async function search(type, rawQuery, lang = 'ja') {
   }
 
   if (type === 'book') {
-    // 英語では楽天が使えない（日本の書籍のみ）ので Google Books を主軸にする
-    if (lang === 'en') return rank(await searchGoogleBooks(term), term);
-
-    // 紙 → 電子（Kobo）→ Google Books の順に補う
+    // 出典を楽天だけに限定している。書籍モードは日本語専用。
+    // 紙（楽天ブックス）→ 電子（楽天Kobo）の順に補う
     let books = foldEditions(await fanout(term, v => searchRakutenBooks(v), { enough: 6, max: 2 }));
     if (books.length < 8) {
       const kobo = foldEditions(await searchKobo(term));
       books = mergeBy(x => bookKey(x.title), books, kobo);
-    }
-    if (books.length < 4) {
-      const g = await searchGoogleBooks(term);
-      books = mergeBy(x => bookKey(x.title), books, g);
     }
     return rank(books, term).slice(0, 24);
   }
@@ -850,7 +841,8 @@ function rakutenURL(params) {
  *   Origin  … ドメイン部分だけを送る（楽天はこちらを見ている）
  * そのため両方を付け、値の形を変えながら順に試す。
  *
- * RAKUTEN_REFERER を設定すると、その値だけを使う。
+ * RAKUTEN_REFERER を設定すると、自動生成をやめてその値を候補にする。
+ * スペース・改行・カンマで区切れば複数書ける（上から順に試す）。
  */
 function originCandidates() {
   const fixed = (process.env.RAKUTEN_REFERER || '')
@@ -977,28 +969,6 @@ async function searchKobo(term, field = 'title') {
     console.warn('Kobo検索に失敗（紙の結果は維持）:', e.message);
     return [];
   }
-}
-
-/** 楽天で見つからないもの（洋書など）をGoogle Booksで補う */
-async function searchGoogleBooks(term) {
-  const u = new URL('https://www.googleapis.com/books/v1/volumes');
-  u.searchParams.set('q', term);
-  u.searchParams.set('maxResults', '12');
-  u.searchParams.set('country', 'JP');
-  const json = await q.gbooks(() => getJSON(u.toString())).catch(() => null);
-  return (json?.items || []).map(v => {
-    const info = v.volumeInfo || {};
-    const img = (info.imageLinks?.thumbnail || '').replace(/^http:/, 'https:').replace(/&zoom=\d/, '&zoom=1');
-    return {
-      id: 'gb-' + v.id, source: 'googlebooks',
-      title: info.title || '',
-      sub: (info.authors || []).join(', ') || info.publisher || '',
-      img: proxied(img),
-      buyUrl: '', date: info.publishedDate || '',
-      relatedId: null, relatedCount: 0,
-      _alts: (info.authors || []),
-    };
-  }).filter(b => b.img && b.title);
 }
 
 async function wikidataPeople(term, lang = 'ja') {
@@ -1195,5 +1165,6 @@ module.exports = {
   hasRakuten: () => !!(RAKUTEN_ID && RAKUTEN_KEY),
   hasTMDB: () => !!TMDB_KEY,
   hasYouTube: () => !!YT_KEY,
+  cacheKey: normalize,   // キャッシュキーの正規化に使う（server.js）
   _internal: { key, variants, dice, rank },   // テスト用
 };
