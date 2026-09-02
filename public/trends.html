@@ -57,6 +57,22 @@
   .tab.on{color:var(--text);font-weight:700;border-bottom-color:var(--obi)}
 
   /* 年代の切り替え。数が多いので、セグメントではなく個別のチップにして折り返す */
+  /* 一覧をページ送りで見せる枠 */
+  .listbox{width:100%;max-width:680px;height:88vh;background:var(--ink);
+    border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column;
+    box-shadow:0 8px 32px rgba(27,31,25,.3)}
+  .listbody{flex:1;overflow:auto;padding:14px 16px 20px;-webkit-overflow-scrolling:touch}
+  .pager{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:18px 0 4px}
+  .pager button{min-width:38px;padding:9px 10px;background:var(--panel);
+    border:1px solid var(--line);border-radius:8px;font-family:var(--mono);
+    font-size:13px;color:var(--text);cursor:pointer}
+  .pager button[aria-pressed=true]{background:var(--obi);border-color:var(--obi-deep);font-weight:700}
+  .pager button.gap{border:0;background:transparent;cursor:default;min-width:20px}
+  .pager button:disabled{opacity:.6}
+  .rank li.top1 .no{color:var(--obi-deep);font-size:18px;font-weight:700}
+  .rank li.top2 .no,.rank li.top3 .no{color:var(--pop);font-size:16px;font-weight:700}
+  @media (max-width:560px){ .listbox{height:92vh;max-width:100%} }
+
   /* /c/ のページを前面に出す枠 */
   .framebox{width:100%;max-width:760px;height:88vh;background:var(--panel);
     border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column;
@@ -71,11 +87,6 @@
   #cframe{flex:1;width:100%;border:0;background:var(--ink)}
   @media (max-width:560px){ .framebox{height:92vh;max-width:100%} }
 
-  .bornpick{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:18px 0}
-  .bornpick button{background:var(--panel);border:1px solid var(--line);
-    border-radius:999px;padding:10px 16px;font-size:13px;cursor:pointer;
-    font-family:inherit;color:var(--text)}
-  .bornpick button:hover{border-color:var(--obi);background:var(--obi)}
   .decades{display:flex;flex-wrap:wrap;gap:6px;border:0;margin-bottom:12px}
   .decades button{
     border:1px solid var(--line);background:var(--panel);color:var(--muted);
@@ -311,7 +322,7 @@
     </div>
     <!-- 10位以降はリスト -->
     <ol class="rank" id="rank"></ol>
-    <button class="more" id="rankMore" style="display:none">10位以降を見る</button>
+    <button class="more" id="rankMore" style="display:none">ランキングをすべて見る</button>
     <p class="note" id="rankNote"></p>
   </section>
 
@@ -329,7 +340,7 @@
     <p class="sec-note" id="my9Note">ほかの人が選んだ9つ。タップすると大きく見られます。</p>
     <div class="cards" id="cards"></div>
     <p class="note" id="note">読み込んでいます…</p>
-    <button class="more" id="more" style="display:none">もっと見る</button>
+    <div class="pager" id="cardsPager"></div>
   </section>
 
   <div class="bar" id="snslinks" style="margin-top:26px"></div>
@@ -338,6 +349,20 @@
 
 <!-- カードの拡大表示 -->
 <!-- カードをタップすると /c/ のページをそのまま前面に開く -->
+<!-- ランキングの全一覧。1位から10件ずつ、10ページまで -->
+<div class="veil" id="rankfull">
+  <div class="listbox">
+    <div class="framebar">
+      <span id="rankFullTitle"></span>
+      <button class="x" id="rankFullClose" aria-label="閉じる">×</button>
+    </div>
+    <div class="listbody">
+      <ol class="rank" id="rankFullList"></ol>
+      <div class="pager" id="rankPager"></div>
+    </div>
+  </div>
+</div>
+
 <div class="veil" id="cframev">
   <div class="framebox">
     <div class="framebar">
@@ -396,11 +421,12 @@
       empty:'まだ何もありません。最初の1つを作ってみてください。',
       loading:'読み込んでいます…', failed:'読み込めませんでした。',
       more:'もっと見る', like:'♥ いいね', liked:'♥ ありがとう', already:'♥ 済',
-      noAge:'生まれた年代を選ぶと、同じ年代の人が選んだランキングが見られます。',
+      noAge:'年齢を入れて9つを作ると、同じ年代のランキングが見られます。',
       noRank:'まだ集計できるデータがありません。',
       picks:'選', views:'view',
       my9:'作成されたMY9', my9note:'ほかの人が選んだ9つ。タップすると大きく見られます。',
-      rankMore:'10位以降を見る', openCard:'カードのページへ',
+      rankMore:'ランキングをすべて見る', openCard:'カードのページへ',
+      pageLimit:'ここまでが表示できる範囲です。種類やならびを変えると、別の9つが見られます。',
       pr:'PR（アフィリエイトリンク）', user:'作った人を見る',
       kinds:{ '':'すべて', album:'CD', cd:'CD', book:'書籍', manga:'漫画', anime:'アニメ',
               movie:'映画', person:'有名人', character:'キャラ' },
@@ -413,11 +439,12 @@
       empty:'Nothing here yet. Be the first.',
       loading:'Loading\u2026', failed:'Could not load.',
       more:'Show more', like:'\u2665 Like', liked:'\u2665 Thanks', already:'\u2665 Done',
-      noAge:'Pick the decade you were born in to see what your generation chose.',
+      noAge:'Add your age when you make a nine to unlock this.',
       noRank:'Not enough data yet.',
       picks:'picks', views:'views',
       my9:'Cards people made', my9note:'Tap a card to see it bigger.',
-      rankMore:'Show 10th and below', openCard:'Open the card page',
+      rankMore:'See the full ranking', openCard:'Open the card page',
+      pageLimit:'That is as far as this list goes. Try another kind or order.',
       pr:'PR (affiliate link)', user:'See the creator',
       kinds:{ '':'All', album:'Albums', cd:'Albums', book:'Books', manga:'Manga', anime:'Anime',
               movie:'Films', person:'People', character:'Chars' },
@@ -425,8 +452,9 @@
   };
   const T = () => I18N[LANG];
 
-  const state = { sort:'new', type:'', q:'', handle:'', offset:0, scope:'all', decade:'' };
-  const LIMIT = 24;
+  const state = { sort:'new', type:'', q:'', handle:'', page:1, scope:'all', decade:'' };
+  const LIMIT = 10;          // 1ページに出す枚数
+  const MAX_PAGE = 10;       // よくあるランキングサイトと同じく10ページで打ち切る
 
   // URLの ?handle=xxx で、その人の作品だけを見られる
   const params = new URLSearchParams(location.search);
@@ -522,20 +550,34 @@
     });
   }
 
-  async function load(append){
-    if (!append){ state.offset = 0; $('note').textContent = T().loading; }
-    const p = new URLSearchParams({ sort: state.sort, limit: LIMIT, offset: state.offset });
+  /** 10件ずつ、ページ番号で送る。
+      「もっと見る」で継ぎ足す形だと、目当ての1枚に戻れないため。 */
+  async function load(page){
+    if (typeof page === 'number') state.page = page;
+    if (!state.page) state.page = 1;
+    $('note').textContent = T().loading;
+    // 次のページがあるかを知るため、1件多めに取る
+    const p = new URLSearchParams({
+      sort: state.sort, limit: LIMIT + 1, offset: (state.page - 1) * LIMIT,
+    });
     if (state.type) p.set('type', state.type);
     if (LANG === 'en') p.set('notype', 'book');   // 書籍は英語では扱わない
     if (state.handle) p.set('handle', state.handle);
     try{
       const r = await fetch('/x/cards?' + p);
       const j = await r.json();
-      const items = j.items || [];
-      render(items, append);
-      state.offset += items.length;
-      $('more').style.display = items.length === LIMIT ? 'block' : 'none';
+      const all = j.items || [];
+      const hasNext = all.length > LIMIT && state.page < MAX_PAGE;
+      render(all.slice(0, LIMIT), false);
       $('note').textContent = $('cards').children.length ? '' : T().empty;
+
+      // 総ページ数は分からないので、現在地の前後だけを出す
+      const total = hasNext ? state.page + 1 : state.page;
+      renderPager('cardsPager', state.page, total, n => {
+        load(n);
+        $('cards').scrollIntoView({ behavior:'smooth', block:'start' });
+      });
+      if (state.page >= MAX_PAGE) $('note').textContent = T().pageLimit;
     } catch(e){
       $('note').textContent = T().failed;
     }
@@ -545,7 +587,7 @@
     const b = e.target.closest('button[data-sort]'); if (!b) return;
     state.sort = b.dataset.sort;
     [...$('sort').children].forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-    load(false);
+    load(1);
   });
   $('kind').addEventListener('click', e => {
     const b = e.target.closest('button[data-type]'); if (!b) return;
@@ -553,9 +595,9 @@
     [...$('kind').children].forEach(x => x.setAttribute('aria-pressed', String(x === b)));
     updateXLink();
     loadRank();
-    load(false);
+    load(1);
   });
-  $('more').addEventListener('click', () => load(true));
+
 
   // このページ用の広告（作品を探しに来た層なので、レンタル・配信が合う）
   function loadAds(){
@@ -566,7 +608,7 @@
       $('railR').style.display = a.rail ? '' : 'none';
       $('railL').style.display = a.railLeft ? '' : 'none';
       $('adTop').innerHTML = '';
-      if (adInflow) load(false);   // 広告が来たら描き直して差し込む
+      if (adInflow) load(1);   // 広告が来たら描き直して差し込む
     }).catch(() => {});
   }
   loadAds();
@@ -603,21 +645,13 @@
 
     document.documentElement.style.setProperty('--ratio', RATIO[state.type] || '.72');
 
-    const p = new URLSearchParams({ limit: 30 });
+    const p = new URLSearchParams({ limit: 100 });   // 全一覧（最大10ページ）のぶんまで取る
     if (state.type) p.set('type', state.type);
     if (LANG === 'en') p.set('notype', 'book');   // 書籍は英語では扱わない
     // 「同年代」は年代の並びの中にある。年齢が未入力なら案内を出して促す
     if (state.decade === 'age'){
       if (!myBorn){
-        // 9つを作らないと見られない状態だったので、ここで選べるようにする
-        const now = Math.floor(new Date().getFullYear() / 10) * 10;
-        const opts = [];
-        for (let d = now; d >= 1940; d -= 10) opts.push(d);
-        $('rank9').innerHTML = '';
-        $('rank').innerHTML =
-          '<div class="bornpick">' + opts.map(d =>
-            `<button type="button" data-born="${d}">${T().decade.replace('{d}', d)}</button>`
-          ).join('') + '</div>';
+        $('rank9').innerHTML = ''; $('rank').innerHTML = '';
         $('rankMore').style.display = 'none';
         $('rankNote').textContent = T().noAge;
         return;
@@ -635,6 +669,7 @@
       const items = j.items || [];
       const top9 = items.slice(0, 9);
       rankRest = items.slice(9);
+      rankAll  = items;            // 全一覧は1位から出す
 
       // 上位9件は3×3のかたまりで
       const pack = $('rank9');
@@ -666,13 +701,29 @@
     } catch(e){ $('rankNote').textContent = T().failed; }
   }
 
+  /* ---------- ランキングの全一覧（1位から・ページ送り） ---------- */
+  const RANK_PER_PAGE = 10;
+  const RANK_MAX_PAGE = 10;          // よくあるランキングサイトと同じく10ページで打ち切る
+  let rankAll = [];                  // 1位からの全件
+  let rankPage = 1;
+
   function showRankRest(){
-    const ol = $('rank');
+    rankPage = 1;
+    $('rankFullTitle').textContent = $('rankTitle').textContent.replace(/ TOP 9$/, '');
+    $('rankfull').classList.add('open');
+    renderRankPage();
+  }
+
+  function renderRankPage(){
+    const ol = $('rankFullList');
     ol.innerHTML = '';
-    rankRest.forEach((it, i) => {
+    const start = (rankPage - 1) * RANK_PER_PAGE;
+    rankAll.slice(start, start + RANK_PER_PAGE).forEach((it, i) => {
+      const n = start + i + 1;
       const li = document.createElement('li');
+      if (n <= 3) li.className = 'top' + n;      // 1〜3位は色を変える
       const no = document.createElement('span');
-      no.className = 'no'; no.textContent = String(i + 10);
+      no.className = 'no'; no.textContent = String(n);
       li.appendChild(no);
       if (it.image_url){
         const im = new Image(); im.src = it.image_url; im.alt = ''; im.loading = 'lazy';
@@ -690,16 +741,39 @@
       li.appendChild(rn);
       ol.appendChild(li);
     });
-    $('rankMore').style.display = 'none';
+    renderPager('rankPager', rankPage,
+      Math.min(Math.ceil(rankAll.length / RANK_PER_PAGE), RANK_MAX_PAGE),
+      n => { rankPage = n; renderRankPage(); $('rankfull').scrollTop = 0; });
   }
-  $('rankMore').addEventListener('click', showRankRest);
 
-  // 「同年代」で生まれた年代を選んだとき
-  $('rank').addEventListener('click', e => {
-    const b = e.target.closest('button[data-born]'); if (!b) return;
-    myBorn = Number(b.dataset.born);
-    try { localStorage.setItem('born', String(myBorn)); } catch(err){}
-    loadRank();
+  /** ページ番号の並びを作る。前後2ページと最初・最後を出す */
+  function renderPager(id, cur, total, go){
+    const box = $(id);
+    box.innerHTML = '';
+    if (total <= 1) return;
+    const add = (label, n, on) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = label;
+      if (on) b.setAttribute('aria-pressed', 'true');
+      if (n == null) { b.disabled = true; b.className = 'gap'; }
+      else b.addEventListener('click', () => go(n));
+      box.appendChild(b);
+    };
+    if (cur > 1) add('‹', cur - 1);
+    const nums = new Set([1, total, cur, cur - 1, cur + 1]);
+    let last = 0;
+    [...nums].filter(n => n >= 1 && n <= total).sort((a, b) => a - b).forEach(n => {
+      if (n - last > 1) add('…', null);
+      add(String(n), n, n === cur);
+      last = n;
+    });
+    if (cur < total) add('›', cur + 1);
+  }
+
+  $('rankMore').addEventListener('click', showRankRest);
+  $('rankFullClose').addEventListener('click', () => $('rankfull').classList.remove('open'));
+  $('rankfull').addEventListener('click', e => {
+    if (e.target.id === 'rankfull') $('rankfull').classList.remove('open');
   });
 
   $('scope').addEventListener('click', e => {
@@ -835,7 +909,6 @@
     $('navMake').textContent = T().make;
     $('navTrends').textContent = T().h1;
     $('navAbout').textContent = T().about;
-    $('more').textContent = T().more;
     [...$('sort').children].forEach(b => {
       b.textContent = b.dataset.sort === 'hot' ? T().hot : T().newest;
     });
@@ -855,7 +928,7 @@
     paintDecades();
     updateXLink();
     loadRank();
-    load(false);
+    load(1);
   }
 
   document.querySelector('.langsw').addEventListener('click', e => {

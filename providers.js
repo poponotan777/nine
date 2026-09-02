@@ -31,6 +31,7 @@ const IMG_HOSTS = [
   /^i\.ytimg\.com$/,
   /^lh\d\.googleusercontent\.com$/,
   /^thumbnail\.image\.rakuten\.co\.jp$/,
+  /^cdn\.myanimelist\.net$/,      // AniListが落ちたときの代替（Jikan）
 ];
 
 const proxied = url => (url ? '/img?u=' + encodeURIComponent(url) : '');
@@ -160,6 +161,7 @@ const q = {
   commons: makeQueue(1200),   // 画像クレジット。別キューにして本体を邪魔しない
   yt: makeQueue(120),
   rakuten: makeQueue(1100),   // 楽天は1秒1リクエストが目安
+  jikan: makeQueue(1200),     // AniListの代替。1秒3回・1分60回なので広めに
 };
 
 async function getJSON(url, opts = {}, retry = true) {
@@ -225,6 +227,99 @@ async function anilist(query, variables) {
   }));
   if (json.errors?.length) throw new Error(json.errors[0].message);
   return json.data;
+}
+
+/* ------------------------------------------------------------------ *
+ * AniListが落ちたときの代替（Jikan / MyAnimeList）
+ *
+ * AniListは過去に何度も「severe stability issues」で API 全体を止めており、
+ * そのあいだ 403 と固定の文言を返す。漫画・アニメ・キャラの3モードが
+ * まとめて使えなくなるため、同じ内容を引ける無料APIに逃がす。
+ *
+ * Jikanはキー不要。1秒3回・1分60回の制限があるので間隔を空けて呼ぶ。
+ * 日本語の題名も `title_japanese` で取れる。
+ * ------------------------------------------------------------------ */
+const JIKAN = 'https://api.jikan.moe/v4';
+
+/** AniListが止まっているかどうか。403を1度でも見たら一定時間は使わない */
+let anilistDownUntil = 0;
+const ANILIST_COOLDOWN = 10 * 60e3;   // 10分は代替を使い続ける
+
+function shapeJikan(m, kind, lang = 'ja') {
+  const ja = m.title_japanese || '';
+  const en = m.title_english || m.title || '';
+  const title = lang === 'en' ? (en || ja) : (ja || en);
+  if (!title) return null;
+  const img = m.images?.jpg?.large_image_url || m.images?.jpg?.image_url || '';
+  if (!img) return null;
+  const author = kind === 'manga'
+    ? (m.authors || []).map(a => a.name).join(', ')
+    : (m.studios || []).map(a => a.name).join(', ');
+  return {
+    id: `jikan:${kind}:${m.mal_id}`,
+    source: 'jikan',
+    externalId: String(m.mal_id),
+    title,
+    sub: author || '',
+    year: m.published?.prop?.from?.year || m.aired?.prop?.from?.year || null,
+    img: proxied(img),
+    imgRaw: img,
+    alt: [en, ja, m.title].filter(Boolean),
+  };
+}
+
+function shapeJikanCharacter(c, lang = 'ja') {
+  const title = (lang === 'en' ? c.name : (c.name_kanji || c.name)) || c.name;
+  const img = c.images?.jpg?.image_url || '';
+  if (!title || !img) return null;
+  return {
+    id: `jikan:character:${c.mal_id}`,
+    source: 'jikan',
+    externalId: String(c.mal_id),
+    title,
+    sub: '',
+    year: null,
+    img: proxied(img),
+    imgRaw: img,
+    alt: [c.name, c.name_kanji].filter(Boolean),
+  };
+}
+
+async function jikanSearch(kind, term, lang = 'ja') {
+  const path = kind === 'character' ? '/characters' : `/${kind}`;
+  const url = `${JIKAN}${path}?q=${encodeURIComponent(term)}&limit=20`
+            + (kind === 'character' ? '' : '&sfw=true');
+  const json = await q.jikan(() => getJSON(url));
+  const rows = json.data || [];
+  return rows
+    .map(r => (kind === 'character' ? shapeJikanCharacter(r, lang) : shapeJikan(r, kind, lang)))
+    .filter(Boolean);
+}
+
+/** AniListを試し、止まっていればJikanに切り替える */
+async function mediaSearch(kind, term, lang = 'ja') {
+  if (Date.now() < anilistDownUntil) return jikanSearch(kind, term, lang);
+  try {
+    const gql = Q_SEARCH(kind === 'anime' ? 'ANIME' : 'MANGA');
+    const data = await anilist(gql, { s: term });
+    return (data.Page?.media || []).map(m => shapeAniList(m, kind, null, lang)).filter(x => x?.img);
+  } catch (e) {
+    if (isAniListDown(e)) {
+      anilistDownUntil = Date.now() + ANILIST_COOLDOWN;
+      console.warn('AniListが応答しないため、Jikanに切り替えます:', e.message.slice(0, 80));
+      return jikanSearch(kind, term, lang);
+    }
+    throw e;
+  }
+}
+
+/** AniList全体が止まっているときのエラーかどうか */
+function isAniListDown(e) {
+  const m = String(e && e.message || '');
+  return m.includes('temporarily disabled')
+      || m.includes('403')
+      || m.includes('Internal Server Error')
+      || m.includes('502') || m.includes('503') || m.includes('504');
 }
 
 function shapeAniList(m, kind, relationType, lang = 'ja') {
@@ -419,11 +514,8 @@ async function search(type, rawQuery, lang = 'ja') {
   const term = normalize(rawQuery);
 
   if (type === 'manga' || type === 'anime') {
-    const gql = Q_SEARCH(type === 'anime' ? 'ANIME' : 'MANGA');
-    const items = await fanout(term, async v => {
-      const data = await anilist(gql, { s: v });
-      return (data.Page?.media || []).map(m => shapeAniList(m, type, null, lang)).filter(x => x?.img);
-    });
+    // AniListが止まっていればJikanに自動で切り替わる
+    const items = await fanout(term, v => mediaSearch(type, v, lang));
     return rank(items, term);
   }
 
@@ -492,6 +584,8 @@ async function suggest(type, rawQuery) {
   const dedupe = list => mergeBy(x => key(x.label), list).slice(0, 8);
 
   if (type === 'manga' || type === 'anime') {
+    // AniListが止まっているあいだは補完を出さない（検索そのものは代替で動く）
+    if (Date.now() < anilistDownUntil) return [];
     const gql = Q_SUGGEST(type === 'anime' ? 'ANIME' : 'MANGA');
     const got = await fanout(term, async v => {
       const data = await anilist(gql, { s: v });
@@ -1055,9 +1149,16 @@ function shapeCharacter(c, lang = 'ja') {
 
 async function searchCharacters(term, lang = 'ja') {
   return fanout(term, async v => {
-    const data = await anilist(Q_CHARACTERS, { s: v });
-    return (data.Page?.characters || [])
-      .map(c => shapeCharacter(c, lang)).filter(x => x.img && x.title);
+    if (Date.now() < anilistDownUntil) return jikanSearch('character', v, lang);
+    try {
+      const data = await anilist(Q_CHARACTERS, { s: v });
+      return (data.Page?.characters || [])
+        .map(c => shapeCharacter(c, lang)).filter(x => x.img && x.title);
+    } catch (e) {
+      if (!isAniListDown(e)) throw e;
+      anilistDownUntil = Date.now() + ANILIST_COOLDOWN;
+      return jikanSearch('character', v, lang);
+    }
   });
 }
 
