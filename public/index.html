@@ -121,6 +121,24 @@
   .grid{
     display:grid;grid-template-columns:repeat(3,1fr);gap:8px;
   }
+  /* 仕上がりの画像と同じ体裁で9マスを囲む */
+  .cardframe{display:flex;background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow);margin-bottom:16px}
+  .cf-obi{flex:0 0 26px;background:var(--obi);display:flex;
+    align-items:flex-end;justify-content:center;padding:12px 0}
+  .cf-obi span{writing-mode:vertical-rl;font-family:var(--mono);font-size:9px;
+    letter-spacing:.18em;color:#2A2622;white-space:nowrap}
+  .cf-body{flex:1;min-width:0;padding:16px 14px 12px}
+  .cf-title{font-family:var(--mincho);font-size:17px;font-weight:600;
+    margin:0 0 10px;padding-bottom:10px;border-bottom:1px solid var(--line);
+    letter-spacing:.04em;word-break:break-word}
+  .cf-foot{font-family:var(--mono);font-size:9px;letter-spacing:.2em;
+    color:var(--muted);margin:10px 0 0;text-align:left}
+  @media (max-width:420px){
+    .cf-obi{flex:0 0 20px}
+    .cf-body{padding:12px 10px 10px}
+    .cf-title{font-size:15px}
+  }
   .slot{
     position:relative;aspect-ratio:var(--ratio,1);background:var(--panel);
     border:2px dashed var(--line);border-radius:var(--r);
@@ -328,17 +346,21 @@
   /* ---- export preview ---- */
   .veil.center{align-items:center}
   .out{max-width:min(92vw,440px);text-align:center;
-       max-height:92vh;overflow:auto;padding:16px;
+       max-height:92vh;overflow:auto;padding:18px;
+       background:var(--ink);border:1px solid var(--line);
+       border-top:3px solid var(--obi);border-radius:var(--r);
+       box-shadow:0 8px 32px rgba(27,31,25,.28);
        -webkit-overflow-scrolling:touch}
   .out img{width:100%;max-height:52vh;object-fit:contain;
            border:1px solid var(--line);display:block;margin-bottom:14px;
            background:var(--panel)}
   .out p{font-size:12px;color:var(--muted);line-height:1.8;margin:0 0 12px}
   /* 案内文は薄いと読めないので、本文と同じ濃さにする */
-  .out .say{font-size:13px;color:var(--text);line-height:1.9;margin:0 0 12px}
+  .out .say{font-size:13px;color:var(--text);line-height:1.9;margin:0 0 12px;white-space:pre-line}
   /* ボタンは常に見える位置に貼り付ける */
   .out .row{position:sticky;bottom:0;background:var(--ink);
-            padding:12px 0 2px;margin-top:4px}
+            padding:12px 0 2px;margin-top:8px;
+            box-shadow:0 -10px 12px -6px var(--ink)}
 
   footer{margin-top:34px;padding-top:16px;border-top:1px solid var(--line);
     font-size:11px;color:var(--muted);line-height:1.9}
@@ -408,7 +430,7 @@
 
   <div class="field">
     <label class="lbl" for="name" data-i18n="label.name">なまえ</label>
-    <input type="text" id="name" maxlength="20" placeholder="太郎">
+    <input type="text" id="name" maxlength="20" placeholder="私">
   </div>
 
   <div class="field">
@@ -427,12 +449,20 @@
     </p>
   </div>
 
-  <div class="grid-head">
-    <span id="gridLabel">SELECT NINE</span>
-    <span id="counter">0 / 9</span>
+  <!-- 完成する画像と同じ体裁（左の帯・見出し・下の英字）で囲み、
+       作っている途中でも仕上がりが想像できるようにしている -->
+  <div class="cardframe">
+    <div class="cf-obi"><span>MY NINE LOVES</span></div>
+    <div class="cf-body">
+      <p class="cf-title" id="cfTitle">私を構成する9枚</p>
+      <div class="grid-head">
+        <span id="gridLabel">SELECT NINE</span>
+        <span id="counter">0 / 9</span>
+      </div>
+      <div class="grid" id="grid"></div>
+      <p class="cf-foot" id="cfFoot">SELECT NINE</p>
+    </div>
   </div>
-
-  <div class="grid" id="grid"></div>
 
   <p class="hint" id="hint">
     空きマスをタップして画像を追加。画像はそのままドラッグ＆ドロップでも入ります。<br>
@@ -593,8 +623,8 @@
       'made':'枚つくられました',
       'grid.hint':'空きマスをタップして画像を追加。作品名でも作者名でも探せます。<br>右上の <strong>⇅</strong> を押してから別のマスを押すと、順番を入れ替えられます。種類を変えても、それぞれの選択は残ります。',
       'drop':'画像をタップして選ぶ<br><span style="font-size:11px">またはここにドロップ / 貼り付け</span>',
-      'out.note':'スマホは画像を長押しして保存、PCは右クリックで保存できます。',
-      'out.ogp':'SNSにこのURLを貼ると、この画像がサムネイルとして表示されます。',
+      'out.note':'スマホは画像を長押しして保存、PCは右クリックで保存できます。\n選んだ理由や思い出を一言添えて投稿してみてください。',
+      'out.ogp':'SNSにこのURLを貼ると、この画像がサムネイルとして表示されます。\n選んだ理由や思い出を一言添えると、ぐっと伝わります。',
       'btn.doshare':'シェア',
       'st.searching':'検索中…', 'st.tap':'タップして選ぶ',
       'st.none':'見つかりませんでした。別の言葉で試してください。',
@@ -609,6 +639,7 @@
       'err.share':'共有できませんでした。「画像を書き出す」から保存してください。',
       'err.png':'画像を作れませんでした。',
       'err.taint':'外部から読み込んだ画像があるため、この環境では画像化できませんでした。',
+      'err.nocard':'まだ1つも選ばれていないため、共有ページを作れません。作品を選んでからお試しください。',
       'misskey.ask':'お使いのMisskey/Fediverseサーバーを入れてください\n（例: misskey.io, fedibird.com）',
       'credits':'写真クレジット（Wikimedia Commons）',
       'sources':'漫画・アニメのデータは AniList、書籍は楽天ブックス・楽天Kobo、映画は TMDB（この製品は TMDB の公認ではありません）、音楽は Apple Music / iTunes、人物は Wikipedia および Wikimedia Commons（CC BY-SA）を利用しています。',
@@ -636,8 +667,8 @@
       'made':'made so far',
       'grid.hint':'Tap an empty cell to add an image. Search by title or by creator.<br>Tap <strong>\u21c5</strong> then another cell to swap them. Your picks are kept per category.',
       'drop':'Tap to choose an image<br><span style="font-size:11px">or drop / paste it here</span>',
-      'out.note':'Long-press the image to save on mobile, or right-click on desktop.',
-      'out.ogp':'Paste this URL on social media and this image appears as the thumbnail.',
+      'out.note':'Long-press the image to save on mobile, or right-click on desktop.\nTry adding a line about why you chose them.',
+      'out.ogp':'Paste this URL on social media and this image appears as the thumbnail.\nAdd a line about why you chose them — it makes all the difference.',
       'btn.doshare':'Share',
       'st.searching':'Searching\u2026', 'st.tap':'Tap to choose',
       'st.none':'Nothing found. Try different words.',
@@ -652,6 +683,7 @@
       'err.share':'Could not share. Please use Export image instead.',
       'err.png':'Could not create the image.',
       'err.taint':'This image came from an external source and could not be exported here.',
+      'err.nocard':'Nothing has been selected yet, so a share page cannot be created.',
       'misskey.ask':'Enter your Misskey / Fediverse server\n(e.g. misskey.io, fedibird.com)',
       'credits':'Photo credits (Wikimedia Commons)',
       'sources':'Manga, anime and character data from AniList. Films from TMDB (this product is not endorsed or certified by TMDB). Music from Apple Music / iTunes. People from Wikipedia and Wikimedia Commons (CC BY-SA).',
@@ -1280,6 +1312,7 @@
     $('pageTitle').textContent = c.h1; $('pageSub').textContent = c.sub;
     $('fTitleLbl').textContent = c.f1; $('fSubLbl').textContent = c.f2;
     $('gridLabel').textContent = c.grid;
+    syncCardFrame();
     restore(S.mode);               // その種類で前に選んでいた9つを呼び戻す
     closeSuggest();
     applyRatio();
@@ -1499,6 +1532,14 @@
   };
   /** 「太郎」＋「を構成する9枚」→「太郎を構成する9枚」
       名前が空なら「私を構成する9枚」にする */
+  /** 9マスを囲む枠の見出しを、いま入力されている内容に合わせる */
+  function syncCardFrame(){
+    const el = document.getElementById('cfTitle');
+    if (el) el.textContent = fullTitle();
+    const ft = document.getElementById('cfFoot');
+    if (ft) ft.textContent = (C().grid || 'SELECT NINE');
+  }
+
   function fullTitle(){
     const nm = $('name').value.trim().replace(/^@/, '');
     const t = stripName($('title').value || C().title, nm);
@@ -1571,6 +1612,11 @@
       catch(e){ alert(t('err.taint')); return; }
 
       await recordCard();
+      if (!lastCardId){
+        // 保存できていない（9つとも空など）ときは共有ページが作れない
+        alert(t('err.nocard'));
+        return;
+      }
       showShareUrl();
       $('outMode').textContent = t('out.card');
       // SNSに貼ったときに実際に出るのはOGP画像なので、それをそのまま見せる
@@ -1698,7 +1744,7 @@
     $('tagNote').textContent = t('tag.note');
     $('shareUrlNote').textContent = t('shareUrl.note');
     $('byCreator').textContent = BY_LABEL[S.mode] || (LANG === 'en' ? 'By creator' : '作者で探す');
-    $('name').placeholder = LANG === 'en' ? 'your name' : '太郎';
+    $('name').placeholder = LANG === 'en' ? 'your name' : '私';
     $('preview').textContent = fullTitle();
     $('creditsJa').textContent = t('sources');
 
@@ -1718,6 +1764,7 @@
     $('pageTitle').textContent = c.h1;
     $('pageSub').textContent = c.sub;
     $('gridLabel').textContent = c.grid;
+    syncCardFrame();
     $('fTitleLbl').textContent = c.f1;
     $('fSubLbl').textContent = c.f2;
     const ti = $('title');
@@ -1754,7 +1801,8 @@
     $(id).addEventListener('input', () => {
       S.meta[S.mode] = { title: $('title').value, name: $('name').value, handle: $('handle').value };
       $('preview').textContent = fullTitle();
-    $('creditsJa').textContent = t('sources');
+      syncCardFrame();               // 9マスを囲む枠の見出しも合わせる
+      $('creditsJa').textContent = t('sources');
       saveDraft();
     }));
 
