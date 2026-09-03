@@ -68,6 +68,11 @@
        padding:14px 28px;border-radius:var(--r);text-decoration:none;margin-top:8px}
   footer{border-top:1px solid var(--line);margin-top:48px;padding-top:20px;
          font-size:11px;color:var(--muted)}
+  .pr-block{margin:30px 0 0;padding-top:18px;border-top:1px solid var(--line)}
+  .pr-label{font-family:var(--mono);font-size:9px;letter-spacing:.2em;
+            color:var(--muted);margin-bottom:10px}
+  .pr-row{display:flex;flex-wrap:wrap;gap:14px;justify-content:center}
+  .pr-row img{max-width:100%;height:auto;display:block}
 </style>
 </head>
 <body>
@@ -162,6 +167,9 @@
     <a href="/contact">お問い合わせ</a>からご連絡ください。
   </p>
 
+  <!-- 本文を読み終えた位置に1つだけ。規約類と共有ページには置かない方針 -->
+  <div id="adAbout" class="pr-block" hidden></div>
+
   <footer>
     <p>
       開発者: <span id="dev">（ここにあなたの名前とリンクを入れてください）</span><br>
@@ -175,6 +183,21 @@
 
 <script>
   const LABEL = { cd:'CD', manga:'漫画', anime:'アニメ', movie:'映画', person:'有名人', character:'キャラ' };
+
+  // このページ用の広告。種類の指定が無いので common に落ちる
+  fetch('/x/ads?kind=about&lang=ja')
+    .then(r => r.json())
+    .then(a => {
+      const box = document.getElementById('adAbout');
+      const html = (a.inflow || '') + (a.inflow2 || '');
+      if (!html) return;
+      box.innerHTML = '<div class="pr-label">PR</div><div class="pr-row">'
+        + (a.inflow ? `<div>${a.inflow}</div>` : '')
+        + (a.inflow2 ? `<div>${a.inflow2}</div>` : '')
+        + '</div>';
+      box.hidden = false;
+    })
+    .catch(() => {});
   fetch('/x/stats')
     .then(r => r.json())
     .then(s => {

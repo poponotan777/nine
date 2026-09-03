@@ -32,7 +32,8 @@
     --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--ink);color:var(--text);font-family:var(--gothic);
+  /* レールを absolute で置くときの基準。これが無いと位置がずれる */
+  body{position:relative;margin:0;background:var(--ink);color:var(--text);font-family:var(--gothic);
        -webkit-font-smoothing:antialiased;padding-bottom:60px}
   @media (min-width:1024px){ body{zoom:1.10} }
   @media (min-width:1600px){ body{zoom:1.15} }
@@ -62,6 +63,12 @@
     border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column;
     box-shadow:0 8px 32px rgba(27,31,25,.3)}
   .listbody{overscroll-behavior:contain;flex:1;overflow:auto;padding:14px 16px 20px;-webkit-overflow-scrolling:touch}
+  /* 本文内の広告。作品の一覧とは混ぜず、独立した区画として置く */
+  .pr-block{margin:26px 0;padding-top:18px;border-top:1px solid var(--line)}
+  .pr-label{font-family:var(--mono);font-size:9px;letter-spacing:.2em;
+    color:var(--muted);margin-bottom:10px}
+  .pr-row{display:flex;flex-wrap:wrap;gap:14px;justify-content:center}
+  .pr-row img{max-width:100%;height:auto;display:block}
   .pager{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:18px 0 4px}
   .pager button{min-width:38px;padding:9px 10px;background:var(--panel);
     border:1px solid var(--line);border-radius:8px;font-family:var(--mono);
@@ -100,16 +107,15 @@
   .rail{display:none}
   /* 120×600のバナーに合わせた幅。実寸に合わせると余白が出ない */
   @media (min-width:1100px){
-    .rail{position:fixed;top:260px;width:120px;display:block;
+    .rail{position:absolute;top:300px;width:120px;display:block;
       font-size:9px;color:var(--muted);text-align:center;
       letter-spacing:.16em;font-family:var(--mono)}
     .rail-l{right:calc(50% + 400px)}
     .rail-r{left:calc(50% + 400px)}
     .rail .slot-ad{display:flex;align-items:flex-start;justify-content:center;
       margin-top:6px}
-    /* 切り落とさず、画面の高さに合わせて縮める */
-    .rail img{max-width:100%;max-height:calc(100vh - 300px);
-      width:auto;height:auto;display:block;margin:0 auto}
+    /* 画面に追従させないので、切れずに全体が見える */
+    .rail img{max-width:100%;width:auto;height:auto;display:block;margin:0 auto}
   }
 
   .bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
@@ -185,7 +191,11 @@
     .card{padding:8px;gap:7px;border-left-width:4px}
     .card .t{font-size:12px;line-height:1.4}
     .card .m,.card .num{font-size:10px}
-    .card-foot{gap:6px}
+    /* 幅150px前後に「題名」と「♥ / view」を横に並べると、
+       題名が潰れて折り返しが崩れる。縦に積む。 */
+    .card-foot{flex-direction:column;align-items:flex-start;gap:4px}
+    .card .num{text-align:left}
+    .card .m{line-height:1.5}
     .like{padding:5px 8px;font-size:11px}
   }
   /* 中身の量が違っても高さをそろえる。並べたとき左右がずれて見えなくなる */
@@ -329,7 +339,8 @@
     <p class="note" id="rankNote"></p>
   </section>
 
-  <div id="adTop" style="margin:22px 0"></div>
+  <!-- ランキングと一覧のあいだ。一覧の中に混ぜると並びが崩れるため独立させている -->
+  <div id="adMid" class="pr-block" hidden></div>
 
   <!-- みんなが作ったカード -->
   <section class="sec">
@@ -504,18 +515,6 @@
     const box = $('cards');
     if (!append) box.innerHTML = '';
     items.forEach((c, idx) => {
-      // 一覧の流れの中に挟む。1ページ10件なので、4件目と8件目の2か所。
-      // 先頭には置かない（並びを見に来た人の目的を邪魔しないため）
-      const slotHtml = (!append && idx === 4) ? adInflow
-                     : (!append && idx === 8) ? adInflow2 : '';
-      if (slotHtml){
-        const ad = document.createElement('div');
-        ad.className = 'card'; ad.style.cursor = 'default';
-        ad.innerHTML = '<div style="font-family:var(--mono);font-size:9px;letter-spacing:.2em;'
-          + 'color:var(--muted);margin-bottom:8px">PR</div>' + slotHtml;
-        box.appendChild(ad);
-      }
-
       const el = document.createElement('div');
       el.className = 'card';
       el.addEventListener('click', () => openCard(c.id));
@@ -627,8 +626,17 @@
         $('adRailLeft').innerHTML = a.railLeft || '';
         $('railR').style.display = a.rail ? '' : 'none';
         $('railL').style.display = a.railLeft ? '' : 'none';
-        $('adTop').innerHTML = '';
-        if (adInflow || adInflow2) load(1);   // 広告が来たら描き直して差し込む
+        // MY9の一覧には差し込まない。300×250を2列の中に入れると
+        // 列幅が押し広げられて並びが崩れるうえ、作品と広告が紛れる。
+        // ランキングと一覧のあいだに、独立した枠として置く。
+        const box = $('adMid');
+        box.innerHTML = (adInflow || adInflow2)
+          ? '<div class="pr-label">PR</div><div class="pr-row">'
+            + (adInflow ? `<div>${adInflow}</div>` : '')
+            + (adInflow2 ? `<div>${adInflow2}</div>` : '')
+            + '</div>'
+          : '';
+        box.hidden = !box.innerHTML;
       }).catch(() => {});
   }
   loadAds();

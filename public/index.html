@@ -32,7 +32,8 @@
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
-  body{
+  /* レールを absolute で置くときの基準。これが無いと位置がずれる */
+  body{position:relative;
     background:var(--ink);
     color:var(--text);
     font-family:var(--gothic);
@@ -295,7 +296,7 @@
      1040px以上のノートPCでも左右が出るようになる。 */
   @media (min-width:1040px){
     .rail{
-      display:block;position:fixed;top:260px;width:120px;
+      display:block;position:absolute;top:300px;width:120px;
       font-size:9px;color:var(--muted);text-align:center;
       letter-spacing:.16em;font-family:var(--mono);
     }
@@ -309,11 +310,10 @@
        overflow:hidden で溢れた分を切っていたため、
        ノートPCの画面ではバナーの下半分が欠けていた。
        高さを上限にして幅を自動にすると、比率を保ったまま収まる。 */
-    .rail img{
-      max-width:100%;
-      max-height:calc(100vh - 300px);
-      width:auto;height:auto;display:block;margin:0 auto;
-    }
+    /* 画面に追従させず、ページと一緒に流す。
+       固定していたときは画面の高さで切れて、下半分が読めなかった。
+       スクロールすれば600pxのバナー全体が見える。 */
+    .rail img{max-width:100%;width:auto;height:auto;display:block;margin:0 auto}
   }
   /* さらに広い画面では本文から少し離して余白を活かす */
   @media (min-width:1500px){
