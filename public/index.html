@@ -2016,6 +2016,12 @@
       const vh = window.innerHeight;                 // 画面の高さ（拡大後）
       const adH = ad.getBoundingClientRect().height; // 広告の高さ（拡大後）
 
+      // 画像がまだ読み込まれていないと高さがほぼ0になり、
+      // 中央の計算が狂って画面の下のほうに置かれてしまう。
+      // 高さが取れるようになるまでは、位置を決めない。
+      if (adH < 60) { ad.style.position = ''; ad.style.top = ''; ad.style.width = ''; return; }
+
+
       // 貼り付いていない状態での上端を求めるため、いったん解除して測る
       ad.style.position = '';
       ad.style.top = '';
@@ -2054,9 +2060,29 @@
     window.addEventListener('scroll', update, { passive: true });
     window.addEventListener('resize', update);
     window.addEventListener('load', update);
-    // 広告は後から差し込まれるので、中身が入ったら測り直す
-    rails.forEach(r => new MutationObserver(update)
-      .observe(r, { childList: true, subtree: true }));
+    // 広告は後から差し込まれる。中身が入ったときと、
+    // その中の画像が読み終わったときの両方で測り直す。
+    function watchImages(root){
+      root.querySelectorAll('img').forEach(im => {
+        if (im.dataset.railWatched) return;
+        im.dataset.railWatched = '1';
+        // A8のHTMLには width/height が入っている。読み込み前でも
+        // その寸法で場所を確保しておけば、高さ0にならず位置が跳ねない。
+        const w = Number(im.getAttribute('width')), h = Number(im.getAttribute('height'));
+        if (w > 1 && h > 1 && !im.style.aspectRatio) im.style.aspectRatio = w + ' / ' + h;
+        if (!im.complete) {
+          im.addEventListener('load', update, { once: true });
+          im.addEventListener('error', update, { once: true });
+        }
+      });
+    }
+    rails.forEach(r => {
+      new MutationObserver(() => { watchImages(r); update(); })
+        .observe(r, { childList: true, subtree: true });
+      watchImages(r);
+      // 画像の読み込みが終わっても高さが確定しない場合に備えて、少し後にも測る
+      [300, 1000, 2500].forEach(ms => setTimeout(update, ms));
+    });
     update();
   })();
 
