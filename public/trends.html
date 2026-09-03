@@ -106,8 +106,10 @@
     .rail-l{right:calc(50% + 400px)}
     .rail-r{left:calc(50% + 400px)}
     .rail .slot-ad{display:flex;align-items:flex-start;justify-content:center;
-      margin-top:6px;max-height:calc(100vh - 290px);overflow:hidden}
-    .rail img{max-width:100%;height:auto}
+      margin-top:6px}
+    /* 切り落とさず、画面の高さに合わせて縮める */
+    .rail img{max-width:100%;max-height:calc(100vh - 300px);
+      width:auto;height:auto;display:block;margin:0 auto}
   }
 
   .bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}

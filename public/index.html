@@ -303,10 +303,17 @@
     .rail-r{left:calc(50% + 300px)}
     .rail .slot-ad{
       display:flex;align-items:flex-start;justify-content:center;
-      margin-top:6px;max-height:calc(100vh - 290px);overflow:hidden;
+      margin-top:6px;
     }
-    /* 160×600 を入れ替えても、はみ出さずに収まるようにする */
-    .rail img{max-width:100%;height:auto;display:block}
+    /* 画面が低いときは、切り落とさずに縮める。
+       overflow:hidden で溢れた分を切っていたため、
+       ノートPCの画面ではバナーの下半分が欠けていた。
+       高さを上限にして幅を自動にすると、比率を保ったまま収まる。 */
+    .rail img{
+      max-width:100%;
+      max-height:calc(100vh - 300px);
+      width:auto;height:auto;display:block;margin:0 auto;
+    }
   }
   /* さらに広い画面では本文から少し離して余白を活かす */
   @media (min-width:1500px){
@@ -341,6 +348,8 @@
     background:var(--ink);color:var(--muted);font-size:14px;line-height:1;cursor:pointer;
   }
   .adbar-slot{min-height:50px;display:flex;align-items:center}
+  /* hidden 属性だけでは display:flex に負けて閉じない。明示的に打ち消す */
+  .adbar[hidden]{display:none}
   @media (min-width:1200px){ .adbar{display:none} }
   body.has-adbar{padding-bottom:150px}
   .status{font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.7}
@@ -1755,7 +1764,15 @@
   /* ---------- スマホ用の下部広告バー ----------
      中身が入っているときだけ表示し、閉じたらその日は出さない。
      ポップアップで覆う形にはしない（作る流れと共有を邪魔しないため） */
+  /* 閉じた状態はその日のあいだ覚えておく。
+     ページを移るたびに出し直すと、閉じる意味が無くなるため。 */
+  const AD_CLOSED_KEY = 'adbar_closed';
   let adBarClosed = false;
+  try {
+    const until = Number(localStorage.getItem(AD_CLOSED_KEY) || 0);
+    adBarClosed = Date.now() < until;
+  } catch(e){}
+
   function syncAdBar(){
     const bar = $('adBar');
     const has = !!$('adBarSlot').innerHTML.trim();
@@ -1765,6 +1782,7 @@
   }
   $('adBarClose').addEventListener('click', () => {
     adBarClosed = true;
+    try { localStorage.setItem(AD_CLOSED_KEY, String(Date.now() + 24 * 3600e3)); } catch(e){}
     syncAdBar();
   });
 
