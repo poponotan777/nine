@@ -72,6 +72,15 @@
     box-shadow:0 8px 32px rgba(27,31,25,.3)}
   .listbody{overscroll-behavior:contain;flex:1;overflow:auto;padding:14px 16px 20px;-webkit-overflow-scrolling:touch}
   /* 本文内の広告。作品の一覧とは混ぜず、独立した区画として置く */
+  /* 同年代のランキングが見られないときの案内。
+     9マスがあるはずの場所に置いて、気づかれるようにする */
+  .needborn{grid-column:1 / -1;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;text-align:center;padding:48px 20px;gap:6px}
+  .needborn .nb-t{font-family:var(--mincho);font-size:17px;margin:0}
+  .needborn .nb-d{font-size:13px;color:var(--muted);margin:0;max-width:420px;line-height:1.9}
+  .needborn .nb-b{display:inline-block;margin-top:10px;background:var(--obi);
+    color:#2A2622;font-weight:700;padding:12px 24px;border-radius:var(--r);
+    text-decoration:none;box-shadow:0 3px 0 var(--obi-deep)}
   .pr-block{margin:26px 0;padding-top:18px;border-top:1px solid var(--line)}
   .pr-label{font-family:var(--mono);font-size:9px;letter-spacing:.2em;
     color:var(--muted);margin-bottom:10px}
@@ -114,7 +123,8 @@
   .decades button{
     border:1px solid var(--line);background:var(--panel);color:var(--muted);
     font-family:var(--gothic);font-size:11px;padding:7px 12px;
-    border-radius:999px;cursor:pointer;
+    /* 種類の絞り込み（.seg）と形をそろえる。丸いと別物の操作に見える */
+    border-radius:8px;cursor:pointer;
   }
   .decades button[aria-pressed=true]{background:var(--obi);color:#2A2622;
     border-color:var(--obi-deep);font-weight:700}
@@ -488,7 +498,9 @@
       empty:'まだ何もありません。最初の1つを作ってみてください。',
       loading:'読み込んでいます…', failed:'読み込めませんでした。',
       like:'♥ いいね', liked:'♥ ありがとう', already:'♥ 済',
-      noAge:'年齢を入れて9つを作ると、同じ年代のランキングが見られます。',
+      noAge:'つくるページで9つ作るときに生まれた年を入れると、前後1年に生まれた人が選んだ作品のランキングが見られます。',
+      noAgeTitle:'同年代のランキングは、まだ見られません',
+      noAgeCta:'9つ作って参加する',
       noRank:'まだ集計できるデータがありません。',
       picks:'選', views:'view',
       my9:'作成されたMY9', my9note:'ほかの人が選んだ9つ。タップすると大きく見られます。',
@@ -506,7 +518,9 @@
       empty:'Nothing here yet. Be the first.',
       loading:'Loading\u2026', failed:'Could not load.',
       like:'\u2665 Like', liked:'\u2665 Thanks', already:'\u2665 Done',
-      noAge:'Add your age when you make a nine to unlock this.',
+      noAge:'Add your birth year when you make a nine, and you can see what people born within a year of you picked.',
+      noAgeTitle:'The same-age ranking is not available yet',
+      noAgeCta:'Make your nine',
       noRank:'Not enough data yet.',
       picks:'picks', views:'views',
       my9:'Cards people made', my9note:'Tap a card to see it bigger.',
@@ -733,9 +747,17 @@
     // 「同年代」は年代の並びの中にある。年齢が未入力なら案内を出して促す
     if (state.decade === 'age'){
       if (!myBorn){
-        $('rank9').innerHTML = ''; $('rank').innerHTML = '';
+        // 枠の下に小さく出すだけだと、スクロールしないと気づけない。
+        // 9マスがあるはずの場所に、そのまま案内を出す。
+        $('rank9').innerHTML =
+          '<div class="needborn">'
+          + '<p class="nb-t">' + T().noAgeTitle + '</p>'
+          + '<p class="nb-d">' + T().noAge + '</p>'
+          + '<a class="nb-b" href="/">' + T().noAgeCta + '</a>'
+          + '</div>';
+        $('rank').innerHTML = '';
         $('rankMore').style.display = 'none';
-        $('rankNote').textContent = T().noAge;
+        $('rankNote').textContent = '';
         return;
       }
       p.set('age', String(myBorn));

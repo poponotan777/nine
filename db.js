@@ -117,11 +117,11 @@ function openPostgres() {
     await pool.query(`
       INSERT INTO item_stats (type, source, external_id, lang, age_band, title, sub, image_url, year, n)
       SELECT c.type, i.source, i.external_id,
-             COALESCE(c.lang, ''), COALESCE((c.born / 10) * 10, 0),
+             COALESCE(c.lang, ''), COALESCE(c.born, 0),
              MIN(i.title), MIN(i.sub), MIN(i.image_url), MIN(i.year), COUNT(*)::int
       FROM card_items i JOIN cards c ON c.id = i.card_id
       WHERE i.source IS NOT NULL AND i.external_id IS NOT NULL
-      GROUP BY c.type, i.source, i.external_id, COALESCE(c.lang, ''), COALESCE((c.born / 10) * 10, 0)
+      GROUP BY c.type, i.source, i.external_id, COALESCE(c.lang, ''), COALESCE(c.born, 0)
       ON CONFLICT DO NOTHING`);
     console.log('ランキング集計を既存のカードから作り直しました');
   }).catch(err => console.error('集計の作り直しに失敗:', err.message));
@@ -147,7 +147,8 @@ function openPostgres() {
             [id, i, it.source || null, it.externalId || null, it.title || '', it.sub || '', it.imageUrl || null, it.year || null, it.buyUrl || null]);
         }
         // ランキング用の集計を同じトランザクションで積む
-        const band = card.born ? Math.floor(card.born / 10) * 10 : 0;
+        // 前後1年も「同年代」として扱うため、10年区切りではなく生まれた年をそのまま持つ
+        const band = card.born || 0;
         for (const it of card.items) {
           if (!it || !it.source || !it.externalId) continue;
           await client.query(`
@@ -193,7 +194,9 @@ function openPostgres() {
       if (decade) { args.push(decade); where.push(`year >= $${args.length} AND year < $${args.length} + 10`); }
       if (ageBand) {
         // 生まれ年の年代で絞る（例: 1990 → 1990〜1999年生まれ）
-        args.push(ageBand); where.push(`age_band = $${args.length}`);
+        // 前後1年も同年代として扱う（1999年生まれなら1998〜2000年）
+        args.push(ageBand - 1, ageBand + 1);
+        where.push(`age_band BETWEEN $${args.length - 1} AND $${args.length}`);
       }
       args.push(limit);
       const r = await pool.query(`
@@ -410,11 +413,11 @@ function openSqlite() {
       db.exec(`
         INSERT OR IGNORE INTO item_stats (type,source,external_id,lang,age_band,title,sub,image_url,year,n)
         SELECT c.type, i.source, i.external_id,
-               COALESCE(c.lang,''), COALESCE((c.born/10)*10, 0),
+               COALESCE(c.lang,''), COALESCE(c.born, 0),
                MIN(i.title), MIN(i.sub), MIN(i.image_url), MIN(i.year), COUNT(*)
         FROM card_items i JOIN cards c ON c.id = i.card_id
         WHERE i.source IS NOT NULL AND i.external_id IS NOT NULL
-        GROUP BY c.type, i.source, i.external_id, COALESCE(c.lang,''), COALESCE((c.born/10)*10, 0)`);
+        GROUP BY c.type, i.source, i.external_id, COALESCE(c.lang,''), COALESCE(c.born, 0)`);
       console.log('ランキング集計を既存のカードから作り直しました');
     }
   } catch (e) { console.error('集計の作り直しに失敗:', e.message); }
@@ -426,7 +429,8 @@ function openSqlite() {
       const now = new Date().toISOString();
       insCard.run(id, card.type, card.title || '', card.name || '',
                   card.items.filter(Boolean).length, card.ipHash, card.handle || null, card.lang || null, card.born || null, now);
-      const band = card.born ? Math.floor(card.born / 10) * 10 : 0;
+      // 前後1年も「同年代」として扱うため、10年区切りではなく生まれた年をそのまま持つ
+      const band = card.born || 0;
       card.items.forEach((it, i) => {
         if (!it) return;
         insItem.run(id, i, it.source || null, it.externalId || null,
@@ -452,7 +456,8 @@ function openSqlite() {
       if (notType){ where.push('type <> ?'); args.push(notType); }
       if (lang)   { where.push('lang = ?');  args.push(lang); }
       if (decade) { where.push('year >= ? AND year < ? + 10'); args.push(decade, decade); }
-      if (ageBand){ where.push('age_band = ?'); args.push(ageBand); }
+      // 前後1年も同年代として扱う
+      if (ageBand){ where.push('age_band BETWEEN ? AND ?'); args.push(ageBand - 1, ageBand + 1); }
       args.push(limit);
       return db.prepare(`
         SELECT source, external_id,
@@ -550,7 +555,7 @@ function openJSON() {
     state.items.forEach(it => {
       const c = byCard.get(it.card_id);
       if (!c || !it.source || !it.external_id) return;
-      const band = c.born ? Math.floor(c.born / 10) * 10 : 0;
+      const band = c.born || 0;
       const k = [c.type, it.source, it.external_id, c.lang || '', band].join('\u0000');
       const cur = state.stats[k] || { type: c.type, source: it.source, external_id: it.external_id,
         lang: c.lang || '', age_band: band, title: it.title, sub: it.sub,
@@ -578,7 +583,8 @@ function openJSON() {
         ip_hash: card.ipHash, handle: card.handle || null,
         views: 0, likes: 0, created_at: new Date().toISOString(),
       });
-      const band = card.born ? Math.floor(card.born / 10) * 10 : 0;
+      // 前後1年も「同年代」として扱うため、10年区切りではなく生まれた年をそのまま持つ
+      const band = card.born || 0;
       card.items.forEach((it, i) => {
         if (!it) return;
         state.items.push({
@@ -613,7 +619,7 @@ function openJSON() {
         if (type && r.type !== type) return;
         if (notType && r.type === notType) return;
         if (lang && r.lang !== lang) return;
-        if (ageBand && r.age_band !== ageBand) return;
+        if (ageBand && Math.abs((r.age_band || 0) - ageBand) > 1) return;
         if (decade && !(r.year >= decade && r.year < decade + 10)) return;
         const k = `${r.source}:${r.external_id}`;
         const cur = bucket.get(k) || { source: r.source, external_id: r.external_id,

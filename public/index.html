@@ -505,6 +505,7 @@
            autocomplete="off" pattern="@?[A-Za-z0-9_]{1,30}">
     <p class="hint" style="margin-top:6px">
       <span id="handleHint">入れておくと、あなたが作った9つがまとめて見られるページに並びます。</span>
+      <br><a href="#" id="editBorn" style="display:none">生まれた年を変える</a>
     </p>
   </div>
 
@@ -612,12 +613,13 @@
   <div class="sheet" style="max-width:420px">
     <h2 id="ageTitle">年代別ランキングに参加しますか</h2>
     <p class="hint" id="ageNote" style="margin-top:0">
-      年齢を入れると、同じ年代の人が選んだ作品のランキングが見られるようになります。
-      保存されるのは「生まれ年」だけで、名前や個人が分かる情報とは結び付けません。
+      生まれた年を入れると、同じ年に生まれた人が選んだ作品のランキングが見られます。
+      保存されるのは「生まれた年」だけで、名前や個人が分かる情報とは結び付けません。
     </p>
     <div class="field">
-      <label class="lbl" for="age" id="ageLbl">年齢（任意）</label>
-      <input type="text" id="age" inputmode="numeric" maxlength="3" placeholder="25">
+      <p class="hint" id="ageHint" style="display:none;margin:0 0 8px;color:var(--pop)"></p>
+      <label class="lbl" for="age" id="ageLbl">生まれた年（任意）</label>
+      <input type="text" id="age" inputmode="numeric" maxlength="4" placeholder="2000">
     </div>
     <div class="row">
       <button class="btn ghost" id="ageSkip">入力しない</button>
@@ -706,9 +708,10 @@
       'err.nocard':'まだ1つも選ばれていないため、共有ページを作れません。作品を選んでからお試しください。',
       'credits':'写真クレジット（Wikimedia Commons）',
       'sources':'漫画・アニメのデータは AniList、書籍は楽天ブックス・楽天Kobo、映画は TMDB（この製品は TMDB の公認ではありません）、音楽は Apple Music / iTunes、人物は Wikipedia および Wikimedia Commons（CC BY-SA）を利用しています。',
-      'age.title':'年代別ランキングに参加しますか',
-      'age.note':'年齢を入れると、同じ年代の人が選んだ作品のランキングが見られるようになります。保存されるのは「生まれ年」だけで、名前や個人が分かる情報とは結び付けません。',
-      'age.label':'年齢（任意）', 'age.skip':'入力しない',
+      'age.title':'同年代のランキングに参加しますか',
+      'age.note':'生まれた年を入れると、同じ年に生まれた人が選んだ作品のランキングが見られます。保存されるのは「生まれた年」だけで、名前や個人が分かる情報とは結び付けません。',
+      'age.label':'生まれた年（任意）', 'age.skip':'入力しない',
+      'age.change':'いまは {y} 年で登録されています。変えたいときは書き換えてください。',
       'copy':'コピー', 'copied':'コピーしました',
       'out.card':'カードができました',
       'out.image':'画像ができました',
@@ -752,9 +755,10 @@
       'err.nocard':'Nothing has been selected yet, so a share page cannot be created.',
       'credits':'Photo credits (Wikimedia Commons)',
       'sources':'Manga, anime and character data from AniList. Films from TMDB (this product is not endorsed or certified by TMDB). Music from Apple Music / iTunes. People from Wikipedia and Wikimedia Commons (CC BY-SA).',
-      'age.title':'Join the age-based ranking?',
-      'age.note':'Add your age to see what people your age picked. Only the birth year is stored, and it is never linked to your name.',
-      'age.label':'Age (optional)', 'age.skip':'Skip',
+      'age.title':'Join the same-age ranking?',
+      'age.note':'Add your birth year to see what people born the same year picked. Only the year is stored, never linked to your name.',
+      'age.label':'Birth year (optional)', 'age.skip':'Skip',
+      'age.change':'Currently set to {y}. Edit it if you want to change it.',
       'copy':'Copy', 'copied':'Copied',
       'out.card':'Your card is ready',
       'out.image':'Your image is ready',
@@ -912,6 +916,13 @@
     } else {
       $('title').value = C(mode).title;
     }
+    // 保存されているのが「別の言語の既定文」なら、いまの言語のものに直す。
+    // 英語で使ったあと日本語に戻して種類を切り替えると、
+    // 英語の文言が復活してしまうため。
+    const cur = $('title').value;
+    const isDefault = Object.values(COPY).some(v => v.title === cur)
+                   || Object.values(COPY_EN).some(v => v.title === cur);
+    if (isDefault && cur !== C(mode).title) $('title').value = C(mode).title;
   }
   const $ = id => document.getElementById(id);
   const grid = $('grid');
@@ -1517,9 +1528,15 @@
   let askedAge = false;
   try { askedAge = localStorage.getItem('askedAge') === '1'; } catch(e){}
 
-  function askAge(){
-    if (askedAge || born) return Promise.resolve();
+  /** 生まれた年をたずねる。
+      既に入っていれば聞かない（openAgeEdit から明示的に開いたときだけ出す）。 */
+  function askAge(force){
+    if (!force && (askedAge || born)) return Promise.resolve();
     return new Promise(resolve => {
+      // 登録済みなら、その値を入れておいて修正できるようにする
+      $('age').value = born ? String(born) : '';
+      $('ageHint').textContent = born ? t('age.change').replace('{y}', born) : '';
+      $('ageHint').style.display = born ? '' : 'none';
       $('agev').classList.add('open');
       const finish = () => {
         askedAge = true;
@@ -1528,9 +1545,12 @@
         resolve();
       };
       $('ageOk').onclick = () => {
-        const n = Number($('age').value);
-        if (n >= 5 && n <= 100){
-          born = new Date().getFullYear() - n;
+        // 年齢ではなく「生まれた年」をそのまま受け取る。
+        // 年齢のまま持つと毎年ずれ、一斉更新の運用が必要になる。
+        const y = Number($('age').value);
+        const now = new Date().getFullYear();
+        if (y >= now - 100 && y <= now - 5){
+          born = y;
           try { localStorage.setItem('born', String(born)); } catch(e){}
         }
         finish();
@@ -1538,6 +1558,23 @@
       $('ageSkip').onclick = finish;
     });
   }
+  // あとから直せるように、外から開けるようにしておく
+  window.openAgeEdit = () => askAge(true);
+
+  // 登録済みのときだけ、変更用のリンクを出す
+  function syncBornLink(){
+    const a = document.getElementById('editBorn');
+    if (!a) return;
+    a.style.display = born ? '' : 'none';
+    a.textContent = LANG === 'en'
+      ? `Change birth year (${born})` : `生まれた年を変える（${born}年）`;
+  }
+  document.getElementById('editBorn').addEventListener('click', async e => {
+    e.preventDefault();
+    await askAge(true);
+    syncBornLink();
+  });
+  syncBornLink();
 
   let lastSaved = '';
   let lastCardId = null;   // 保存後に発行される共有ページのID
@@ -1850,7 +1887,7 @@
     $('shareUrlNote').textContent = t('shareUrl.note');
     $('byCreator').textContent = BY_LABEL[S.mode] || (LANG === 'en' ? 'By creator' : '作者で探す');
     $('name').placeholder = LANG === 'en' ? 'your name' : '私';
-    $('preview').textContent = fullTitle();
+    syncBornLink();
     $('creditsJa').textContent = t('sources');
 
     // 種類ボタンの表示名
@@ -1869,13 +1906,23 @@
     $('pageTitle').textContent = c.h1;
     $('pageSub').textContent = c.sub;
     $('gridLabel').textContent = c.grid;
-    syncCardFrame();
     $('fTitleLbl').textContent = c.f1;
     $('fSubLbl').textContent = c.f2;
+
+    // 「つづき」の既定文はここで入れ替える。
+    // 自分で書き換えたものは残す（どちらの言語の既定にも一致しないとき）。
     const ti = $('title');
     if (!ti.value || Object.values(COPY).some(v => v.title === ti.value)
         || Object.values(COPY_EN).some(v => v.title === ti.value)) ti.value = c.title;
+
+    // プレビューと枠の見出しは、入力欄を直したあとに作り直す。
+    // 先に描くと、英語→日本語のとき「私Nine manga I love」のように
+    // 古い言語の文字列が残ってしまう。
+    S.meta[S.mode] = { title: ti.value, name: $('name').value, handle: $('handle').value };
+    $('preview').textContent = fullTitle();
+    syncCardFrame();
     updateShareNote();
+    saveDraft();
   }
 
   document.querySelector('.langsw').addEventListener('click', e => {
