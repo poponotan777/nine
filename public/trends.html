@@ -1001,6 +1001,8 @@
     if (!$('cvUser').textContent.startsWith('@')) $('cvUser').textContent = T().user;
     paintDecades();
     updateXLink();
+    // 年代の並びは今できたばかり。高さが確定してから測る
+    if (window.__packResize) requestAnimationFrame(window.__packResize);
     loadRank();
     load(1);
   }
@@ -1114,12 +1116,16 @@
       const wrap = document.querySelector('.packwrap');
       if (!wrap) return;
       const z = parseFloat(getComputedStyle(document.body).zoom) || 1;
-      const top = wrap.getBoundingClientRect().top;      // 画面上端からの距離
-      const h = (window.innerHeight - top - 24) / z;     // 下に24pxだけ残す
-      // 極端に小さく／大きくならないよう、常識的な範囲に収める
-      // 1px単位で揺れないよう、8px刻みに丸める。
-      // 端数がそのまま入ると、わずかな差で再計算が繰り返され大きさが安定しない。
-      const packH = Math.round(Math.max(380, Math.min(h, 900)) / 8) * 8;
+      // ページ最上部を基準にすると、ヘッダー・タブ・絞り込み・年代の
+      // すべてを差し引くことになり、表紙がかなり小さくなる。
+      // そこで「ランキングを見ている状態」を基準にする。
+      // 見出しのぶん(HEAD)だけ残し、あとは画面の高さをそのまま使う。
+      // 少しスクロールすれば9つが1画面に収まる。
+      const HEAD = 150;                                  // 見出しと上下の余白
+      const h = (window.innerHeight - HEAD) / z;
+      // 1px単位で揺れないよう8px刻みに丸める。
+      // 端数がそのまま入ると、わずかな差で再計算が繰り返され安定しない。
+      const packH = Math.round(Math.max(380, Math.min(h, 1100)) / 8) * 8;
       const root = document.documentElement;
       // 高さは変わったときだけ書き換える（毎回書くと監視が反応して揺れる）
       if (root.style.getPropertyValue('--pack-h') !== packH + 'px') {
