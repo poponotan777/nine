@@ -155,6 +155,8 @@
   .xlink:hover{border-color:var(--pop);color:var(--pop);background:#FCEFF2}
 
   .sec{margin-bottom:34px}
+  /* 節の始まりを、広告の区切りと同じ線で示す */
+  .sec-divided{margin-top:26px;padding-top:22px;border-top:1px solid var(--line)}
   .sec-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
   .sec-head .seg{flex-wrap:wrap}
   .sec-head h2{font-family:var(--mincho);font-size:20px;margin:0;flex:1;min-width:170px}
@@ -361,7 +363,7 @@
   <div id="adMid" class="pr-block" hidden></div>
 
   <!-- みんなが作ったカード -->
-  <section class="sec">
+  <section class="sec sec-divided">
     <div class="sec-head">
       <h2 id="my9Title">作成されたMY9</h2>
       <div class="seg" id="sort">
