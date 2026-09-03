@@ -204,7 +204,7 @@
     display:none;align-items:flex-end;justify-content:center;
   }
   .veil.open{display:flex}
-  .sheet{
+  .sheet{overscroll-behavior:contain;
     width:100%;max-width:560px;background:var(--ink);
     border-top:3px solid var(--obi);
     padding:20px 20px calc(20px + env(safe-area-inset-bottom));
@@ -289,19 +289,24 @@
   /* 左右のレール。本文（最大560px）の脇に、余白の中央へ置く。
      広告が入っていない側は枠ごと消える（loadAdsが display を切り替える）。 */
   .rail{display:none}
-  @media (min-width:1180px){
+  /* レールは120×600のバナーに合わせている。
+     枠を170pxにしていたときは左右に25pxずつ余白が出て中途半端だった。
+     幅を実寸に合わせたぶん、必要な画面幅も狭くなり、
+     1040px以上のノートPCでも左右が出るようになる。 */
+  @media (min-width:1040px){
     .rail{
-      display:block;position:fixed;top:260px;width:170px;
+      display:block;position:fixed;top:260px;width:120px;
       font-size:9px;color:var(--muted);text-align:center;
       letter-spacing:.16em;font-family:var(--mono);
     }
-    .rail-l{right:calc(50% + 296px)}
-    .rail-r{left:calc(50% + 296px)}
+    .rail-l{right:calc(50% + 300px)}
+    .rail-r{left:calc(50% + 300px)}
     .rail .slot-ad{
       display:flex;align-items:flex-start;justify-content:center;
       margin-top:6px;max-height:calc(100vh - 290px);overflow:hidden;
     }
-    .rail img{max-width:100%;height:auto}
+    /* 160×600 を入れ替えても、はみ出さずに収まるようにする */
+    .rail img{max-width:100%;height:auto;display:block}
   }
   /* さらに広い画面では本文から少し離して余白を活かす */
   @media (min-width:1500px){
@@ -345,7 +350,9 @@
 
   /* ---- export preview ---- */
   .veil.center{align-items:center}
-  .out{max-width:min(92vw,440px);text-align:center;
+  .needNote{font-size:13px;color:var(--pop);text-align:center;margin:10px 0 0;font-weight:700}
+  .btn:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+  .out{overscroll-behavior:contain;max-width:min(92vw,440px);text-align:center;
        max-height:92vh;overflow:auto;padding:18px;
        background:var(--ink);border:1px solid var(--line);
        border-top:3px solid var(--obi);border-radius:var(--r);
@@ -490,6 +497,7 @@
       </p>
     </div>
   </div>
+  <p class="needNote" id="needNote"></p>
   <p class="hint" id="shareNote" style="margin-top:12px"></p>
 
   <!-- 本文内の広告。300×250を2つ並べる（狭い画面では縦に積まれる） -->
@@ -624,6 +632,8 @@
       'note.url':'作品名や購入先まで見られるページ。SNSにそのまま貼れます。',
       'btn.search':'検索', 'btn.remove':'消す', 'btn.done':'決定',
       'btn.close':'閉じる', 'btn.save':'保存', 'btn.back':'← 検索結果に戻る',
+      'need.more':'あと{n}つ選ぶと、保存と共有ができます。',
+      'need.all':'9つすべて選ぶと、保存と共有ができます。',
       'by.work':'作品名で探す',
       'made':'枚つくられました',
       'grid.hint':'空きマスをタップして画像を追加。作品名でも作者名でも探せます。<br>右上の <strong>⇅</strong> を押してから別のマスを押すと、順番を入れ替えられます。種類を変えても、それぞれの選択は残ります。',
@@ -670,6 +680,8 @@
       'note.url':'A page with titles and where to get them. Paste it anywhere.',
       'btn.search':'Search', 'btn.remove':'Remove', 'btn.done':'Done',
       'btn.close':'Close', 'btn.save':'Save', 'btn.back':'\u2190 Back to results',
+      'need.more':'Pick {n} more to save and share.',
+      'need.all':'Pick all nine to save and share.',
       'by.work':'By title',
       'made':'made so far',
       'grid.hint':'Tap an empty cell to add an image. Search by title or by creator.<br>Tap <strong>\u21c5</strong> then another cell to swap them. Your picks are kept per category.',
@@ -890,6 +902,7 @@
       grid.appendChild(b);
     });
     $('counter').textContent = `${S.items.filter(Boolean).length} / 9`;
+    updateFinishState();
     updateShareNote();
     S.byMode[S.mode] = S.items;
     saveDraft();
@@ -1501,7 +1514,8 @@
     };
     const sig = JSON.stringify(payload);
     if (sig === lastSaved) return;      // 同じ内容は二重に数えない（IDは保持される）
-    if (!payload.items.filter(Boolean).length) return;
+    // 9つそろっていないものは記録しない（ランキングと一覧を虫食いにしないため）
+    if (payload.items.filter(Boolean).length !== 9) return;
     lastSaved = sig;
     try{
       const r = await fetch('/x/cards', {
@@ -1580,12 +1594,34 @@
     } catch(e){ $('shareUrl').select(); }
   });
 
+  /** 9つそろっているか */
+  function isComplete(){ return S.items.filter(Boolean).length === 9; }
+
+  /** そろうまで、保存と共有の2つのボタンを押せなくする。
+      虫食いのカードが共有されると、見た人が何のことか分からないため。 */
+  function updateFinishState(){
+    const done = isComplete();
+    const left = 9 - S.items.filter(Boolean).length;
+    ['share', 'export'].forEach(id => {
+      const b = document.getElementById(id);
+      if (!b) return;
+      b.disabled = !done;
+      b.title = done ? '' : t('need.more').replace('{n}', left);
+    });
+    const note = document.getElementById('needNote');
+    if (note){
+      note.textContent = done ? '' : t('need.more').replace('{n}', left);
+      note.style.display = done ? 'none' : '';
+    }
+  }
+
   function shareText(){
     return `${fullTitle()}\n#MyNineLoves`;
   }
 
   // 3×3の画像で保存。プレビューを出し、そこから保存してもらう
   $('share').addEventListener('click', async () => {
+    if (!isComplete()) return alert(t('need.all'));
     const btn = $('share');
     await askAge();
     btn.disabled = true; btn.textContent = '準備中…';
@@ -1610,6 +1646,7 @@
 
   // カードのURLでシェア。画像は添えず、リンクとハッシュタグを送る
   $('export').addEventListener('click', async () => {
+    if (!isComplete()) return alert(t('need.all'));
     const btn = $('export');
     await askAge();
     btn.disabled = true; btn.textContent = '準備中…';
@@ -1825,6 +1862,46 @@
   $('hint').innerHTML = '空きマスをタップして画像を追加。作品名でも作者名でも探せます。<br>' +
     '右上の <strong>⇅</strong> を押してから別のマスを押すと、順番を入れ替えられます。種類を変えても、それぞれの選択は残ります。';
 })();
+
+  /* ------------------------------------------------------------------ *
+   * 前面に何かを出しているあいだ、後ろの画面を動かさない
+   *
+   * スマホでは、モーダルの端まで指を滑らせると裏のページが動いてしまう。
+   * 開いている間だけ body を固定し、閉じたら元の位置へ正確に戻す。
+   * position:fixed にするのは、iOSが overflow:hidden だけでは止まらないため。
+   * ------------------------------------------------------------------ */
+  (function lockBehindScroll(){
+    let savedY = 0, locked = false;
+    const anyOpen = () => !!document.querySelector('.veil.open');
+
+    function apply(){
+      const open = anyOpen();
+      if (open && !locked){
+        savedY = window.scrollY || window.pageYOffset || 0;
+        document.body.style.position = 'fixed';
+        document.body.style.top = `-${savedY}px`;
+        document.body.style.left = '0';
+        document.body.style.right = '0';
+        document.body.style.width = '100%';
+        locked = true;
+      } else if (!open && locked){
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.left = '';
+        document.body.style.right = '';
+        document.body.style.width = '';
+        window.scrollTo(0, savedY);   // 開く前に見ていた位置へ戻す
+        locked = false;
+      }
+    }
+
+    // open クラスの付け外しを見張る。呼び出し側を1つずつ直さなくて済む
+    const mo = new MutationObserver(apply);
+    document.querySelectorAll('.veil').forEach(v =>
+      mo.observe(v, { attributes: true, attributeFilter: ['class'] }));
+    apply();
+  })();
+
 </script>
 </body>
 </html>

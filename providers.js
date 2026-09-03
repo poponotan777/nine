@@ -32,6 +32,8 @@ const IMG_HOSTS = [
   /^lh\d\.googleusercontent\.com$/,
   /^thumbnail\.image\.rakuten\.co\.jp$/,
   /^cdn\.myanimelist\.net$/,      // AniListが落ちたときの代替（Jikan）
+  /^media\.kitsu\.io$/,            // さらにその代替（Kitsu）
+  /^media\.kitsu\.app$/,
 ];
 
 const proxied = url => (url ? '/img?u=' + encodeURIComponent(url) : '');
@@ -162,6 +164,7 @@ const q = {
   yt: makeQueue(120),
   rakuten: makeQueue(1100),   // 楽天は1秒1リクエストが目安
   jikan: makeQueue(1200),     // AniListの代替。1秒3回・1分60回なので広めに
+  kitsu: makeQueue(600),      // さらにその代替
 };
 
 async function getJSON(url, opts = {}, retry = true) {
@@ -177,9 +180,11 @@ async function getJSON(url, opts = {}, retry = true) {
     if (!detail) detail = body.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
     throw new Error(`${new URL(url).hostname} が ${res.status} を返しました${detail ? '：' + detail : ''}`);
   }
-  // 429（多すぎ）や503（一時的）は、少し待って1度だけやり直す
-  if ((res.status === 429 || res.status === 503) && retry) {
-    const wait = Number(res.headers.get('retry-after')) * 1000 || 2500;
+  // 429（多すぎ）や502/503/504（一時的なゲートウェイの不調）は、待って1度だけやり直す
+  if ((res.status === 429 || res.status === 502 || res.status === 503 || res.status === 504) && retry) {
+    // Retry-After を返さないサーバーもあるので、読めなくても止まらないようにする
+    let wait = 2500;
+    try { wait = Number(res.headers?.get?.('retry-after')) * 1000 || 2500; } catch { /* 既定を使う */ }
     await new Promise(s => setTimeout(s, Math.min(wait, 5000)));
     return getJSON(url, opts, false);
   }
@@ -243,6 +248,7 @@ const JIKAN = 'https://api.jikan.moe/v4';
 
 /** AniListが止まっているかどうか。403を1度でも見たら一定時間は使わない */
 let anilistDownUntil = 0;
+let jikanDownUntil = 0;
 const ANILIST_COOLDOWN = 10 * 60e3;   // 10分は代替を使い続ける
 
 function shapeJikan(m, kind, lang = 'ja') {
@@ -294,6 +300,83 @@ async function jikanSearch(kind, term, lang = 'ja') {
   return rows
     .map(r => (kind === 'character' ? shapeJikanCharacter(r, lang) : shapeJikan(r, kind, lang)))
     .filter(Boolean);
+}
+
+/* Kitsu。Jikanも落ちたときの3段目。キー不要 */
+const KITSU = 'https://kitsu.io/api/edge';
+
+function shapeKitsu(r, kind, lang = 'ja') {
+  const a = r.attributes || {};
+  const ja = a.titles?.ja_jp || '';
+  const en = a.titles?.en || a.titles?.en_jp || a.canonicalTitle || '';
+  const title = lang === 'en' ? (en || ja) : (ja || en);
+  if (!title) return null;
+  const img = a.posterImage?.medium || a.posterImage?.original || '';
+  if (!img) return null;
+  return {
+    id: `kitsu:${kind}:${r.id}`,
+    source: 'kitsu',
+    externalId: String(r.id),
+    title,
+    sub: '',
+    year: a.startDate ? Number(String(a.startDate).slice(0, 4)) : null,
+    img: proxied(img),
+    imgRaw: img,
+    alt: [en, ja, a.canonicalTitle].filter(Boolean),
+  };
+}
+
+async function kitsuSearch(kind, term, lang = 'ja') {
+  const url = `${KITSU}/${kind}?filter[text]=${encodeURIComponent(term)}&page[limit]=20`;
+  const json = await q.kitsu(() => getJSON(url));
+  return (json.data || []).map(r => shapeKitsu(r, kind, lang)).filter(Boolean);
+}
+
+/** AniList → Jikan → Kitsu の順に試す。
+    1つのAPIが落ちても検索が止まらないようにする。
+    AniListの全面停止では世界中のクライアントがJikanに集中し、
+    そちらも502や504を返すことがあるため、3段目まで用意している。 */
+async function mediaSearchChain(kind, term, lang = 'ja') {
+  const errs = [];
+  const sources = [];
+
+  if (Date.now() >= anilistDownUntil) {
+    sources.push(['anilist', async () => {
+      const gql = Q_SEARCH(kind === 'anime' ? 'ANIME' : 'MANGA');
+      const data = await anilist(gql, { s: term });
+      return (data.Page?.media || []).map(m => shapeAniList(m, kind, null, lang)).filter(x => x?.img);
+    }]);
+  }
+  if (Date.now() >= jikanDownUntil) {
+    sources.push(['jikan', () => jikanSearch(kind, term, lang)]);
+  }
+  sources.push(['kitsu', () => kitsuSearch(kind, term, lang)]);
+
+  for (const [name, fn] of sources) {
+    try {
+      const items = await fn();
+      if (items.length) return items;
+      errs.push(`${name}: 0件`);
+    } catch (e) {
+      errs.push(`${name}: ${String(e.message).slice(0, 60)}`);
+      if (name === 'anilist' && isAniListDown(e)) {
+        anilistDownUntil = Date.now() + ANILIST_COOLDOWN;
+        console.warn('AniListが応答しないため、次の提供元に切り替えます');
+      }
+      if (name === 'jikan' && isTemporary(e)) {
+        jikanDownUntil = Date.now() + 5 * 60e3;
+        console.warn('Jikanが応答しないため、Kitsuに切り替えます');
+      }
+    }
+  }
+  if (errs.length) console.warn(`${kind}「${term}」を取得できませんでした / ` + errs.join(' / '));
+  return [];
+}
+
+/** 一時的な不調（落ちているのではなく詰まっている）かどうか */
+function isTemporary(e) {
+  const m = String(e && e.message || '');
+  return /50[234]|429|timeout|ETIMEDOUT|ECONNRESET|fetch failed/i.test(m);
 }
 
 /** AniListを試し、止まっていればJikanに切り替える */
@@ -514,8 +597,8 @@ async function search(type, rawQuery, lang = 'ja') {
   const term = normalize(rawQuery);
 
   if (type === 'manga' || type === 'anime') {
-    // AniListが止まっていればJikanに自動で切り替わる
-    const items = await fanout(term, v => mediaSearch(type, v, lang));
+    // AniList → Jikan → Kitsu の順に、動いているものを使う
+    const items = await fanout(term, v => mediaSearchChain(type, v, lang));
     return rank(items, term);
   }
 
@@ -1149,15 +1232,24 @@ function shapeCharacter(c, lang = 'ja') {
 
 async function searchCharacters(term, lang = 'ja') {
   return fanout(term, async v => {
-    if (Date.now() < anilistDownUntil) return jikanSearch('character', v, lang);
+    if (Date.now() >= anilistDownUntil) {
+      try {
+        const data = await anilist(Q_CHARACTERS, { s: v });
+        const got = (data.Page?.characters || [])
+          .map(c => shapeCharacter(c, lang)).filter(x => x.img && x.title);
+        if (got.length) return got;
+      } catch (e) {
+        if (isAniListDown(e)) anilistDownUntil = Date.now() + ANILIST_COOLDOWN;
+        else throw e;
+      }
+    }
+    // キャラクターの画像を持つ代替はJikanだけ。詰まっているときは空で返す
+    if (Date.now() < jikanDownUntil) return [];
     try {
-      const data = await anilist(Q_CHARACTERS, { s: v });
-      return (data.Page?.characters || [])
-        .map(c => shapeCharacter(c, lang)).filter(x => x.img && x.title);
+      return await jikanSearch('character', v, lang);
     } catch (e) {
-      if (!isAniListDown(e)) throw e;
-      anilistDownUntil = Date.now() + ANILIST_COOLDOWN;
-      return jikanSearch('character', v, lang);
+      if (isTemporary(e)) { jikanDownUntil = Date.now() + 5 * 60e3; return []; }
+      throw e;
     }
   });
 }

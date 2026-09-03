@@ -61,7 +61,7 @@
   .listbox{width:100%;max-width:680px;height:88vh;background:var(--ink);
     border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column;
     box-shadow:0 8px 32px rgba(27,31,25,.3)}
-  .listbody{flex:1;overflow:auto;padding:14px 16px 20px;-webkit-overflow-scrolling:touch}
+  .listbody{overscroll-behavior:contain;flex:1;overflow:auto;padding:14px 16px 20px;-webkit-overflow-scrolling:touch}
   .pager{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:18px 0 4px}
   .pager button{min-width:38px;padding:9px 10px;background:var(--panel);
     border:1px solid var(--line);border-radius:8px;font-family:var(--mono);
@@ -98,12 +98,13 @@
 
   /* 左右のレール */
   .rail{display:none}
-  @media (min-width:1180px){
-    .rail{position:fixed;top:260px;width:170px;display:block;
+  /* 120×600のバナーに合わせた幅。実寸に合わせると余白が出ない */
+  @media (min-width:1100px){
+    .rail{position:fixed;top:260px;width:120px;display:block;
       font-size:9px;color:var(--muted);text-align:center;
       letter-spacing:.16em;font-family:var(--mono)}
-    .rail-l{right:calc(50% + 396px)}
-    .rail-r{left:calc(50% + 396px)}
+    .rail-l{right:calc(50% + 400px)}
+    .rail-r{left:calc(50% + 400px)}
     .rail .slot-ad{display:flex;align-items:flex-start;justify-content:center;
       margin-top:6px;max-height:calc(100vh - 290px);overflow:hidden}
     .rail img{max-width:100%;height:auto}
@@ -227,7 +228,7 @@
   .veil{position:fixed;inset:0;background:rgba(42,38,34,.55);z-index:60;
     display:none;align-items:center;justify-content:center;padding:16px}
   .veil.open{display:flex}
-  .sheet{background:var(--ink);border:1px solid var(--line);border-radius:var(--r);
+  .sheet{overscroll-behavior:contain;background:var(--ink);border:1px solid var(--line);border-radius:var(--r);
     width:100%;max-width:520px;max-height:92vh;overflow:auto;padding:20px;position:relative}
   .sheet h3{font-family:var(--mincho);font-size:19px;margin:0 0 4px;padding-right:34px}
   .cv-meta{font-size:12px;color:var(--muted);margin:0 0 14px}
@@ -495,17 +496,21 @@
   }
 
   let adInflow = '';
+  let adInflow2 = '';
 
   function render(items, append){
     const box = $('cards');
     if (!append) box.innerHTML = '';
     items.forEach((c, idx) => {
-      // 一覧の途中に1つだけ広告を挟む
-      if (!append && idx === 6 && adInflow){
+      // 一覧の流れの中に挟む。1ページ10件なので、4件目と8件目の2か所。
+      // 先頭には置かない（並びを見に来た人の目的を邪魔しないため）
+      const slotHtml = (!append && idx === 4) ? adInflow
+                     : (!append && idx === 8) ? adInflow2 : '';
+      if (slotHtml){
         const ad = document.createElement('div');
         ad.className = 'card'; ad.style.cursor = 'default';
         ad.innerHTML = '<div style="font-family:var(--mono);font-size:9px;letter-spacing:.2em;'
-          + 'color:var(--muted);margin-bottom:8px">PR</div>' + adInflow;
+          + 'color:var(--muted);margin-bottom:8px">PR</div>' + slotHtml;
         box.appendChild(ad);
       }
 
@@ -592,6 +597,7 @@
   $('kind').addEventListener('click', e => {
     const b = e.target.closest('button[data-type]'); if (!b) return;
     state.type = b.dataset.type;
+    loadAds();                    // 種類に合った広告に差し替える
     [...$('kind').children].forEach(x => x.setAttribute('aria-pressed', String(x === b)));
     updateXLink();
     loadRank();
@@ -599,17 +605,29 @@
   });
 
 
-  // このページ用の広告（作品を探しに来た層なので、レンタル・配信が合う）
+  /* 広告は、いま絞り込んでいる種類に合わせる。
+     漫画で絞っている人には漫画の案件、映画なら映画の案件が出る。
+     「すべて」を見ているときは trends 用（無ければ common）に落ちる。
+     ads.js が {種類}_{場所} → common_{場所} の順に探すので、
+     ここでは種類名を渡すだけでよい。 */
+  let adKind = '';
   function loadAds(){
-    fetch('/x/ads?kind=trends&lang=' + LANG).then(r => r.json()).then(a => {
-      adInflow = a.inflow || '';
-      $('adRail').innerHTML = a.rail || '';
-      $('adRailLeft').innerHTML = a.railLeft || '';
-      $('railR').style.display = a.rail ? '' : 'none';
-      $('railL').style.display = a.railLeft ? '' : 'none';
-      $('adTop').innerHTML = '';
-      if (adInflow) load(1);   // 広告が来たら描き直して差し込む
-    }).catch(() => {});
+    // 広告のキーはCDを 'cd' で持っている（保存上の種別名は 'album'）。
+    // ADS_JSON を album_ に書き換えずに済むよう、ここで読み替える。
+    const kind = state.type === 'album' ? 'cd' : (state.type || 'trends');
+    if (kind === adKind) return;       // 同じ種類なら取り直さない
+    adKind = kind;
+    fetch(`/x/ads?kind=${encodeURIComponent(kind)}&lang=${LANG}`)
+      .then(r => r.json()).then(a => {
+        adInflow  = a.inflow || '';
+        adInflow2 = a.inflow2 || '';
+        $('adRail').innerHTML = a.rail || '';
+        $('adRailLeft').innerHTML = a.railLeft || '';
+        $('railR').style.display = a.rail ? '' : 'none';
+        $('railL').style.display = a.railLeft ? '' : 'none';
+        $('adTop').innerHTML = '';
+        if (adInflow || adInflow2) load(1);   // 広告が来たら描き直して差し込む
+      }).catch(() => {});
   }
   loadAds();
 
@@ -942,6 +960,46 @@
 
   applyLang();
 })();
+
+  /* ------------------------------------------------------------------ *
+   * 前面に何かを出しているあいだ、後ろの画面を動かさない
+   *
+   * スマホでは、モーダルの端まで指を滑らせると裏のページが動いてしまう。
+   * 開いている間だけ body を固定し、閉じたら元の位置へ正確に戻す。
+   * position:fixed にするのは、iOSが overflow:hidden だけでは止まらないため。
+   * ------------------------------------------------------------------ */
+  (function lockBehindScroll(){
+    let savedY = 0, locked = false;
+    const anyOpen = () => !!document.querySelector('.veil.open');
+
+    function apply(){
+      const open = anyOpen();
+      if (open && !locked){
+        savedY = window.scrollY || window.pageYOffset || 0;
+        document.body.style.position = 'fixed';
+        document.body.style.top = `-${savedY}px`;
+        document.body.style.left = '0';
+        document.body.style.right = '0';
+        document.body.style.width = '100%';
+        locked = true;
+      } else if (!open && locked){
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.left = '';
+        document.body.style.right = '';
+        document.body.style.width = '';
+        window.scrollTo(0, savedY);   // 開く前に見ていた位置へ戻す
+        locked = false;
+      }
+    }
+
+    // open クラスの付け外しを見張る。呼び出し側を1つずつ直さなくて済む
+    const mo = new MutationObserver(apply);
+    document.querySelectorAll('.veil').forEach(v =>
+      mo.observe(v, { attributes: true, attributeFilter: ['class'] }));
+    apply();
+  })();
+
 </script>
 </body>
 </html>
