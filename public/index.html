@@ -318,7 +318,6 @@
        全体が見える位置まで来たところで貼り付いて追従する。 */
     .rail .slot-ad{
       display:flex;flex-direction:column;align-items:center;
-      position:sticky;bottom:20px;
     }
     .rail .slot-ad::before{
       content:'PR';display:block;font-family:var(--mono);font-size:9px;
@@ -1974,6 +1973,74 @@
       const el = document.querySelector('header');
       if (el) new ResizeObserver(apply).observe(el);
     }
+  })();
+
+
+  /* ------------------------------------------------------------------ *
+   * 左右のレール広告の追従
+   *
+   * CSSの position:sticky は使えない。body に zoom を掛けているため、
+   * Chromium では zoom の内側の sticky が正しく動かず、
+   * JSで測った座標（拡大後）とCSSに渡す値（拡大前）も倍率ぶんずれる。
+   *
+   * そこで位置を自分で計算する。動きは次のとおり。
+   *   1. 上のほうでは本文と一緒に流れる（下がはみ出していてもよい）
+   *   2. 広告の下端が画面の下に収まりきった時点で貼り付く
+   *   3. 上に戻すと、また一緒に流れる
+   * ------------------------------------------------------------------ */
+  (function railFollow(){
+    const GAP_BOTTOM = 20;      // 貼り付いたときの画面下との間隔
+    const rails = [...document.querySelectorAll('.rail')];
+    if (!rails.length) return;
+
+    const zoom = () => parseFloat(getComputedStyle(document.body).zoom) || 1;
+
+    function place(rail){
+      const ad = rail.querySelector('.slot-ad');
+      if (!ad || !ad.innerHTML.trim()) return;
+      if (getComputedStyle(rail).display === 'none') return;
+
+      const z = zoom();
+      const vh = window.innerHeight;                 // 画面の高さ（拡大後）
+      const adH = ad.getBoundingClientRect().height; // 広告の高さ（拡大後）
+
+      // 貼り付いていない状態での上端を求めるため、いったん解除して測る
+      ad.style.position = '';
+      ad.style.top = '';
+      ad.style.width = '';
+      const naturalTop = ad.getBoundingClientRect().top;
+
+      // 下端が画面に収まりきったら貼り付く
+      if (naturalTop + adH <= vh - GAP_BOTTOM) {
+        const railRect = rail.getBoundingClientRect();
+        let top = vh - GAP_BOTTOM - adH;
+
+        // ただし列の下端（フッターの手前）より下には行かせない。
+        // 行かせるとフッターに重なったまま画面に残り続ける。
+        const limit = railRect.bottom - adH;
+        if (limit < top) top = limit;
+
+        ad.style.position = 'fixed';
+        // fixed の座標は拡大前の値で解釈されるので、倍率で割って渡す
+        ad.style.top   = (top / z) + 'px';
+        ad.style.width = (railRect.width / z) + 'px';
+      }
+    }
+
+    let ticking = false;
+    function update(){
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => { rails.forEach(place); ticking = false; });
+    }
+
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    window.addEventListener('load', update);
+    // 広告は後から差し込まれるので、中身が入ったら測り直す
+    rails.forEach(r => new MutationObserver(update)
+      .observe(r, { childList: true, subtree: true }));
+    update();
   })();
 
 </script>
