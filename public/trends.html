@@ -177,9 +177,16 @@
   .packwrap .pack{flex:1;min-width:0;border:0;border-radius:0;
     box-shadow:none;margin:0;background:transparent}
 
-  /* PCでは9つを1画面に収める。高さを決めて、そこに3行を割り付ける */
+  /* PCでは9つを1画面に収める。高さを決めて、そこに3行を割り付ける。
+     上にあるもの（ヘッダー・タブ・絞り込み・見出し・年代）の高さを
+     JSで測って --pack-h に入れているので、画面の余りをめいっぱい使える。
+     560pxで頭打ちにしていたときは、大きい画面でも表紙が小さいままだった。 */
   @media (min-width:900px){
-    .packwrap .pack{height:min(62vh,560px);grid-template-rows:repeat(3,1fr)}
+    .packwrap{max-width:calc(var(--pack-w,760px) + 22px);margin-left:auto;margin-right:auto}
+    .packwrap .pack{
+      height:var(--pack-h,62vh);
+      grid-template-rows:repeat(3,1fr);
+    }
     .packwrap .pack .p{aspect-ratio:auto;height:100%}
   }
   .pack .p{position:relative;aspect-ratio:var(--ratio,.72);background:var(--panel-2);
@@ -692,6 +699,7 @@
       b.setAttribute('aria-pressed', String(b.dataset.scope === state.scope)));
 
     document.documentElement.style.setProperty('--ratio', RATIO[state.type] || '.72');
+    if (window.__packResize) window.__packResize();   // 表紙の比率に幅を合わせ直す
 
     const p = new URLSearchParams({ limit: 100 });   // 全一覧（最大10ページ）のぶんまで取る
     if (state.type) p.set('type', state.type);
@@ -1077,6 +1085,41 @@
    *   2. 広告の下端が画面の下に収まりきった時点で貼り付く
    *   3. 上に戻すと、また一緒に流れる
    * ------------------------------------------------------------------ */
+  /* ランキングの高さを、画面の余りから決める。
+     ランキングの上端から画面の下までを使い、少しだけ余白を残す。 */
+  (function packHeight(){
+    function apply(){
+      if (window.innerWidth < 900) {
+        document.documentElement.style.removeProperty('--pack-h');
+        return;
+      }
+      const wrap = document.querySelector('.packwrap');
+      if (!wrap) return;
+      const z = parseFloat(getComputedStyle(document.body).zoom) || 1;
+      const top = wrap.getBoundingClientRect().top;      // 画面上端からの距離
+      const h = (window.innerHeight - top - 24) / z;     // 下に24pxだけ残す
+      // 極端に小さく／大きくならないよう、常識的な範囲に収める
+      const packH = Math.max(380, Math.min(h, 900));
+      document.documentElement.style.setProperty('--pack-h', packH + 'px');
+
+      // マスの横幅を表紙の比率に合わせる。
+      // 幅が余ったままだと、表紙の左右に大きな余白ができる（contain のため）。
+      const ratio = parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue('--ratio')) || 0.72;
+      const gap = 5, pad = 8;
+      const cellH = (packH - pad * 2 - gap * 2) / 3;
+      const packW = cellH * ratio * 3 + gap * 2 + pad * 2;
+      document.documentElement.style.setProperty('--pack-w', Math.round(packW) + 'px');
+    }
+    window.__packResize = apply;     // 種類を切り替えたときに呼ぶ
+    apply();
+    window.addEventListener('resize', apply);
+    window.addEventListener('load', apply);
+    // 絞り込みや年代の並びが変わると高さが動くので、測り直す
+    const box = document.querySelector('main') || document.body;
+    if (window.ResizeObserver) new ResizeObserver(apply).observe(box);
+  })();
+
   (function railFollow(){
     // 貼り付いたとき、広告が画面の中央あたりに来るようにする。
     // 画面の下端に合わせると、視線から外れた低い位置に留まってしまう。
