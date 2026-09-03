@@ -500,7 +500,7 @@
       empty:'まだ何もありません。最初の1つを作ってみてください。',
       loading:'読み込んでいます…', failed:'読み込めませんでした。',
       like:'♥ いいね', liked:'♥ ありがとう', already:'♥ 済',
-      noAge:'つくるページで9つ作るときに生まれた年を入れると、前後1年に生まれた人が選んだ作品のランキングが見られます。',
+      noAge:'つくるページで9つ作るときに生まれた年を入れると、生まれた年と前後1年に生まれた人が選んだ作品のランキングが見られます。',
       noAgeTitle:'同年代のランキングは、まだ見られません',
       noAgeCta:'9つ作って参加する',
       noRank:'まだ集計できるデータがありません。',
@@ -669,6 +669,7 @@
     const b = e.target.closest('button[data-type]'); if (!b) return;
     state.type = b.dataset.type;
     loadAds();                    // 種類に合った広告に差し替える
+    syncBookButton();             // 書籍を選んだら「英語」を隠す
     [...$('kind').children].forEach(x => x.setAttribute('aria-pressed', String(x === b)));
     updateXLink();
     loadRank();
@@ -887,20 +888,20 @@
   });
 
   /* 書籍は楽天ブックス（日本の書籍）に依存しているため、英語のカードには存在しない。
-     UIが英語のときと、ランキングの絞り込みで「英語」を選んでいるときは、
-     押しても空になるだけなのでボタンごと隠す。
-     選択中だった場合は「すべて」に戻す。 */
+     「書籍 × 英語」の組み合わせは必ず空になるので、
+     一方を選んでいるあいだは、もう一方のボタンを隠す。
+     勝手に選択を戻すと、押した覚えのない状態に変わって戸惑わせるため、
+     選択はそのままにして、選べない側だけを消す。 */
   function syncBookButton(){
-    const hide = LANG === 'en' || state.scope === 'en';
-    const btn = [...$('kind').children].find(b => b.dataset.type === 'book');
-    if (btn) btn.style.display = hide ? 'none' : '';
-    if (hide && state.type === 'book'){
-      state.type = '';
-      [...$('kind').children].forEach(b =>
-        b.setAttribute('aria-pressed', String(!b.dataset.type)));
-      loadAds();
-      load(1);
-    }
+    const bookBtn  = [...$('kind').children].find(b => b.dataset.type === 'book');
+    const enBtn    = [...$('scope').children].find(b => b.dataset.scope === 'en');
+
+    // 英語を見ているとき（UIが英語のときも含む）は、書籍を選べない
+    const hideBook = LANG === 'en' || state.scope === 'en';
+    if (bookBtn) bookBtn.style.display = hideBook ? 'none' : '';
+
+    // 逆に、書籍を見ているときは「英語」を選べない
+    if (enBtn) enBtn.style.display = (state.type === 'book') ? 'none' : '';
   }
 
   $('scope').addEventListener('click', e => {
