@@ -123,9 +123,11 @@
   .decades button{
     border:1px solid var(--line);background:var(--panel);color:var(--muted);
     font-family:var(--gothic);font-size:11px;padding:7px 12px;
-    /* 種類の絞り込み（.seg）と形をそろえる。丸いと別物の操作に見える */
-    border-radius:8px;cursor:pointer;
+    border-radius:999px;cursor:pointer;
   }
+  /* 「すべての年代」と「同年代」は、作品の年代とは性質が違う
+     （作品の発売年ではなく、見る範囲の指定）。角を四角くして区別する。 */
+  .decades button[data-kind=scope]{border-radius:8px}
   .decades button[aria-pressed=true]{background:var(--obi);color:#2A2622;
     border-color:var(--obi-deep);font-weight:700}
 
@@ -634,7 +636,8 @@
       sort: state.sort, limit: LIMIT + 1, offset: (state.page - 1) * LIMIT,
     });
     if (state.type) p.set('type', state.type);
-    if (LANG === 'en') p.set('notype', 'book');   // 書籍は英語では扱わない
+    // 書籍は日本の書籍しか扱えないので、英語の集計からは外す
+    if (LANG === 'en' || state.scope === 'en') p.set('notype', 'book');
     if (state.handle) p.set('handle', state.handle);
     try{
       const r = await fetch('/x/cards?' + p);
@@ -722,6 +725,8 @@
     list.forEach(([v, label]) => {
       const b = document.createElement('button');
       b.type = 'button'; b.textContent = label;
+      // 「すべての年代」と「同年代」だけ四角にする
+      if (v === '' || v === 'age') b.dataset.kind = 'scope';
       b.setAttribute('aria-pressed', String(state.decade === v));
       b.addEventListener('click', () => { state.decade = v; paintDecades(); loadRank(); });
       box.appendChild(b);
@@ -743,7 +748,8 @@
 
     const p = new URLSearchParams({ limit: 100 });   // 全一覧（最大10ページ）のぶんまで取る
     if (state.type) p.set('type', state.type);
-    if (LANG === 'en') p.set('notype', 'book');   // 書籍は英語では扱わない
+    // 書籍は日本の書籍しか扱えないので、英語の集計からは外す
+    if (LANG === 'en' || state.scope === 'en') p.set('notype', 'book');
     // 「同年代」は年代の並びの中にある。年齢が未入力なら案内を出して促す
     if (state.decade === 'age'){
       if (!myBorn){
@@ -880,9 +886,28 @@
     if (e.target.id === 'rankfull') $('rankfull').classList.remove('open');
   });
 
+  /* 書籍は楽天ブックス（日本の書籍）に依存しているため、英語のカードには存在しない。
+     UIが英語のときと、ランキングの絞り込みで「英語」を選んでいるときは、
+     押しても空になるだけなのでボタンごと隠す。
+     選択中だった場合は「すべて」に戻す。 */
+  function syncBookButton(){
+    const hide = LANG === 'en' || state.scope === 'en';
+    const btn = [...$('kind').children].find(b => b.dataset.type === 'book');
+    if (btn) btn.style.display = hide ? 'none' : '';
+    if (hide && state.type === 'book'){
+      state.type = '';
+      [...$('kind').children].forEach(b =>
+        b.setAttribute('aria-pressed', String(!b.dataset.type)));
+      loadAds();
+      load(1);
+    }
+  }
+
   $('scope').addEventListener('click', e => {
     const b = e.target.closest('button[data-scope]'); if (!b) return;
-    state.scope = b.dataset.scope; loadRank();
+    state.scope = b.dataset.scope;
+    syncBookButton();          // 英語に切り替えたら書籍を隠す
+    loadRank();
   });
 
   /* ---------- カードの拡大表示 ---------- */
@@ -1018,13 +1043,8 @@
     });
     [...$('kind').children].forEach(b => {
       b.textContent = T().kinds[b.dataset.type] || b.textContent;
-      // 書籍は日本の楽天ブックスに依存しているため、英語では出さない
-      if (b.dataset.type === 'book') b.style.display = LANG === 'en' ? 'none' : '';
     });
-    if (LANG === 'en' && state.type === 'book'){
-      state.type = '';
-      [...$('kind').children].forEach(b => b.setAttribute('aria-pressed', String(!b.dataset.type)));
-    }
+    syncBookButton();
     $('my9Title').textContent = T().my9;
     $('my9Note').textContent = T().my9note;
     $('rankMore').textContent = T().rankMore;

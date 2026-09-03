@@ -193,8 +193,8 @@ function openPostgres() {
       if (lang)   { args.push(lang);   where.push(`lang = $${args.length}`); }
       if (decade) { args.push(decade); where.push(`year >= $${args.length} AND year < $${args.length} + 10`); }
       if (ageBand) {
-        // 生まれ年の年代で絞る（例: 1990 → 1990〜1999年生まれ）
-        // 前後1年も同年代として扱う（1999年生まれなら1998〜2000年）
+        // 「作った人の生まれた年」で絞る。作品の発売年（year）とは別。
+        // 前後1年も同年代として扱う（1999年生まれなら1998〜2000年生まれ）
         args.push(ageBand - 1, ageBand + 1);
         where.push(`age_band BETWEEN $${args.length - 1} AND $${args.length}`);
       }
