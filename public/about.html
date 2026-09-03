@@ -72,6 +72,12 @@
   .pr-label{font-family:var(--mono);font-size:9px;letter-spacing:.2em;
             color:var(--muted);margin-bottom:10px}
   .pr-row{display:flex;flex-wrap:wrap;gap:14px;justify-content:center}
+  /* つくるページと同じく、広い画面では2つを横に並べる */
+  @media (min-width:600px){
+    .pr-row{flex-wrap:nowrap;align-items:flex-start}
+    .pr-row > div{flex:1 1 0;min-width:0}
+    .pr-row img{width:100%;height:auto}
+  }
   .pr-row img{max-width:100%;height:auto;display:block}
 </style>
 </head>

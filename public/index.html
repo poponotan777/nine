@@ -296,7 +296,7 @@
      1040px以上のノートPCでも左右が出るようになる。 */
   @media (min-width:1040px){
     .rail{
-      display:block;position:absolute;top:300px;width:120px;
+      display:block;position:fixed;top:100px;width:120px;
       font-size:9px;color:var(--muted);text-align:center;
       letter-spacing:.16em;font-family:var(--mono);
     }
@@ -310,10 +310,14 @@
        overflow:hidden で溢れた分を切っていたため、
        ノートPCの画面ではバナーの下半分が欠けていた。
        高さを上限にして幅を自動にすると、比率を保ったまま収まる。 */
-    /* 画面に追従させず、ページと一緒に流す。
-       固定していたときは画面の高さで切れて、下半分が読めなかった。
-       スクロールすれば600pxのバナー全体が見える。 */
-    .rail img{max-width:100%;width:auto;height:auto;display:block;margin:0 auto}
+    /* スクロールに追従する。top:100px はヘッダーの高さ分で、
+       ページ最上部でもヘッダーに重ならない。
+       画面が低いときは切らずに縮めるので、常に全体が見える。 */
+    .rail img{
+      max-width:100%;
+      max-height:calc(100vh - 130px);
+      width:auto;height:auto;display:block;margin:0 auto;
+    }
   }
   /* さらに広い画面では本文から少し離して余白を活かす */
   @media (min-width:1500px){
@@ -332,6 +336,14 @@
   .inflow img,.inflow iframe{max-width:100%;height:auto}
   .inflow-row{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
   .inflow-row > div:empty{display:none}
+  /* 300×250が2つで612px。本文の幅（560px）に収まらず縦に積まれていたので、
+     少しだけ縮めて横に並べる。1枠あたり約274pxになる。
+     画面が狭いときは無理に並べず、従来どおり縦に積む。 */
+  @media (min-width:600px){
+    .inflow-row{flex-wrap:nowrap;align-items:flex-start}
+    .inflow-row > div{flex:1 1 0;min-width:0}
+    .inflow-row img{width:100%;height:auto}
+  }
   /* 本文内の広告はPCでも自然に収まるので、幅を問わず表示する */
   .inflow{max-width:100%}
 
