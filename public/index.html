@@ -307,22 +307,22 @@
       pointer-events:none;                 /* 本文の操作を邪魔しない */
     }
     .rail > *{pointer-events:auto}
+    /* --rail-top はヘッダーとタブの実際の高さ。JSで測って入れる。
+       決め打ちの100pxだと、言語や拡大率でヘッダーの高さが変わったとき
+       その中に潜り込んでしまう。 */
     .rail > span{
-      display:block;position:sticky;top:100px;padding-top:0;
+      display:block;position:sticky;top:var(--rail-top,120px);
     }
     .rail-l{right:calc(50% + 300px)}
     .rail-r{left:calc(50% + 300px)}
     .rail .slot-ad{
       display:flex;align-items:flex-start;justify-content:center;
       margin-top:6px;
-      position:sticky;top:112px;      /* PRの文字ぶん下げる */
+      position:sticky;top:calc(var(--rail-top,120px) + 12px);   /* PRの文字ぶん下げる */
     }
-    /* 画面が低いときは切り落とさずに縮める。比率は保たれる */
-    .rail img{
-      max-width:100%;
-      max-height:calc(100vh - 130px);
-      width:auto;height:auto;display:block;margin:0 auto;
-    }
+    /* 原寸で出す。画面が低いときは下が切れるが、
+       スクロールすれば全体が見えるので縮小はしない。 */
+    .rail img{max-width:100%;width:auto;height:auto;display:block;margin:0 auto}
   }
   /* さらに広い画面では本文から少し離して余白を活かす */
   @media (min-width:1500px){
@@ -1935,6 +1935,31 @@
     document.querySelectorAll('.veil').forEach(v =>
       mo.observe(v, { attributes: true, attributeFilter: ['class'] }));
     apply();
+  })();
+
+
+  /* ------------------------------------------------------------------ *
+   * レールの上限位置を、ヘッダーとタブの実際の高さから決める
+   *
+   * 決め打ちの値にしていたときは、言語の切り替えや拡大率でヘッダーの
+   * 高さが変わると、そこに広告が潜り込んでいた。
+   * 実測して CSS 変数に入れることで、どの状態でも下に収まる。
+   * ------------------------------------------------------------------ */
+  (function railTop(){
+    function apply(){
+      const nav = document.querySelector('nav.tabs') || document.querySelector('header');
+      if (!nav) return;
+      const bottom = Math.ceil(nav.getBoundingClientRect().bottom + window.scrollY);
+      document.documentElement.style.setProperty('--rail-top', (bottom + 12) + 'px');
+    }
+    apply();
+    window.addEventListener('resize', apply);
+    window.addEventListener('load', apply);
+    // 言語切替などで高さが変わったときも測り直す
+    if (window.ResizeObserver){
+      const el = document.querySelector('header');
+      if (el) new ResizeObserver(apply).observe(el);
+    }
   })();
 
 </script>
