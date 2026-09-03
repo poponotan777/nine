@@ -7,6 +7,16 @@
 <link rel="icon" href="/icon-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="/icon-180.png">
 <title>MY NINE LOVES — 9枚で自分を紹介する</title>
+<meta name="description" content="好きなCD・漫画・書籍・アニメ・映画・有名人・キャラクターを9つ選ぶと、1枚のカード画像になります。登録不要・無料。">
+<link rel="canonical" href="https://mynineloves.com/">
+<!-- SNSに貼られたときの見え方。無いとリンクが素っ気なくなり、拡散が鈍る -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="MY NINE LOVES">
+<meta property="og:title" content="MY NINE LOVES — 9枚で自分を紹介する">
+<meta property="og:description" content="好きな作品を9つ選ぶと、1枚のカード画像に。登録不要・無料。">
+<meta property="og:url" content="https://mynineloves.com/">
+<meta property="og:image" content="https://mynineloves.com/icon-512.png">
+<meta name="twitter:card" content="summary">
 <style>
   :root{
     --ink:#EFF2E8;
@@ -688,14 +698,12 @@
       'st.creatorHint':'名前を入れて検索すると、その人の作品一覧が出ます。',
       'st.creatorTap':'名前をタップすると、その人の作品一覧が出ます。',
       'st.related':'タップして選ぶ。下部のラベルを押すと関連作品も別の1つとして選べます。',
-      'share.uploads':'「SNSでシェア」なら、自分で追加した{n}件を含めた画像がそのまま送られます。X・Bluesky・Threads・Misskeyのボタンは、画像を保存してから投稿画面を開きます（画像は手動で添付してください）。',
-      'share.plain':'「SNSでシェア」は画像をそのまま送ります。下のボタンは画像を保存してから投稿画面を開きます。',
+      'share.uploads':'自分で追加した画像が{n}件あります。「3×3の画像で保存」にはそのまま含まれますが、「カードのURLでシェア」の共有ページには表示されません（端末の中だけで処理しているため）。',
+      'share.plain':'「3×3の画像で保存」は1枚の画像に、「カードのURLでシェア」は作品名や購入先まで見られるページになります。',
       'pr':'PR（アフィリエイトリンク）',
-      'err.share':'共有できませんでした。「画像を書き出す」から保存してください。',
       'err.png':'画像を作れませんでした。',
       'err.taint':'外部から読み込んだ画像があるため、この環境では画像化できませんでした。',
       'err.nocard':'まだ1つも選ばれていないため、共有ページを作れません。作品を選んでからお試しください。',
-      'misskey.ask':'お使いのMisskey/Fediverseサーバーを入れてください\n（例: misskey.io, fedibird.com）',
       'credits':'写真クレジット（Wikimedia Commons）',
       'sources':'漫画・アニメのデータは AniList、書籍は楽天ブックス・楽天Kobo、映画は TMDB（この製品は TMDB の公認ではありません）、音楽は Apple Music / iTunes、人物は Wikipedia および Wikimedia Commons（CC BY-SA）を利用しています。',
       'age.title':'年代別ランキングに参加しますか',
@@ -736,14 +744,12 @@
       'st.creatorHint':'Search a name to see everything they made.',
       'st.creatorTap':'Tap a name to see their works.',
       'st.related':'Tap to choose. The label at the bottom opens related titles.',
-      'share.uploads':'Share sends the image as-is, including the {n} you uploaded. The X / Bluesky / Threads / Misskey buttons save the image first, then open the composer (attach it manually).',
-      'share.plain':'Share sends the image as-is. The buttons below save the image first, then open the composer.',
+      'share.uploads':'You added {n} of your own images. They are included in the saved image, but not on the shared page (they never leave your device).',
+      'share.plain':'Save gives you one image; Share gives you a page with titles and where to buy.',
       'pr':'PR (affiliate link)',
-      'err.share':'Could not share. Please use Export image instead.',
       'err.png':'Could not create the image.',
       'err.taint':'This image came from an external source and could not be exported here.',
       'err.nocard':'Nothing has been selected yet, so a share page cannot be created.',
-      'misskey.ask':'Enter your Misskey / Fediverse server\n(e.g. misskey.io, fedibird.com)',
       'credits':'Photo credits (Wikimedia Commons)',
       'sources':'Manga, anime and character data from AniList. Films from TMDB (this product is not endorsed or certified by TMDB). Music from Apple Music / iTunes. People from Wikipedia and Wikimedia Commons (CC BY-SA).',
       'age.title':'Join the age-based ranking?',
@@ -773,9 +779,9 @@
     movie: {h1:'9本で自分を紹介する', sub:'好きな映画を9本選んで、1枚の画像にする',
            title:'を構成する9本', unit:'本目', f1:'作品名', f2:'公開年', grid:'SELECT NINE FILMS',
            ph:'映画のタイトルで検索', hint:'邦題・原題どちらでも探せます。'},
-    person: {h1:'9人で自分を紹介する', sub:'好きな有名人・クリエイターを9人選んで、1枚の画像にする',
+    person: {h1:'9人で自分を紹介する', sub:'好きな有名人を9人選んで、1枚の画像にする',
            title:'を構成する9人', unit:'人目', f1:'名前', f2:'肩書き', grid:'SELECT NINE PEOPLE',
-           ph:'名前で検索', hint:'俳優・音楽家・芸人・配信者など、実在の人物を探せます。'},
+           ph:'名前で検索', hint:'俳優・音楽家・芸人・作家など、事典に載っている人物を探せます。'},
     book: {h1:'9冊で自分を紹介する', sub:'好きな本を9冊選んで、1枚の画像にする',
            title:'を構成する9冊', unit:'冊目', f1:'書名', f2:'著者', grid:'SELECT NINE BOOKS',
            ph:'書名で検索', hint:'小説・実用書・新書などを探せます。同じ作品の別の版は「関連」からどうぞ。'},
@@ -801,7 +807,7 @@
          ph:'Search a film', hint:'Original or localised titles both work.'},
     person: {h1:'Nine people I love', sub:'Pick nine people and turn them into one image',
          title:'Nine people I love', unit:'', f1:'Name', f2:'Known for', grid:'SELECT NINE PEOPLE',
-         ph:'Search a name', hint:'Actors, musicians, comedians, creators.'},
+         ph:'Search a name', hint:'Actors, musicians, comedians, writers.'},
     character: {h1:'Nine characters I love', sub:'Pick nine characters and turn them into one image',
          title:'Nine characters I love', unit:'', f1:'Character', f2:'From', grid:'SELECT NINE CHARACTERS',
          ph:'Search a character', hint:'Characters from manga, anime and games.'},
@@ -1576,10 +1582,11 @@
     const uploads = filled.filter(it => !it.ref?.imageUrl).length;
     const el = $('shareNote');
     if (!filled.length){ el.textContent = ''; return; }
+    // 文言はコードに直接書かず翻訳を通す。
+    // 直接書くと、英語表示のときも日本語のまま出てしまう。
     el.textContent = uploads
-      ? `「SNSでシェア」なら、自分で追加した${uploads}件を含めた画像がそのまま送られます。` +
-        'X・Bluesky・Misskeyのボタンは、画像を保存してから投稿画面を開きます（画像は手動で添付してください）。'
-      : '「SNSでシェア」は画像をそのまま送ります。下のボタンは画像を保存してから投稿画面を開きます。';
+      ? t('share.uploads').replace('{n}', uploads)
+      : t('share.plain');
   }
 
   // 種類ごとのハッシュタグ。SNSで追えるように統一しておく

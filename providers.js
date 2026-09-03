@@ -7,7 +7,7 @@
  *  manga     AniList GraphQL (MANGA)                    不要
  *  anime     AniList GraphQL (ANIME)                    不要
  *  movie     TMDB                                       TMDB_API_KEY
- *  person    Wikipedia + TMDB人物 + YouTubeチャンネル    後ろ2つは任意
+ *  person    Wikidata + TMDB人物 + Wikipedia               TMDBは任意
  *
  * 正規化した戻り値:
  *   { id, source, title, sub, img, relatedId, relatedCount, relationLabel? }
@@ -17,7 +17,6 @@
 // 環境変数 CONTACT_URL / CONTACT_MAIL を設定すると、それが使われる。
 const UA = `MyNine/1.0 (${process.env.CONTACT_URL || 'https://nine-1jsh.onrender.com'}; ${process.env.CONTACT_MAIL || 'noreply@example.com'})`;
 const TMDB_KEY = process.env.TMDB_API_KEY || '';
-const YT_KEY   = process.env.YOUTUBE_API_KEY || '';
 
 const IMG_HOSTS = [
   /^s\d\.anilist\.co$/,
@@ -161,7 +160,6 @@ const q = {
   anilist: makeQueue(700), itunes: makeQueue(350), tmdb: makeQueue(120),
   wiki: makeQueue(1200),      // Wikidata / Wikipedia。429を避けるため広めに
   commons: makeQueue(1200),   // 画像クレジット。別キューにして本体を邪魔しない
-  yt: makeQueue(120),
   rakuten: makeQueue(1100),   // 楽天は1秒1リクエストが目安
   jikan: makeQueue(1200),     // AniListの代替。1秒3回・1分60回なので広めに
   kitsu: makeQueue(600),      // さらにその代替
@@ -517,50 +515,7 @@ function shapePerson(p) {
 }
 
 /* ================================================================== *
- * YouTube（配信者・クリエイター）
- * search.list は1回100ユニット、無料枠は1日10,000ユニット＝約100回。
- * キャッシュ前提で使うこと。
- * ================================================================== */
-/* YouTube search.list は1回100ユニット、無料枠は1日10,000ユニット＝100回。
-   すぐ枯れるので、1日の呼び出し回数に上限を設けて守る。
-   枯れても他のソースで結果は出るので、利用者には影響が出にくい。 */
-const YT_BUDGET = Number(process.env.YOUTUBE_DAILY_SEARCHES) || 80;
-let ytUsed = 0;
-let ytDay = new Date().toDateString();
-
-function ytAllowed() {
-  const today = new Date().toDateString();
-  if (today !== ytDay) { ytDay = today; ytUsed = 0; }
-  return ytUsed < YT_BUDGET;
-}
-
-async function searchYouTube(term) {
-  if (!YT_KEY) return [];
-  if (!ytAllowed()) return [];   // 予算切れ。静かに諦める
-  const u = new URL('https://www.googleapis.com/youtube/v3/search');
-  u.searchParams.set('part', 'snippet');
-  u.searchParams.set('type', 'channel');
-  u.searchParams.set('maxResults', '8');
-  u.searchParams.set('q', term);
-  u.searchParams.set('key', YT_KEY);
-  try {
-    ytUsed++;
-    const json = await q.yt(() => getJSON(u.toString()));
-    return (json.items || []).map(it => ({
-      id: 'yt-' + (it.id?.channelId || it.snippet?.channelId),
-      source: 'youtube',
-      title: it.snippet?.channelTitle || it.snippet?.title || '',
-      sub: 'YouTube',
-      img: proxied(it.snippet?.thumbnails?.high?.url || it.snippet?.thumbnails?.default?.url || ''),
-      relatedId: null, relatedCount: 0,
-    })).filter(x => x.img && x.title);
-  } catch (e) {
-    return [];   // 枠切れなどで落ちても他のソースは活かす
-  }
-}
-
-/* ================================================================== *
- * Wikipedia（有名人・クリエイター全般）
+ * Wikipedia（有名人。Wikidataで拾いきれないときの受け皿）
  * ================================================================== */
 const wikiURL = params => {
   const u = new URL('https://ja.wikipedia.org/w/api.php');
@@ -631,7 +586,7 @@ async function search(type, rawQuery, lang = 'ja') {
   }
 
   if (type === 'person') {
-    // Wikidataを主軸に、俳優はTMDB、配信者はYouTubeで補う。
+    // Wikidataを主軸に、俳優・声優はTMDBで補う。
     // 同じ人物は名前で1つにまとめる（先に来たソースを優先）
     const [wd, tmdb] = await Promise.all([
       fanout(term, v => wikidataPeople(v, lang), { enough: 3, max: 2 }).catch(() => []),
@@ -644,13 +599,7 @@ async function search(type, rawQuery, lang = 'ja') {
 
     let merged = mergeBy(x => key(x.title) || x.id, wd, tmdb);
 
-    // 配信者・クリエイターは他で拾えないので、結果が少ないときだけYouTubeを使う
-    if (merged.length < 5) {
-      const yt = await searchYouTube(term);
-      merged = mergeBy(x => key(x.title) || x.id, merged, yt);
-    }
-
-    // どれも薄いときだけ、従来のWikipedia全文検索で拾い直す
+    // 薄いときだけ、Wikipedia全文検索で拾い直す
     if (merged.length < 4) {
       const wiki = await searchWiki(term).catch(() => []);
       merged = mergeBy(x => key(x.title) || x.id, merged, wiki);
@@ -1357,7 +1306,6 @@ module.exports = {
   search, suggest, related, creators, works, buyLinks, IMG_HOSTS,
   hasRakuten: () => !!(RAKUTEN_ID && RAKUTEN_KEY),
   hasTMDB: () => !!TMDB_KEY,
-  hasYouTube: () => !!YT_KEY,
   cacheKey: normalize,   // キャッシュキーの正規化に使う（server.js）
   _internal: { key, variants, dice, rank },   // テスト用
 };

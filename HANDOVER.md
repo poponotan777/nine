@@ -122,7 +122,7 @@ Node 22以上。**Build Commandに `npm install` が必須**。
 ### 外部連携（確認済み）
 
 - 楽天ブックス・Kobo（**403は解消済み**）
-- AniList、TMDB、iTunes、Wikidata、Wikimedia Commons
+- AniList、TMDB、iTunes、楽天、Wikidata、Wikimedia Commons、Wikipedia
 - LinkSwitch経由のYahoo!ショッピング
 - Googleアナリティクスでの計測
 - 楽天の Allowed websites に `mynineloves.com` を登録済み
@@ -135,7 +135,7 @@ TMDB_API_KEY / RAKUTEN_APP_ID / RAKUTEN_ACCESS_KEY / RAKUTEN_AFFILIATE_ID
 AMAZON_ASSOCIATE_TAG / VC_LINKSWITCH / VC_LINKSWITCH_ID / GA_ID / ADS_JSON
 ```
 
-未設定: `ADSENSE_JSON`（審査通過後）、`YOUTUBE_API_KEY`（任意）
+未設定: `ADSENSE_JSON`（審査通過後）
 
 ---
 
@@ -213,7 +213,6 @@ OGP生成はCPUを最も食うので、無料枠の0.1CPUでは特に効く。
 |---|---|---|
 | AniList | 約90req/分 | **不可能。**有料枠が存在しない |
 | 楽天ブックス | 実質1req/秒 | **不可能** |
-| YouTube | 1日10,000ユニット（約100回） | 申請で拡大は可能 |
 | Neon無料枠 | 月100 CU時間・0.5GB | Launchプラン（月8〜19ドル）で外れる |
 | Render無料枠 | 0.1 CPU・512MB・帯域5GB | Starter $7 で 0.5 CPU |
 
@@ -245,6 +244,8 @@ OGP生成はCPUを最も食うので、無料枠の0.1CPUでは特に効く。
 | **広告枠の残り** | `ADS_JSON` は一部のみ。`inflow2` や各モードの `rail` が空 |
 | **アドセンス** | 審査待ち。通ったら `ADSENSE_JSON` に3枠入れるだけ |
 | 英語版の規約類 | about / terms / privacy / contact が日本語のみ |
+| **about の開発者名** | `（ここにあなたの名前とリンクを入れてください）` が本番に出たまま |
+| 検索エンジンへの登録 | `robots.txt` と `sitemap.xml` は用意済み。Search Console への登録が未 |
 
 ### 設計判断が要る
 
@@ -300,9 +301,22 @@ Googleがインタースティシャル広告をペナルティ対象にして�
 文字を上に置いてグリッドを横幅いっぱいに広げる。
 
 ### APIの節約
-YouTubeは1日100回で枯れるため予算制（既定80回）。
-Wikidata/TMDBで5件以上取れたら呼ばない。
-検索結果は24時間、サジェストは7日間キャッシュ。
+
+外部APIを叩く回数は、次の4段で抑えている。
+
+1. **キャッシュキーを正規化** — 「ＮＡＲＵＴＯ」「NARUTO」「NARUTO 」を同じ1件として扱う
+2. **同じ語の取得は1本にまとめる**（`once`）— 同時に何人来ても1回。画像とOGP生成も同様
+3. **2段キャッシュ** — メモリ＋DBの `kv`。再起動しても消えない（検索24時間・サジェスト7日）
+4. **期限切れでも待たせない** — 古い内容を返し、裏で取り直す
+
+さらに、必要なときだけ追加で叩く仕組みがある。
+
+- 表記ゆれの追撃検索（`fanout`）は、結果が5件未満のときだけ動く
+- 有名人はWikidataとTMDBで4件以上取れたら、Wikipedia全文検索を呼ばない
+- 書籍は楽天ブックスで8件以上取れたら、楽天Koboを呼ばない
+
+実測では、結果が十分なら1回の検索で外部APIは**1回**、
+薄くて追撃が走った場合でも**2回**に収まっている。
 
 ---
 

@@ -27,7 +27,7 @@ Gitは https://git-scm.com/download/win から入れます。
 
 送ってはいけないもの:
 
-- `TMDB_API_KEY` / `YOUTUBE_API_KEY` の実際の値
+- `TMDB_API_KEY` の実際の値
 - `IP_SALT` の値
 - `data/` フォルダ（利用者のIPハッシュを含む）
 
@@ -85,7 +85,6 @@ git push -u origin main
 |---|---|
 | `IP_SALT` | あなたが決めた長い文字列。ローカルと同じものを使う |
 | `TMDB_API_KEY` | TMDBで取得したキー |
-| `YOUTUBE_API_KEY` | 使う場合のみ |
 
 5. Create Web Service を押す
 
@@ -118,7 +117,6 @@ Render の Environment に、次の環境変数を追加します。
 | `DATABASE_URL` | Neonからコピーした接続文字列 |
 | `IP_SALT` | あなたが決めた長い文字列 |
 | `TMDB_API_KEY` | TMDBのキー |
-| `YOUTUBE_API_KEY` | 使う場合のみ |
 
 `DATABASE_URL` があれば自動的にPostgreSQLが使われ、
 無ければSQLite、それも駄目ならJSONに落ちます。

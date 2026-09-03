@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+# 内部向けのAPIと画像の中継は、検索結果に載っても意味がない
+Disallow: /x/
+Disallow: /img
+Disallow: /og/
+Disallow: /healthz
+
+Sitemap: https://mynineloves.com/sitemap.xml

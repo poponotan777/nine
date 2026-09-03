@@ -96,7 +96,6 @@ OGPタグと中身をHTMLの時点で埋め込む必要があります。
 | `RAKUTEN_REFERER` | 楽天に送るOriginを固定したいとき | 任意 |
 | `AMAZON_ASSOCIATE_TAG` | Amazon検索リンク | 任意 |
 | `VC_LINKSWITCH` / `VC_LINKSWITCH_ID` | Yahoo!ショッピング | 任意 |
-| `YOUTUBE_API_KEY` | 配信者・クリエイター | 任意 |
 | `GA_ID` | Googleアナリティクス | 任意 |
 | `ADS_JSON` | アフィリエイトのバナー（ページごと） | 任意 |
 | `ADSENSE_JSON` | アドセンス（全ページ共通） | 任意 |

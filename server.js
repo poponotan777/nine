@@ -272,7 +272,10 @@ async function serveImage(target, res) {
  * ------------------------------------------------------------------ */
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript',
                '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
-               '.webmanifest': 'application/manifest+json' };
+               '.webmanifest': 'application/manifest+json',
+               // robots.txt と sitemap.xml。未登録だと octet-stream で返り、
+               // 検索エンジンに正しく読まれない
+               '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml; charset=utf-8' };
 
 function send(res, code, obj) {
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -731,7 +734,6 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/x/config') {
       return send(res, 200, {
         movieEnabled: P.hasTMDB(),
-        youtubeEnabled: P.hasYouTube(),
         bookEnabled: P.hasRakuten(),
       });
     }
