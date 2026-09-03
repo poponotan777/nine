@@ -76,8 +76,10 @@
   @media (min-width:600px){
     .pr-row{flex-wrap:nowrap;align-items:flex-start}
     .pr-row > div{flex:1 1 0;min-width:0}
-    .pr-row img{width:100%;height:auto}
+    /* 計測用の1×1画像まで引き伸ばさないよう、<a> の中だけを対象にする */
+    .pr-row a img{width:100%;height:auto}
   }
+  .pr-row img[width='1']{width:1px!important;height:1px!important}
   .pr-row img{max-width:100%;height:auto;display:block}
 </style>
 </head>
