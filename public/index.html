@@ -15,8 +15,12 @@
 <meta property="og:title" content="MY NINE LOVES — 9枚で自分を紹介する">
 <meta property="og:description" content="好きな作品を9つ選ぶと、1枚のカード画像に。登録不要・無料。">
 <meta property="og:url" content="https://mynineloves.com/">
-<meta property="og:image" content="https://mynineloves.com/icon-512.png">
-<meta name="twitter:card" content="summary">
+<meta property="og:image" content="https://mynineloves.com/og-site.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<!-- 正方形のアイコンだと小さく出るので、1200×630の専用画像を使う -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://mynineloves.com/og-site.png">
 <style>
   :root{
     --ink:#EFF2E8;
@@ -1776,7 +1780,10 @@
 
   // 押されて初めて共有シートを開く。使えない環境ではコピーで代替する
   $('outShare').addEventListener('click', async () => {
-    const link = lastCardId ? `${location.origin}/c/${lastCardId}` : location.origin;
+    // 共有ページが作れていないのにトップのURLを送ると、
+    // 「9つのカード」ではなくサイトの紹介が貼られてしまう。
+    if (!lastCardId) return alert(t('err.nocard'));
+    const link = `${location.origin}/c/${lastCardId}`;
     const text = `${shareText()}\n${link}`;
     if (navigator.share){
       try { await navigator.share({ text }); } catch(e){ /* 閉じられただけ */ }
