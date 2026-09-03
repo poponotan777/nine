@@ -1050,9 +1050,9 @@
       const main = document.querySelector('.wrap') || document.querySelector('main');
       if (main){
         const top = Math.ceil(main.getBoundingClientRect().top + window.scrollY);
-        // 220px ぶん下げる。ヘッダーの真下から始めると、背の高い画面では
-        // 最初から全体が入ってしまい、貼り付くまでの「動く距離」が無くなる。
-        document.documentElement.style.setProperty('--rail-start', (top + 220) + 'px');
+        // 本文の始まりに合わせる。下げすぎると、上のほうで
+        // 広告のある場所が空白に見えてしまう。
+        document.documentElement.style.setProperty('--rail-start', (top + 20) + 'px');
       }
     }
     apply();
@@ -1078,7 +1078,8 @@
    *   3. 上に戻すと、また一緒に流れる
    * ------------------------------------------------------------------ */
   (function railFollow(){
-    const GAP_BOTTOM = 20;      // 貼り付いたときの画面下との間隔
+    // 貼り付いたとき、広告が画面の中央あたりに来るようにする。
+    // 画面の下端に合わせると、視線から外れた低い位置に留まってしまう。
     const rails = [...document.querySelectorAll('.rail')];
     if (!rails.length) return;
 
@@ -1099,10 +1100,15 @@
       ad.style.width = '';
       const naturalTop = ad.getBoundingClientRect().top;
 
-      // 下端が画面に収まりきったら貼り付く
-      if (naturalTop + adH <= vh - GAP_BOTTOM) {
+      // 画面の余りを上下に均等に振り分けた位置（＝中央）に貼り付ける。
+      // 入りきらない画面では、上を少しだけ空けた位置になる。
+      const HEAD = 12;                                  // 「PR」の文字ぶん
+      const centered = Math.max(HEAD, (vh - adH) / 2);
+
+      // 上端がその位置まで上がってきたら貼り付く
+      if (naturalTop <= centered) {
         const railRect = rail.getBoundingClientRect();
-        let top = vh - GAP_BOTTOM - adH;
+        let top = centered;
 
         // ただし列の下端（フッターの手前）より下には行かせない。
         // 行かせるとフッターに重なったまま画面に残り続ける。
