@@ -301,7 +301,7 @@
        画面に張り付かせる position:fixed だと、
        ページ最上部でヘッダーに重なってしまう。 */
     .rail{
-      display:block;position:absolute;top:var(--rail-top,120px);bottom:0;width:120px;
+      display:block;position:absolute;top:var(--rail-start,360px);bottom:0;width:120px;
       font-size:9px;color:var(--muted);text-align:center;
       letter-spacing:.16em;font-family:var(--mono);
       pointer-events:none;                 /* 本文の操作を邪魔しない */
@@ -1953,14 +1953,23 @@
   (function railTop(){
     function apply(){
       const nav = document.querySelector('nav.tabs') || document.querySelector('header');
-      if (!nav) return;
-      const bottom = Math.ceil(nav.getBoundingClientRect().bottom + window.scrollY);
-      document.documentElement.style.setProperty('--rail-top', (bottom + 12) + 'px');
+      if (nav){
+        const bottom = Math.ceil(nav.getBoundingClientRect().bottom + window.scrollY);
+        document.documentElement.style.setProperty('--rail-top', (bottom + 12) + 'px');
+      }
+      // 広告の開始位置は本文の始まり。ヘッダーの真下から始めると、
+      // 大きい画面では最初から全体が入ってしまい、動く余地が無くなる。
+      const main = document.querySelector('.wrap') || document.querySelector('main');
+      if (main){
+        const top = Math.ceil(main.getBoundingClientRect().top + window.scrollY);
+        // 220px ぶん下げる。ヘッダーの真下から始めると、背の高い画面では
+        // 最初から全体が入ってしまい、貼り付くまでの「動く距離」が無くなる。
+        document.documentElement.style.setProperty('--rail-start', (top + 220) + 'px');
+      }
     }
     apply();
     window.addEventListener('resize', apply);
     window.addEventListener('load', apply);
-    // 言語切替などで高さが変わったときも測り直す
     if (window.ResizeObserver){
       const el = document.querySelector('header');
       if (el) new ResizeObserver(apply).observe(el);
