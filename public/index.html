@@ -1444,9 +1444,12 @@
           x.drawImage(im, cx + (cellW-w)/2, cy + (cellH-h)/2, w, h);
           x.restore();
         } catch(e){}
-      } else {
-        x.strokeStyle = '#C8D0BB'; x.strokeRect(cx+.5, cy+.5, cellW-1, cellH-1);
       }
+      // 枠線は作品の有無にかかわらず引く。
+      // 白地の表紙だと、線が無いと背景と溶けて「はみ出している」ように見える。
+      x.strokeStyle = '#C8D0BB';
+      x.lineWidth = 1;
+      x.strokeRect(cx + .5, cy + .5, cellW - 1, cellH - 1);
       x.fillStyle = '#E03A5F'; x.font = `700 15px ${gothic}`;
       x.fillText(String(i+1).padStart(2,'0'), cx, cy + cellH + 22);
       if (it && it.title){

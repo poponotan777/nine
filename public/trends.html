@@ -189,8 +189,13 @@
     }
     .packwrap .pack .p{aspect-ratio:auto;height:100%}
   }
+  /* 表紙の端が白いと、タイルの背景と溶けて「はみ出している」ように見える。
+     内側に薄い線を引いて、作品の輪郭が分かるようにする。
+     border ではなく inset の影にしているのは、
+     マスの寸法を変えずに線を足せるため。 */
   .pack .p{position:relative;aspect-ratio:var(--ratio,.72);background:var(--panel-2);
-    border-radius:6px;overflow:hidden;cursor:pointer;display:block;text-decoration:none}
+    border-radius:6px;overflow:hidden;cursor:pointer;display:block;text-decoration:none;
+    box-shadow:inset 0 0 0 1px var(--line)}
   .pack .p img{width:100%;height:100%;object-fit:contain;display:block}
   .pack .p .no{position:absolute;top:3px;left:4px;font-family:var(--mono);font-size:10px;
     color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.9)}
@@ -242,7 +247,7 @@
   }
   .mini span{
     aspect-ratio:.72;background:var(--panel-2);border-radius:2px;overflow:hidden;
-    display:block;
+    display:block;box-shadow:inset 0 0 0 1px var(--line);
   }
   .mini img{width:100%;height:100%;object-fit:cover;display:block}
   /* タイトルは切らずに2行まで出す。1行＋…だと何のカードか分からない */
@@ -250,7 +255,7 @@
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
     overflow:hidden;line-height:1.45;word-break:break-word}
   .mini span{aspect-ratio:var(--ratio,.72);background:var(--panel-2);border-radius:3px;
-    overflow:hidden;display:block}
+    overflow:hidden;display:block;box-shadow:inset 0 0 0 1px var(--line)}
   .mini img{width:100%;height:100%;object-fit:contain;display:block}
   .card .m{font-size:11px;color:var(--muted)}
   .card .m .kind{color:var(--pop);font-weight:700}

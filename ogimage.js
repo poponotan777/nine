@@ -133,6 +133,11 @@ async function render(card, fetchImage) {
       x.clip();
       x.drawImage(im, cx + (cellW - w) / 2, cy + (cellH - h) / 2, w, h);
       x.restore();
+      // 枠線を画像の上に引き直す。先に引いた線は画像で覆われてしまい、
+      // 白地の表紙だと背景と溶けて「はみ出している」ように見えるため。
+      x.strokeStyle = COLOR.line;
+      x.lineWidth = 1;
+      x.strokeRect(cx + .5, cy + .5, cellW - 1, cellH - 1);
     } catch (e) { /* 1枚失敗しても全体は出す */ }
   }
 
