@@ -295,24 +295,29 @@
      幅を実寸に合わせたぶん、必要な画面幅も狭くなり、
      1040px以上のノートPCでも左右が出るようになる。 */
   @media (min-width:1040px){
+    /* レールはページ全体の高さを持つ「列」にしておく。
+       中身を sticky にすると、ヘッダーの下（100px）で頭打ちになり、
+       そこから下はスクロールに追従する。列の外には出ない。
+       画面に張り付かせる position:fixed だと、
+       ページ最上部でヘッダーに重なってしまう。 */
     .rail{
-      display:block;position:fixed;top:100px;width:120px;
+      display:block;position:absolute;top:0;bottom:0;width:120px;
       font-size:9px;color:var(--muted);text-align:center;
       letter-spacing:.16em;font-family:var(--mono);
+      pointer-events:none;                 /* 本文の操作を邪魔しない */
+    }
+    .rail > *{pointer-events:auto}
+    .rail > span{
+      display:block;position:sticky;top:100px;padding-top:0;
     }
     .rail-l{right:calc(50% + 300px)}
     .rail-r{left:calc(50% + 300px)}
     .rail .slot-ad{
       display:flex;align-items:flex-start;justify-content:center;
       margin-top:6px;
+      position:sticky;top:112px;      /* PRの文字ぶん下げる */
     }
-    /* 画面が低いときは、切り落とさずに縮める。
-       overflow:hidden で溢れた分を切っていたため、
-       ノートPCの画面ではバナーの下半分が欠けていた。
-       高さを上限にして幅を自動にすると、比率を保ったまま収まる。 */
-    /* スクロールに追従する。top:100px はヘッダーの高さ分で、
-       ページ最上部でもヘッダーに重ならない。
-       画面が低いときは切らずに縮めるので、常に全体が見える。 */
+    /* 画面が低いときは切り落とさずに縮める。比率は保たれる */
     .rail img{
       max-width:100%;
       max-height:calc(100vh - 130px);
