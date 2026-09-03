@@ -194,8 +194,13 @@
      border ではなく inset の影にしているのは、
      マスの寸法を変えずに線を足せるため。 */
   .pack .p{position:relative;aspect-ratio:var(--ratio,.72);background:var(--panel-2);
-    border-radius:6px;overflow:hidden;cursor:pointer;display:block;text-decoration:none;
-    box-shadow:inset 0 0 0 1px var(--line)}
+    border-radius:6px;overflow:hidden;cursor:pointer;display:block;text-decoration:none}
+  /* box-shadow:inset は「背景の上・内容の下」に描かれるため、
+     画像が全面を覆うと隠れてしまう。画像より上に重ねる。 */
+  .pack .p::after{
+    content:'';position:absolute;inset:0;pointer-events:none;
+    border:1px solid var(--line);border-radius:6px;
+  }
   .pack .p img{width:100%;height:100%;object-fit:contain;display:block}
   .pack .p .no{position:absolute;top:3px;left:4px;font-family:var(--mono);font-size:10px;
     color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.9)}
@@ -247,7 +252,11 @@
   }
   .mini span{
     aspect-ratio:.72;background:var(--panel-2);border-radius:2px;overflow:hidden;
-    display:block;box-shadow:inset 0 0 0 1px var(--line);
+    display:block;position:relative;
+  }
+  .mini span::after{
+    content:'';position:absolute;inset:0;pointer-events:none;
+    border:1px solid var(--line);border-radius:2px;
   }
   .mini img{width:100%;height:100%;object-fit:cover;display:block}
   /* タイトルは切らずに2行まで出す。1行＋…だと何のカードか分からない */
@@ -255,7 +264,11 @@
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
     overflow:hidden;line-height:1.45;word-break:break-word}
   .mini span{aspect-ratio:var(--ratio,.72);background:var(--panel-2);border-radius:3px;
-    overflow:hidden;display:block;box-shadow:inset 0 0 0 1px var(--line)}
+    overflow:hidden;display:block;position:relative}
+  .mini span::after{
+    content:'';position:absolute;inset:0;pointer-events:none;
+    border:1px solid var(--line);border-radius:3px;
+  }
   .mini img{width:100%;height:100%;object-fit:contain;display:block}
   .card .m{font-size:11px;color:var(--muted)}
   .card .m .kind{color:var(--pop);font-weight:700}
@@ -1104,8 +1117,14 @@
       const top = wrap.getBoundingClientRect().top;      // 画面上端からの距離
       const h = (window.innerHeight - top - 24) / z;     // 下に24pxだけ残す
       // 極端に小さく／大きくならないよう、常識的な範囲に収める
-      const packH = Math.max(380, Math.min(h, 900));
-      document.documentElement.style.setProperty('--pack-h', packH + 'px');
+      // 1px単位で揺れないよう、8px刻みに丸める。
+      // 端数がそのまま入ると、わずかな差で再計算が繰り返され大きさが安定しない。
+      const packH = Math.round(Math.max(380, Math.min(h, 900)) / 8) * 8;
+      const root = document.documentElement;
+      // 高さは変わったときだけ書き換える（毎回書くと監視が反応して揺れる）
+      if (root.style.getPropertyValue('--pack-h') !== packH + 'px') {
+        root.style.setProperty('--pack-h', packH + 'px');
+      }
 
       // マスの横幅を表紙の比率に合わせる。
       // 幅が余ったままだと、表紙の左右に大きな余白ができる（contain のため）。
@@ -1113,16 +1132,26 @@
         getComputedStyle(document.documentElement).getPropertyValue('--ratio')) || 0.72;
       const gap = 5, pad = 8;
       const cellH = (packH - pad * 2 - gap * 2) / 3;
-      const packW = cellH * ratio * 3 + gap * 2 + pad * 2;
-      document.documentElement.style.setProperty('--pack-w', Math.round(packW) + 'px');
+      const packW = Math.round(cellH * ratio * 3 + gap * 2 + pad * 2);
+      // 幅は種類の切り替えでも変わるので、高さが同じでも必ず見直す
+      if (root.style.getPropertyValue('--pack-w') !== packW + 'px') {
+        root.style.setProperty('--pack-w', packW + 'px');
+      }
     }
-    window.__packResize = apply;     // 種類を切り替えたときに呼ぶ
+    window.__packResize = apply;     // 種類や年代を切り替えたときに呼ぶ
     apply();
     window.addEventListener('resize', apply);
     window.addEventListener('load', apply);
-    // 絞り込みや年代の並びが変わると高さが動くので、測り直す
-    const box = document.querySelector('main') || document.body;
-    if (window.ResizeObserver) new ResizeObserver(apply).observe(box);
+    // main を監視すると、自分で高さを変える → 監視が反応する → また変える、
+    // という繰り返しになり、大きさが揺れて落ち着かない。
+    // ランキングより「上」にあるものだけを見る。
+    if (window.ResizeObserver){
+      const obs = new ResizeObserver(apply);
+      ['#kind', '#decades', '#scope'].forEach(sel => {
+        const el = document.querySelector(sel);
+        if (el) obs.observe(el);
+      });
+    }
   })();
 
   (function railFollow(){
