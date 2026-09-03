@@ -301,25 +301,30 @@
        画面に張り付かせる position:fixed だと、
        ページ最上部でヘッダーに重なってしまう。 */
     .rail{
-      display:block;position:absolute;top:0;bottom:0;width:120px;
+      display:block;position:absolute;top:var(--rail-top,120px);bottom:0;width:120px;
       font-size:9px;color:var(--muted);text-align:center;
       letter-spacing:.16em;font-family:var(--mono);
       pointer-events:none;                 /* 本文の操作を邪魔しない */
     }
     .rail > *{pointer-events:auto}
-    /* --rail-top はヘッダーとタブの実際の高さ。JSで測って入れる。
-       決め打ちの100pxだと、言語や拡大率でヘッダーの高さが変わったとき
-       その中に潜り込んでしまう。 */
-    .rail > span{
-      display:block;position:sticky;top:var(--rail-top,120px);
-    }
+    /* 元からあった「PR」の文字は隠し、追従する枠の中に出し直す。
+       文字だけ取り残されると、何の広告か分からなくなるため。 */
+    .rail > span{display:none}
     .rail-l{right:calc(50% + 300px)}
     .rail-r{left:calc(50% + 300px)}
+    /* 基準を bottom にするのが要点。
+       top を基準にすると最初から貼り付いてしまう。
+       bottom なら、下端が画面の下に届くまでは本文と一緒に流れ、
+       全体が見える位置まで来たところで貼り付いて追従する。 */
     .rail .slot-ad{
-      display:flex;align-items:flex-start;justify-content:center;
-      margin-top:6px;
-      position:sticky;top:calc(var(--rail-top,120px) + 12px);   /* PRの文字ぶん下げる */
+      display:flex;flex-direction:column;align-items:center;
+      position:sticky;bottom:20px;
     }
+    .rail .slot-ad::before{
+      content:'PR';display:block;font-family:var(--mono);font-size:9px;
+      letter-spacing:.2em;color:var(--muted);margin-bottom:6px;
+    }
+    .rail .slot-ad:empty{display:none}
     /* 原寸で出す。画面が低いときは下が切れるが、
        スクロールすれば全体が見えるので縮小はしない。 */
     .rail img{max-width:100%;width:auto;height:auto;display:block;margin:0 auto}

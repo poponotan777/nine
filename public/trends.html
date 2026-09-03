@@ -115,16 +115,21 @@
   @media (min-width:1100px){
     /* ページ全体の高さを持つ列にして、中身を sticky で追従させる。
        ヘッダーの下（100px）が頭打ちになり、上に戻すとそこで止まる */
-    .rail{position:absolute;top:0;bottom:0;width:120px;display:block;
+    .rail{position:absolute;top:var(--rail-top,120px);bottom:0;width:120px;display:block;
       font-size:9px;color:var(--muted);text-align:center;
       letter-spacing:.16em;font-family:var(--mono);pointer-events:none}
     .rail > *{pointer-events:auto}
-    /* --rail-top はヘッダーとタブの実際の高さ。JSで測って入れる */
-    .rail > span{display:block;position:sticky;top:var(--rail-top,120px)}
+    /* 「PR」は追従する枠の中に出し直すので、元の文字は隠す */
+    .rail > span{display:none}
     .rail-l{right:calc(50% + 400px)}
     .rail-r{left:calc(50% + 400px)}
-    .rail .slot-ad{display:flex;align-items:flex-start;justify-content:center;
-      margin-top:6px;position:sticky;top:calc(var(--rail-top,120px) + 12px)}
+    /* bottom を基準にすると、下端が画面の下に届くまでは本文と一緒に流れ、
+       全体が見える位置で貼り付いて追従する */
+    .rail .slot-ad{display:flex;flex-direction:column;align-items:center;
+      position:sticky;bottom:20px}
+    .rail .slot-ad::before{content:'PR';display:block;font-family:var(--mono);
+      font-size:9px;letter-spacing:.2em;color:var(--muted);margin-bottom:6px}
+    .rail .slot-ad:empty{display:none}
     /* 原寸で出す。最上部では下が切れるが、スクロールすれば全体が見える */
     .rail img{max-width:100%;width:auto;height:auto;display:block;margin:0 auto}
   }
