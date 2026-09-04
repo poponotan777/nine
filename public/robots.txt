@@ -1,10 +1,15 @@
 User-agent: *
 Allow: /
 
-# 内部向けのAPIと画像の中継は、検索結果に載っても意味がない
+# 内部向けのAPIと死活監視は、検索結果に載っても意味がない
 Disallow: /x/
-Disallow: /img
-Disallow: /og/
 Disallow: /healthz
+
+# /og/ と /img は「検索結果に出す必要はないが、取得は許す」。
+# ここを Disallow にすると、SNSのクローラーが規約に従って
+# 画像を取りに来なくなり、リンクを貼ってもサムネイルが出ない。
+# （X や Facebook は robots.txt を守る。Discord は見ないので表示される）
+Allow: /og/
+Allow: /img
 
 Sitemap: https://mynineloves.com/sitemap.xml

@@ -159,6 +159,20 @@ function refreshLater(key, ttl, fetcher) {
     .finally(() => refreshing.delete(key));
 }
 
+/** 保存直後にOGP画像を作って、キャッシュに載せておく。
+    クローラーが来たときには出来上がっている状態にする。 */
+function warmOgImage(id) {
+  setTimeout(() => {
+    once('ogrender:' + id, async () => {
+      const card = await store.get(id);
+      if (!card) return null;
+      const png = await ogimage.render(card, u => getImageBuffer(originalURL(u)));
+      if (png) imgCacheSet('og:' + id, png, TTL.img);
+      return png;
+    }).catch(() => { /* 失敗しても、貼られた時点で作り直される */ });
+  }, 50);
+}
+
 /* ------------------------------------------------------------------ *
  * 閲覧数はまとめて書く
  *
@@ -368,7 +382,9 @@ const esc = t => String(t == null ? '' : t)
 
 function serveCard(card, res) {
   const base = process.env.CONTACT_URL || 'https://mynineloves.com';
-  const title = card.title || '私を構成する9つ';
+  // SNSは og:title を画像に重ねて表示する。長いと画像が隠れるので詰める。
+  const rawTitle = card.title || '私を構成する9つ';
+  const title = rawTitle.length > 28 ? rawTitle.slice(0, 27) + '…' : rawTitle;
   const kind = KIND_LABEL[card.type] || '';
   const names = (card.items || []).map(i => i && i.title).filter(Boolean);
   const desc = names.length
@@ -631,6 +647,13 @@ const server = http.createServer(async (req, res) => {
       });
       const shareable = clean.filter(x => x && x.imageUrl).length;
       const uploads   = clean.filter(x => x && !x.imageUrl).length;
+
+      // OGP画像を先に作っておく。
+      // SNSのクローラーは数秒で諦めるため、貼られてから作り始めると
+      // 間に合わず、サムネイルが出ないことがある。
+      // 応答は待たせない（失敗しても共有ページ自体は動く）。
+      warmOgImage(id);
+
       return send(res, 200, { id, shareable, uploads, stats: await store.stats() });
     }
 

@@ -123,7 +123,8 @@
   #cframe{flex:1;width:100%;border:0;background:var(--ink)}
   @media (max-width:560px){ .framebox{height:92vh;max-width:100%} }
 
-  .decades{display:flex;flex-wrap:wrap;gap:6px;border:0;margin-bottom:12px}
+  .decades{display:flex;flex-wrap:wrap;gap:6px;border:0;margin-bottom:8px}
+  .scope-note{font-size:12px;color:var(--muted);margin:0 0 14px;line-height:1.8}
   .decades button{
     border:1px solid var(--line);background:var(--panel);color:var(--muted);
     font-family:var(--gothic);font-size:11px;padding:7px 12px;
@@ -396,6 +397,8 @@
     </div>
     <!-- 年代の絞り込み。「同年代」は年齢を入れた人だけ有効になる -->
     <div class="decades" id="decades"></div>
+    <!-- いま何のランキングを見ているかを1行で説明する -->
+    <p class="scope-note" id="scopeNote"></p>
 
     <!-- 上位9件は3×3で見せる。書き出す画像と同じ帯付きの体裁にそろえている -->
     <div class="packwrap">
@@ -505,6 +508,11 @@
       loading:'読み込んでいます…', failed:'読み込めませんでした。',
       like:'♥ いいね', liked:'♥ ありがとう', already:'♥ 済',
       noAge:'つくるページで9つ作るときに生まれた年を入れると、生まれた年と前後1年に生まれた人が選んだ作品のランキングが見られます。',
+      sc:{
+        all:'これまでに選ばれた回数の合計です。作品が出た年は問いません。',
+        age:'あなたと前後1年に生まれた人が選んだ作品です。同じ頃に見て育ったものが並びます。',
+        decade:'{d}年代に出た作品にしぼった順位です。その頃に出会った人も、あとから知った人も含みます。',
+      },
       noAgeTitle:'同年代のランキングは、まだ見られません',
       noAgeCta:'9つ作って参加する',
       noRank:'まだ集計できるデータがありません。',
@@ -525,6 +533,11 @@
       loading:'Loading\u2026', failed:'Could not load.',
       like:'\u2665 Like', liked:'\u2665 Thanks', already:'\u2665 Done',
       noAge:'Add your birth year when you make a nine, and you can see what people born within a year of you picked.',
+      sc:{
+        all:'Total number of times each work has been picked, regardless of when it came out.',
+        age:'What people born within a year of you picked.',
+        decade:'Only works released in the {d}s, whenever people came across them.',
+      },
       noAgeTitle:'The same-age ranking is not available yet',
       noAgeCta:'Make your nine',
       noRank:'Not enough data yet.',
@@ -720,6 +733,18 @@
   const RATIO = { album:'1/1', cd:'1/1', manga:'.7', book:'.67', anime:'.7',
                   movie:'.67', person:'.75', character:'.7' };
 
+  /** いま何のランキングを見ているかを1行で説明する。
+      「すべての年代」と「同年代」と「2020年代」は、
+      それぞれ数えているものが違うので、言葉で補う。 */
+  function paintScopeNote(){
+    const el = $('scopeNote');
+    if (!el) return;
+    const t = T().sc || {};
+    el.textContent = state.decade === 'age' ? (t.age || '')
+      : state.decade ? (t.decade || '').replace('{d}', state.decade)
+      : (t.all || '');
+  }
+
   function paintDecades(){
     const box = $('decades');
     box.innerHTML = '';
@@ -733,7 +758,9 @@
       // 「すべての年代」と「同年代」だけ四角にする
       if (v === '' || v === 'age') b.dataset.kind = 'scope';
       b.setAttribute('aria-pressed', String(state.decade === v));
-      b.addEventListener('click', () => { state.decade = v; paintDecades(); loadRank(); });
+      b.addEventListener('click', () => {
+        state.decade = v; paintDecades(); paintScopeNote(); loadRank();
+      });
       box.appendChild(b);
     });
   }
@@ -1055,6 +1082,7 @@
     $('rankMore').textContent = T().rankMore;
     if (!$('cvUser').textContent.startsWith('@')) $('cvUser').textContent = T().user;
     paintDecades();
+    paintScopeNote();
     updateXLink();
     // 年代の並びは今できたばかり。高さが確定してから測る
     if (window.__packResize) requestAnimationFrame(window.__packResize);
