@@ -159,12 +159,24 @@ function refreshLater(key, ttl, fetcher) {
     .finally(() => refreshing.delete(key));
 }
 
+/* いいねの重複防止（手前のメモリ）。
+   本体の記録は保存先の kv に残しているので、ここは速さのための写しにすぎない。
+   増えすぎたときだけ古いものから捨てる。消えても kv を見に行くので二重にはならない。 */
+const likedMark = new Map();
+setInterval(() => {
+  if (likedMark.size <= 50000) return;
+  const drop = likedMark.size - 40000;
+  let i = 0;
+  for (const k of likedMark.keys()) { likedMark.delete(k); if (++i >= drop) break; }
+}, 3600e3).unref?.();
+
 /** 保存直後にOGP画像を作って、キャッシュに載せておく。
     クローラーが来たときには出来上がっている状態にする。 */
-function warmOgImage(id) {
+function warmOgImage(id, card) {
   setTimeout(() => {
     once('ogrender:' + id, async () => {
-      const card = await store.get(id);
+      // 保存直後は中身が手元にあるので、DBに引き直さない
+      if (!card) card = await store.get(id);
       if (!card) return null;
       const png = await ogimage.render(card, u => getImageBuffer(originalURL(u)));
       if (png) imgCacheSet('og:' + id, png, TTL.img);
@@ -652,7 +664,9 @@ const server = http.createServer(async (req, res) => {
       // SNSのクローラーは数秒で諦めるため、貼られてから作り始めると
       // 間に合わず、サムネイルが出ないことがある。
       // 応答は待たせない（失敗しても共有ページ自体は動く）。
-      warmOgImage(id);
+      // 保存した内容をそのまま渡す（DBへの往復を1回減らす）
+      warmOgImage(id, { id, type: body.type, title: body.title, items:
+        clean.map((it, i) => it && ({ position: i, image_url: it.imageUrl })).filter(Boolean) });
 
       return send(res, 200, { id, shareable, uploads, stats: await store.stats() });
     }
@@ -734,9 +748,36 @@ const server = http.createServer(async (req, res) => {
       const id = String(body.id || '').slice(0, 20);
       if (!id) return send(res, 400, { error: 'idが必要です' });
 
-      const mark = `like:${hashIP(ip)}:${id}`;
-      if (cacheGet(mark)) return send(res, 200, { likes: null, already: true });
-      cacheSet(mark, true, 24 * 3600e3);
+      /* 誰が押したかは、端末が持つIDで見分ける。
+         IPだと、同じ回線を共有している人（スマホのCGNAT）が
+         押せなくなってしまう。IDを送れない設定のときだけIPに落とす。 */
+      const cid = /^[a-z0-9]{16,40}$/i.test(String(body.cid || ''))
+        ? String(body.cid) : 'ip-' + hashIP(ip);
+      const mark = `like:${cid}:${id}`;
+
+      // 手前のメモリで弾く（大半はここで終わる）
+      if (likedMark.has(mark)) return send(res, 200, { likes: null, already: true });
+
+      /* 記録は保存先にも残す。メモリだけだと再起動で消えて押し直せてしまう。
+         「一度きり」にするため、期限は10年にしてある。 */
+      if (store && typeof store.cacheGet === 'function') {
+        try {
+          if (await store.cacheGet(mark)) {
+            likedMark.set(mark, Date.now());
+            return send(res, 200, { likes: null, already: true });
+          }
+        } catch { /* 読めなくても、メモリ側の判定で続ける */ }
+      }
+
+      // 同じ端末IDで大量に押されるのを防ぐ（1分に20件まで）
+      if (rateLimited('like:' + cid, 20, 60e3)) {
+        return send(res, 429, { error: 'いいねが多すぎます。少し待ってください。' });
+      }
+
+      likedMark.set(mark, Date.now());
+      if (store && typeof store.cacheSet === 'function') {
+        Promise.resolve(store.cacheSet(mark, 1, 10 * 365 * 24 * 3600e3)).catch(() => {});
+      }
 
       const likes = await store.like(id);
       if (likes == null) return send(res, 404, { error: '見つかりません' });

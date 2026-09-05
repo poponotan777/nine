@@ -663,6 +663,12 @@
       <p class="warn" id="keepUrlNote">
         このURLは、控えておかないと二度と開けません。
       </p>
+      <!-- 作り終えたあとの行き先。ここが無いと、閉じた時点で行き止まりになる -->
+      <p style="margin:12px 0 0;text-align:center">
+        <a href="/trends" id="goTrends" style="font-size:13px">
+          みんなの9つを見に行く
+        </a>
+      </p>
     </div>
     <div class="row">
       <button class="btn" id="outClose" data-i18n="btn.close">閉じる</button>
@@ -702,6 +708,8 @@
       'out.ask':'選んだ理由や思い出を一言添えて投稿してみてください。',
       'out.ogp':'SNSにこのURLを貼ると、この画像がサムネイルとして表示されます。',
       'keep.url':'このURLは、控えておかないと二度と開けません。作った9つは、この端末のブラウザにだけ残ります。',
+      'go.trends':'みんなの9つを見に行く',
+      'go.mine':'@{h} が作った9つを見る',
       'note.public':'保存すると「みんなの9つ」の一覧とランキングに並びます。名前は入れたものだけが表示されます。',
       'note.uploadShare':'自分で追加した画像は、この共有ページでは空のマスになります（画像は端末の外に出ないため）。',
       'out.askOgp':'選んだ理由や思い出を一言添えると、ぐっと伝わります。',
@@ -754,6 +762,8 @@
       'out.ask':'Try adding a line about why you chose them.',
       'out.ogp':'Paste this URL on social media and this image appears as the thumbnail.',
       'keep.url':'Save this URL — without it you cannot reopen the card. Your nine are stored only in this browser.',
+      'go.trends':'See what everyone else picked',
+      'go.mine':'See everything @{h} has made',
       'note.public':'Saving adds your card to the public list and rankings. Only the name you typed is shown.',
       'note.uploadShare':'Images you uploaded appear as empty cells on the shared page (they never leave your device).',
       'out.askOgp':'Add a line about why you chose them — it makes all the difference.',
@@ -1699,6 +1709,18 @@
     const uploads = S.items.filter(it => it && !it.ref?.imageUrl).length;
     if (uploads) msg += '\n' + t('note.uploadShare');
     $('keepUrlNote').textContent = msg;
+
+    // Xのアカウントを入れている人は、自分の作品が並ぶページへ案内する。
+    // 入れていない人は、みんなの9つへ。
+    const h = ($('handle').value || '').trim().replace(/^@/, '');
+    const go = $('goTrends');
+    if (h){
+      go.href = '/u/' + encodeURIComponent(h);
+      go.textContent = t('go.mine').replace('{h}', h);
+    } else {
+      go.href = '/trends';
+      go.textContent = t('go.trends');
+    }
   }
   $('copyTag').addEventListener('click', async () => {
     try {
@@ -1922,6 +1944,7 @@
     $('copyUrl').textContent = t('copy');
     $('noteImg').textContent = t('note.img');
     $('noteUrl').textContent = t('note.url');
+    $('goTrends').textContent = t('go.trends');
     $('copyTag').textContent = t('copy');
     $('tagNote').textContent = t('tag.note');
     $('shareUrlNote').textContent = t('shareUrl.note');

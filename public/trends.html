@@ -313,6 +313,7 @@
   .sheet{overscroll-behavior:contain;background:var(--ink);border:1px solid var(--line);border-radius:var(--r);
     width:100%;max-width:520px;max-height:92vh;overflow:auto;padding:20px;position:relative}
   .sheet h3{font-family:var(--mincho);font-size:19px;margin:0 0 4px;padding-right:34px}
+  .cv-likenote{font-size:11px;color:var(--muted);margin:8px 0 0;line-height:1.7}
   .cv-meta{font-size:12px;color:var(--muted);margin:0 0 14px}
   .x{position:absolute;top:12px;right:12px;width:30px;height:30px;border-radius:50%;
     border:1px solid var(--line);background:var(--panel);color:var(--muted);
@@ -471,6 +472,7 @@
       <a class="btn" id="cvUser" href="#" target="_blank" rel="noopener">作った人を見る</a>
       <a class="btn" id="cvOpen" href="#">カードのページへ</a>
     </div>
+    <p class="cv-likenote" id="cvLikeNote"></p>
     <div id="cvDetail"></div>
   </div>
 </div>
@@ -507,6 +509,7 @@
       empty:'まだ何もありません。最初の1つを作ってみてください。',
       loading:'読み込んでいます…', failed:'読み込めませんでした。',
       like:'♥ いいね', liked:'♥ ありがとう', already:'♥ 済',
+      likeNote:'いいねは1つのカードにつき1回だけです。この端末に記録されるので、端末を変えるともう一度押せます。',
       noAge:'つくるページで9つ作るときに生まれた年を入れると、生まれた年と前後1年に生まれた人が選んだ作品のランキングが見られます。',
       sc:{
         all:'これまでに選ばれた回数の合計です。作品が出た年は問いません。',
@@ -532,6 +535,7 @@
       empty:'Nothing here yet. Be the first.',
       loading:'Loading\u2026', failed:'Could not load.',
       like:'\u2665 Like', liked:'\u2665 Thanks', already:'\u2665 Done',
+      likeNote:'One like per card. It is remembered on this device.',
       noAge:'Add your birth year when you make a nine, and you can see what people born within a year of you picked.',
       sc:{
         all:'Total number of times each work has been picked, regardless of when it came out.',
@@ -943,7 +947,20 @@
   });
 
   /* ---------- カードの拡大表示 ---------- */
-  const liked = new Set();
+  /* 押したものは端末に覚えておく。
+     覚えていないと、開き直すたびに押せるように見えて、
+     押した瞬間に「済」と言われることになる。 */
+  const liked = new Set((() => {
+    try { return JSON.parse(localStorage.getItem('liked') || '[]'); } catch(e){ return []; }
+  })());
+  function rememberLiked(id){
+    liked.add(id);
+    try {
+      // 増え続けないよう、新しいほうから500件だけ残す
+      const arr = [...liked].slice(-500);
+      localStorage.setItem('liked', JSON.stringify(arr));
+    } catch(e){}
+  }
   let cvId = null;
 
   /** カードをタップしたときは /c/ のページをそのまま開く。
@@ -977,7 +994,11 @@
       $('cvMeta').textContent =
         `${LABEL[c.type] || c.type} ・ ${c.views} ${T().views} ・ ${c.likes} ♥`;
       $('cvLikeN').textContent = c.likes;
-      $('cvLike').setAttribute('aria-pressed', String(liked.has(id)));
+      // 押し済みなら、その旨をボタンに出す（押せると誤解させない）
+      const done = liked.has(id);
+      $('cvLike').setAttribute('aria-pressed', String(done));
+      $('cvLike').disabled = done;
+      $('cvLikeNote').textContent = T().likeNote;
       $('cvOpen').href = '/c/' + id;
       $('cvOpen').textContent = T().openCard;
       if (c.handle){
@@ -1040,14 +1061,32 @@
     d.scrollIntoView({ behavior:'smooth', block:'nearest' });
   }
 
+  /* この端末を表すID。
+     ブラウザは端末そのものの識別子を出さないので、初回に乱数で作って保存する。
+     IPで数えると、同じ回線を共有している人（スマホのCGNAT）が
+     押せなくなってしまうため、こちらを主に使う。
+     閲覧データを消すと作り直されるが、いいねの重複防止には十分。 */
+  function clientId(){
+    try {
+      let v = localStorage.getItem('cid');
+      if (!v) {
+        v = (crypto.randomUUID ? crypto.randomUUID()
+                               : String(Date.now()) + Math.random().toString(36).slice(2))
+              .replace(/-/g, '').slice(0, 32);
+        localStorage.setItem('cid', v);
+      }
+      return v;
+    } catch(e){ return ''; }   // 保存できない設定なら、サーバー側でIPに落ちる
+  }
+
   $('cvLike').addEventListener('click', async () => {
     if (!cvId || liked.has(cvId)) return;
-    liked.add(cvId);
+    rememberLiked(cvId);
     $('cvLike').setAttribute('aria-pressed', 'true');
     try{
       const r = await fetch('/x/like', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ id: cvId }),
+        body: JSON.stringify({ id: cvId, cid: clientId() }),
       });
       const j = await r.json();
       if (j.likes != null) $('cvLikeN').textContent = j.likes;
