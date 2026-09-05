@@ -23,10 +23,35 @@
  * 値を配列にすると、その中からランダムで1つ選ぶ（半々表示に使える）。
  */
 
+const fs   = require('fs');
+const path = require('path');
+
 function safeJSON(t) { try { return JSON.parse(t); } catch { return {}; } }
 
-const ADS     = safeJSON(process.env.ADS_JSON || '{}');
-const ADSENSE = safeJSON(process.env.ADSENSE_JSON || '{}');
+/**
+ * 設定の読み込み。環境変数を優先し、無ければ同梱のJSONファイルを読む。
+ *
+ * アドセンスのコードは pub-ID もスロットIDもページのHTMLに出るので秘密ではない。
+ * 環境変数に入れると1900文字を1行に押し込むことになり、
+ * 引用符と改行で壊れやすい（ADS-SETUP.md と HANDOVER.md §8 の事故）。
+ * ファイルなら整形したまま置けて、変更履歴もGitに残る。
+ *
+ * 環境変数のほうが優先なので、ファイルを触らずに一時的に差し替えることもできる。
+ * 逆に「ファイルの内容を無効にしたい」ときは、環境変数に {} を入れる。
+ */
+function loadConfig(envName, file) {
+  const fromEnv = process.env[envName];
+  if (fromEnv) return safeJSON(fromEnv);
+  try {
+    return JSON.parse(fs.readFileSync(path.join(__dirname, file), 'utf8'));
+  } catch (e) {
+    if (e.code !== 'ENOENT') console.warn(`${file} を読めませんでした: ${e.message}`);
+    return {};
+  }
+}
+
+const ADS     = loadConfig('ADS_JSON', 'ads.json');
+const ADSENSE = loadConfig('ADSENSE_JSON', 'adsense.json');
 
 function pick(v) {
   if (Array.isArray(v)) return v.length ? v[Math.floor(Math.random() * v.length)] : '';
