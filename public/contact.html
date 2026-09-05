@@ -83,6 +83,8 @@
      （.head-meta / .langsw / .langopt は index.html からそのまま） */
   .head-meta{margin-left:auto;padding:18px 18px;text-align:right;
              display:flex;flex-direction:column;gap:4px;justify-content:center}
+  .head-meta .made{font-size:11px;color:#A9B6A2;white-space:nowrap}
+  .head-meta .made strong{font-family:var(--mono);color:var(--obi);font-size:14px;font-weight:700}
   .langsw{display:flex;border:1px solid #56624F;border-radius:999px;overflow:hidden}
   .langopt{
     background:transparent;border:0;color:#A9B6A2;cursor:pointer;
@@ -100,6 +102,7 @@
   <div class="head-text"><h1 data-tr="ja">お問い合わせ</h1><h1 data-tr="en">Contact</h1>
     <p data-tr="ja">ご連絡はこちらから</p><p data-tr="en">Get in touch</p></div>
 <div class="head-meta">
+    <span class="made"><strong id="madeCount">–</strong> <span data-tr="ja">枚つくられました</span><span data-tr="en">made so far</span></span>
     <div class="langsw" role="group" aria-label="Language">
       <button type="button" class="langopt" data-lang="ja">日本語</button>
       <button type="button" class="langopt" data-lang="en">English</button>
@@ -270,6 +273,20 @@
     });
     paint();
   })();
+</script>
+<script>
+  /* ヘッダー右の「枚つくられました」。つくるページと同じ表示にするために置いている。
+     ここが無いとヘッダーが1行ぶん低くなり、ページを移動したとき帯の高さが変わる。 */
+  fetch('/x/stats')
+    .then(r => r.json())
+    .then(s => {
+      const el = document.getElementById('madeCount');
+      if (el && typeof s.total === 'number') {
+        el.textContent = s.total.toLocaleString(
+          document.documentElement.lang === 'en' ? 'en-US' : 'ja-JP');
+      }
+    })
+    .catch(() => {});
 </script>
 </body>
 </html>
