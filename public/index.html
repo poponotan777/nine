@@ -1892,19 +1892,60 @@
       } catch(e){ adCache[key] = { rail:'', railLeft:'', inflow:'', bar:'' }; }
     }
     const a = adCache[key];
-    put('adRail', a.rail);
-    put('adRailLeft', a.railLeft);
-    put('adBarSlot', a.bar);
-    $('inflowSlot').innerHTML = a.inflow || '';
-    $('inflowSlot2').innerHTML = a.inflow2 || '';
+    put('adRail', a.rail, a.railAlt);
+    put('adRailLeft', a.railLeft, a.railLeftAlt);
+    put('adBarSlot', a.bar, a.barAlt);
+    put('inflowSlot', a.inflow, a.inflowAlt);
+    put('inflowSlot2', a.inflow2, a.inflow2Alt);
     $('inflow').hidden = !(a.inflow || a.inflow2);
     syncAdBar();
   }
-  function put(id, html){
+  /* innerHTML で入れた <script> はブラウザが実行しない（HTML5の仕様）。
+     アフィリエイトは <a><img> だけなので動いていたが、
+     アドセンスは <script> で動くため、作り直して入れ替える必要がある。
+     読み込みスクリプトは1ページに1本でよいので、同じsrcは2本目以降を捨てる。 */
+  const adScriptSrc = new Set();
+  function runAdScripts(el){
+    el.querySelectorAll('script').forEach(old => {
+      const src = old.getAttribute('src');
+      if (src && adScriptSrc.has(src)) { old.remove(); return; }
+      if (src) adScriptSrc.add(src);
+      const s = document.createElement('script');
+      for (const a of old.attributes) s.setAttribute(a.name, a.value);
+      s.textContent = old.textContent;
+      old.replaceWith(s);
+    });
+  }
+
+  /* アドセンスは枠を作っても広告が入らないことがある（data-ad-status="unfilled"）。
+     ads.js の優先度はキーの有無しか見ないので、
+     「配信されなかった」場合の差し替えはここでやるしかない。
+     10秒待っても filled にならなければ代わりを出す。 */
+  function watchUnfilled(el, alt, box){
+    const ins = el.querySelector('ins.adsbygoogle');
+    if (!ins || !alt) return;
+    let n = 0;
+    const t = setInterval(() => {
+      const st = ins.getAttribute('data-ad-status');
+      if (st === 'filled') { clearInterval(t); return; }
+      if (st === 'unfilled' || ++n > 20){
+        clearInterval(t);
+        if (ins.getAttribute('data-ad-status') === 'filled') return;
+        el.innerHTML = alt;
+        runAdScripts(el);
+        if (box) box.style.display = '';
+      }
+    }, 500);
+  }
+
+  function put(id, html, alt){
     const el = $(id); if (!el) return;
     el.innerHTML = html || '';
     const box = el.closest('.rail');
     if (box) box.style.display = html ? '' : 'none';
+    if (!html) return;
+    runAdScripts(el);
+    watchUnfilled(el, alt, box);
   }
 
   /* ---------- スマホ用の下部広告バー ----------

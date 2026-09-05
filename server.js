@@ -454,6 +454,36 @@ function serveCard(card, res) {
     </div>`);
   }
 
+  /* 共有ページの広告。
+     ADSENSE_JSON / ADS_JSON のキーは 'share' で引ける（share_rail など）。
+     ページ名を書かずに 'rail' だけ設定してあれば、それがそのまま使われる。
+     ここはサーバー側でHTMLに直接書き出すので、画面側の runAdScripts は通らない。
+     ブラウザが最初に読むHTMLに <script> が入っている形なので、普通に実行される。 */
+  const shareAds = adsFor('share', card.lang === 'en' ? 'en' : 'ja');
+
+  /* アドセンスのコードは枠ごとに読み込みスクリプトを含むが、
+     1ページに何本も入れる必要はない（Googleも1本を想定している）。
+     2本目以降は落とす。画面側の runAdScripts と同じ考え方だが、
+     こちらはHTMLを組み立てる時点で消す。 */
+  const seenSrc = new Set();
+  const dedupeLoader = (s) => (s || '').replace(
+    /<script[^>]*\ssrc=['"]([^'"]*adsbygoogle\.js[^'"]*)['"][^>]*><\/script>/g,
+    (m, src) => (seenSrc.has(src) ? '' : (seenSrc.add(src), m))
+  );
+  shareAds.rail     = dedupeLoader(shareAds.rail);
+  shareAds.railLeft = dedupeLoader(shareAds.railLeft);
+  shareAds.bar      = dedupeLoader(shareAds.bar);
+
+  const railHtml = (inner, side) => inner
+    ? `<aside class="rail rail-${side}" aria-label="広告"><div class="slot-ad">${inner}</div></aside>`
+    : '';
+  const barHtml = shareAds.bar
+    ? `<div class="adbar" id="adBar">
+  <button class="adbar-close" id="adBarClose" aria-label="広告を閉じる">×</button>
+  <div class="adbar-slot">${shareAds.bar}</div>
+</div>`
+    : '';
+
   const html = `<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -537,10 +567,53 @@ function serveCard(card, res) {
     background:var(--panel)}
   footer{max-width:560px;margin:32px auto 0;padding:18px 20px 0;
     border-top:1px solid var(--line);font-size:11px;color:var(--muted);line-height:1.9}
+
+  /* ---- 広告 ----
+     この共有ページはSNSからの着地点で、いちばん人が来る。
+     ただし body に zoom が掛かるため、Chromium では position:sticky が
+     内側で正しく動かない（index.html と同じ制約）。
+     このページは縦に短いので追従はさせず、置いたままにする。
+
+     閾値の計算は index.html と同じ:
+       画面幅 >= 2×(オフセット+レール幅)×zoom
+       2×(300+160)×1.10 = 1012px → 余裕を見て1100px */
+  .rail{display:none}
+  @media (min-width:1100px){
+    .rail{
+      display:block;position:absolute;top:var(--rail-start,320px);width:160px;
+      font-size:9px;color:var(--muted);text-align:center;font-family:var(--mono);
+    }
+    .rail-l{right:calc(50% + 300px)}
+    .rail-r{left:calc(50% + 300px)}
+    .rail .slot-ad::before{
+      content:'PR';display:block;font-family:var(--mono);font-size:9px;
+      letter-spacing:.2em;color:var(--muted);margin-bottom:6px;
+    }
+    .rail .slot-ad:empty{display:none}
+    .rail img{max-width:100%;width:auto;height:auto;display:block;margin:0 auto}
+  }
+  /* スマホ用の下部バー。固定表示だが操作は覆わない */
+  .adbar{
+    position:fixed;left:0;right:0;bottom:0;z-index:40;
+    background:var(--panel);border-top:1px solid var(--line);
+    padding:6px 34px 6px 8px;display:flex;justify-content:center;align-items:center;
+    min-height:56px;
+  }
+  .adbar-close{
+    position:absolute;right:6px;top:50%;transform:translateY(-50%);
+    width:26px;height:26px;border-radius:50%;border:1px solid var(--line);
+    background:var(--ink);color:var(--muted);font-size:14px;line-height:1;cursor:pointer;
+  }
+  .adbar-slot{min-height:50px;display:flex;align-items:center}
+  /* hidden 属性だけでは display:flex に負けて閉じない。明示的に打ち消す */
+  .adbar[hidden]{display:none}
+  @media (min-width:1200px){ .adbar{display:none} }
+  body.has-adbar{padding-bottom:150px}
 </style>
 ${GA_TAG}${VC_TAG}
 </head>
-<body>
+<body${shareAds.bar ? ' class="has-adbar"' : ''}>
+${railHtml(shareAds.rail, 'r')}${railHtml(shareAds.railLeft, 'l')}
 <header>
   <div class="obi-tab">MY NINE LOVES</div>
   <div class="head-text">
@@ -576,6 +649,23 @@ ${GA_TAG}${VC_TAG}
   </p>
   <p>&copy; 2026 MY NINE LOVES</p>
 </footer>
+${barHtml}${shareAds.bar ? `<script>
+  /* 下部バーを閉じたら、その日のあいだは出さない。
+     つくるページと同じキーを使うので、片方で閉じればもう片方でも閉じたまま。 */
+  (function(){
+    var KEY = 'adbar_closed', bar = document.getElementById('adBar');
+    if (!bar) return;
+    var today = new Date().toISOString().slice(0, 10);
+    try { if (localStorage.getItem(KEY) === today){
+      bar.hidden = true; document.body.classList.remove('has-adbar'); return;
+    } } catch(e){}
+    document.getElementById('adBarClose').addEventListener('click', function(){
+      bar.hidden = true;
+      document.body.classList.remove('has-adbar');
+      try { localStorage.setItem(KEY, today); } catch(e){}
+    });
+  })();
+</script>` : ''}
 </body>
 </html>`;
 

@@ -33,9 +33,15 @@ function pick(v) {
   return v || '';
 }
 
-/** アドセンス。ページを問わず同じものを返す */
-function adsenseSlot(place, lang) {
-  for (const k of [`${place}_${lang}`, place]) {
+/** アドセンス。
+ *  もとは置き場所だけを見ていた（全ページ共通）。
+ *  「有名人ページの本文内だけアドセンスを出す」といった指定ができるよう、
+ *  ページ名つきのキーを先に探すようにした。
+ *    person_inflow_ja → person_inflow → inflow_ja → inflow
+ *  ページ名を書かなければ、これまでどおり全ページ共通で効く。 */
+function adsenseSlot(kind, place, lang) {
+  for (const k of [`${kind}_${place}_${lang}`, `${kind}_${place}`,
+                   `${place}_${lang}`, place]) {
     if (ADSENSE[k] != null) return pick(ADSENSE[k]);
   }
   return '';
@@ -57,20 +63,32 @@ function affiliateSlot(kind, place, lang) {
  * 両方をまとめて返す。
  * 左右と下部はアドセンスを優先し、無ければアフィリエイトで埋める。
  * 本文内はアフィリエイトを優先し、無ければアドセンスで埋める。
+ *
+ * 「優先されなかったほう」も *Alt として一緒に返す。
+ * アドセンスは枠を作っても広告が入らない（data-ad-status="unfilled"）ことがあり、
+ * そのときに画面側でアフィリエイトへ差し替えるために使う。
+ * ここの判定はキーの有無しか見ないので、配信されたかどうかは分からない。
  */
 function adsFor(kind, lang = 'ja') {
   const L = lang === 'en' ? 'en' : 'ja';
+  // [実際に出すもの, 出なかったときの代わり] を返す
   const both = (place, adsenseFirst) => {
-    const a = adsenseSlot(place, L);
+    const a = adsenseSlot(kind, place, L);
     const f = affiliateSlot(kind, place, L);
-    return adsenseFirst ? (a || f) : (f || a);
+    if (adsenseFirst) return [a || f, a && f ? f : ''];
+    return [f || a, f && a ? a : ''];
   };
+  const [rail, railAlt]         = both('rail', true);
+  const [railLeft, railLeftAlt] = both('rail2', true);
+  const [bar, barAlt]           = both('bar', true);
+  const [inflow, inflowAlt]     = both('inflow', false);
+  const [inflow2, inflow2Alt]   = both('inflow2', false);
   return {
-    rail:     both('rail', true),
-    railLeft: both('rail2', true),
-    bar:      both('bar', true),
-    inflow:   both('inflow', false),
-    inflow2:  both('inflow2', false),
+    rail, railAlt,
+    railLeft, railLeftAlt,
+    bar, barAlt,
+    inflow, inflowAlt,
+    inflow2, inflow2Alt,
   };
 }
 

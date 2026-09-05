@@ -711,6 +711,52 @@
      ads.js が {種類}_{場所} → common_{場所} の順に探すので、
      ここでは種類名を渡すだけでよい。 */
   let adKind = '';
+  /* innerHTML で入れた <script> はブラウザが実行しない（HTML5の仕様）。
+     アドセンスは <script> で動くので、作り直して入れ替える。
+     読み込みスクリプトは1ページに1本でよいので、同じsrcは2本目以降を捨てる。
+     index.html にも同じものがある。片方だけ直すと、そちらだけ広告が出なくなる。 */
+  const adScriptSrc = new Set();
+  function runAdScripts(el){
+    el.querySelectorAll('script').forEach(old => {
+      const src = old.getAttribute('src');
+      if (src && adScriptSrc.has(src)) { old.remove(); return; }
+      if (src) adScriptSrc.add(src);
+      const s = document.createElement('script');
+      for (const a of old.attributes) s.setAttribute(a.name, a.value);
+      s.textContent = old.textContent;
+      old.replaceWith(s);
+    });
+  }
+
+  /* アドセンスが枠を作っても広告が入らないとき（data-ad-status="unfilled"）に
+     アフィリエイトへ差し替える。10秒待って filled にならなければ交代。 */
+  function watchUnfilled(el, alt, box){
+    const ins = el.querySelector('ins.adsbygoogle');
+    if (!ins || !alt) return;
+    let n = 0;
+    const t = setInterval(() => {
+      const st = ins.getAttribute('data-ad-status');
+      if (st === 'filled') { clearInterval(t); return; }
+      if (st === 'unfilled' || ++n > 20){
+        clearInterval(t);
+        if (ins.getAttribute('data-ad-status') === 'filled') return;
+        el.innerHTML = alt;
+        runAdScripts(el);
+        if (box) box.style.display = '';
+      }
+    }, 500);
+  }
+
+  function putAd(id, html, alt, boxId){
+    const el = $(id); if (!el) return;
+    el.innerHTML = html || '';
+    const box = boxId ? $(boxId) : null;
+    if (box) box.style.display = html ? '' : 'none';
+    if (!html) return;
+    runAdScripts(el);
+    watchUnfilled(el, alt, box);
+  }
+
   function loadAds(){
     // 広告のキーはCDを 'cd' で持っている（保存上の種別名は 'album'）。
     // ADS_JSON を album_ に書き換えずに済むよう、ここで読み替える。
@@ -721,10 +767,8 @@
       .then(r => r.json()).then(a => {
         adInflow  = a.inflow || '';
         adInflow2 = a.inflow2 || '';
-        $('adRail').innerHTML = a.rail || '';
-        $('adRailLeft').innerHTML = a.railLeft || '';
-        $('railR').style.display = a.rail ? '' : 'none';
-        $('railL').style.display = a.railLeft ? '' : 'none';
+        putAd('adRail', a.rail, a.railAlt, 'railR');
+        putAd('adRailLeft', a.railLeft, a.railLeftAlt, 'railL');
         // MY9の一覧には差し込まない。300×250を2列の中に入れると
         // 列幅が押し広げられて並びが崩れるうえ、作品と広告が紛れる。
         // ランキングと一覧のあいだに、独立した枠として置く。
@@ -736,6 +780,7 @@
             + '</div>'
           : '';
         box.hidden = !box.innerHTML;
+        if (box.innerHTML) runAdScripts(box);
       }).catch(() => {});
   }
   loadAds();
