@@ -459,6 +459,7 @@ function serveCard(card, res) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="google-adsense-account" content="ca-pub-7498884122648069">
 <link rel="icon" href="/icon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="/icon-180.png">
 <title>${esc(title)} | MY NINE LOVES</title>
@@ -537,6 +538,7 @@ function serveCard(card, res) {
   footer{max-width:560px;margin:32px auto 0;padding:18px 20px 0;
     border-top:1px solid var(--line);font-size:11px;color:var(--muted);line-height:1.9}
 </style>
+${GA_TAG}${VC_TAG}
 </head>
 <body>
 <header>
