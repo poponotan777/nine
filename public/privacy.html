@@ -22,11 +22,21 @@
   body{margin:0;background:var(--ink);color:var(--text);font-family:var(--gothic);
        line-height:1.9;-webkit-font-smoothing:antialiased}
   a{color:var(--pop)}
-  header{display:flex;background:var(--head);color:var(--head-text)}
-  .obi-tab{background:var(--obi);color:#2A2622;font-family:var(--mono);font-size:11px;
-           letter-spacing:.18em;padding:14px 10px;writing-mode:vertical-rl}
+  header{
+    display:flex;align-items:stretch;gap:0;
+    background:var(--head);color:var(--head-text);
+  }
+  .obi-tab{
+    background:var(--obi);color:#2A2622;
+    font-family:var(--mono);font-size:11px;letter-spacing:.18em;
+    padding:14px 10px;writing-mode:vertical-rl;
+  }
   .head-text{padding:18px 16px}
-  .head-text h1{font-family:var(--mincho);font-weight:700;font-size:22px;margin:0;letter-spacing:.04em}
+  .head-text h1{
+    font-family:var(--mincho);font-weight:700;
+    font-size:23px;letter-spacing:.04em;margin:0 0 4px;
+  }
+  .head-text p{margin:0;font-size:12px;color:#A9B6A2;letter-spacing:.04em}
 
   .tabs{display:flex;background:var(--panel);border-bottom:1px solid var(--line);overflow-x:auto}
   .tab{padding:13px 18px;font-size:13px;color:var(--muted);text-decoration:none;
@@ -86,7 +96,8 @@
 
 <header>
   <div class="obi-tab">MY NINE LOVES</div>
-  <div class="head-text"><h1 data-tr="ja">プライバシーポリシー</h1><h1 data-tr="en">Privacy Policy</h1></div>
+  <div class="head-text"><h1 data-tr="ja">プライバシーポリシー</h1><h1 data-tr="en">Privacy Policy</h1>
+    <p data-tr="ja">集める情報と、その扱いについて</p><p data-tr="en">What we collect and how we handle it</p></div>
 <div class="head-meta">
     <div class="langsw" role="group" aria-label="Language">
       <button type="button" class="langopt" data-lang="ja">日本語</button>

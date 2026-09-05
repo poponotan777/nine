@@ -226,6 +226,26 @@ CDモードの内部名は `cd` ではなく **`album`**。
 ボタンは `.head-meta` > `.langsw` > `.langopt` で、
 つくるページ・みんなの9つと同じマークアップとCSSを使っている。
 片方を直したらもう片方も直すこと。
+
+### ヘッダーの見た目は6ページで同じ値に揃えてある
+
+`index` `trends` `about` `terms` `privacy` `contact` のすべてで、
+
+```
+.head-text{padding:18px 16px}
+.head-text h1{font-weight:700;font-size:23px;letter-spacing:.04em;margin:0 0 4px}
+.head-text p {margin:0;font-size:12px;color:#A9B6A2;letter-spacing:.04em}
+```
+
+もとは 22px/600/.06em と 23px/700/.04em が混在していて、
+ページを移動するたびに見出しの大きさが変わっていた。
+
+**`<h1>` と副題の `<p>` は必ずセットで置くこと。**
+副題が無いページだけ1行ぶん背が低くなり、タブの位置が上下にずれる。
+規約類3ページには、このために副題を足してある。
+
+`trends.html` の `.head-meta` だけは横並び（他の要素も入る）なので、
+そこは揃えていない。
 言語の判定スクリプトは **`<head>` に置く**。`<body>` の描画前に確定させないと、
 日本語が一瞬見えてから英語に入れ替わる。
 記憶先は `localStorage` の `'lang'` で、つくるページ・みんなの9つと同じキー。
