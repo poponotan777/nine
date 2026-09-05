@@ -73,43 +73,48 @@
 </script>
 <style>
   /* 表示していない側の言語は消す。JSが無効でも日本語だけは出る */
-  html[lang="ja"] [data-lang="en"]{display:none}
-  html[lang="en"] [data-lang="ja"]{display:none}
-  .langbar{display:flex;justify-content:flex-end;gap:8px;
-    max-width:760px;margin:0 auto;padding:10px 20px 0}
-  .langbar button{
-    border:1px solid var(--line);background:var(--panel);color:var(--muted);
-    font-family:var(--mono);font-size:11px;letter-spacing:.1em;
-    padding:5px 12px;border-radius:999px;cursor:pointer;
+  html[lang="ja"] [data-tr="en"]{display:none}
+  html[lang="en"] [data-tr="ja"]{display:none}
+  /* 言語切替。つくるページ・みんなの9つと同じ見た目に揃える
+     （.head-meta / .langsw / .langopt は index.html からそのまま） */
+  .head-meta{margin-left:auto;padding:18px 18px;text-align:right;
+             display:flex;flex-direction:column;gap:4px;justify-content:center}
+  .langsw{display:flex;border:1px solid #56624F;border-radius:999px;overflow:hidden}
+  .langopt{
+    background:transparent;border:0;color:#A9B6A2;cursor:pointer;
+    font-family:var(--gothic);font-size:11px;padding:6px 13px;white-space:nowrap;
   }
-  .langbar button[aria-pressed="true"]{
-    background:var(--obi);border-color:var(--obi-deep);color:#2A2622;
-  }
+  .langopt:hover{color:var(--obi)}
+  .langopt[aria-pressed=true]{background:var(--obi);color:#2A2622;font-weight:700}
+  @media (max-width:420px){ .head-meta{padding:12px 12px} }
 </style>
 </head>
 <body>
 
 <header>
   <div class="obi-tab">MY NINE LOVES</div>
-  <div class="head-text"><span data-lang="ja"><h1>利用規約</h1></span><span data-lang="en"><h1>Terms of Service</h1></span></div>
+  <div class="head-text"><h1 data-tr="ja">利用規約</h1><h1 data-tr="en">Terms of Service</h1></div>
+<div class="head-meta">
+    <div class="langsw" role="group" aria-label="Language">
+      <button type="button" class="langopt" data-lang="ja">日本語</button>
+      <button type="button" class="langopt" data-lang="en">English</button>
+    </div>
+  </div>
 </header>
+<span id="langTitles" hidden data-ja="利用規約 | MY NINE LOVES" data-en="Terms of Service | MY NINE LOVES"></span>
 
 <nav class="tabs">
-  <a href="/" class="tab"><span data-lang="ja">つくる</span><span data-lang="en">Create</span></a>
-  <a href="/trends" class="tab"><span data-lang="ja">みんなの9つ</span><span data-lang="en">Everyone's Nine</span></a>
-  <a href="/about" class="tab"><span data-lang="ja">このサイトについて</span><span data-lang="en">About</span></a>
-  <a href="/terms" class="tab on"><span data-lang="ja">利用規約</span><span data-lang="en">Terms</span></a>
-  <a href="/privacy-policy" class="tab"><span data-lang="ja">プライバシー</span><span data-lang="en">Privacy</span></a>
-  <a href="/contact" class="tab"><span data-lang="ja">お問い合わせ</span><span data-lang="en">Contact</span></a>
+  <a href="/" class="tab"><span data-tr="ja">つくる</span><span data-tr="en">Create</span></a>
+  <a href="/trends" class="tab"><span data-tr="ja">みんなの9つ</span><span data-tr="en">Everyone's Nine</span></a>
+  <a href="/about" class="tab"><span data-tr="ja">このサイトについて</span><span data-tr="en">About</span></a>
+  <a href="/terms" class="tab on"><span data-tr="ja">利用規約</span><span data-tr="en">Terms</span></a>
+  <a href="/privacy-policy" class="tab"><span data-tr="ja">プライバシー</span><span data-tr="en">Privacy</span></a>
+  <a href="/contact" class="tab"><span data-tr="ja">お問い合わせ</span><span data-tr="en">Contact</span></a>
 </nav>
 
 
 <main>
-<div class="langbar" data-title-ja="利用規約 | MY NINE LOVES" data-title-en="Terms of Service | MY NINE LOVES">
-  <button type="button" data-set="ja">日本語</button>
-  <button type="button" data-set="en">English</button>
-</div>
-<div data-lang="ja">
+<div data-tr="ja">
 
   <h2>1. このサービスについて</h2>
   <p>
@@ -153,7 +158,7 @@
   <h2>4. 権利者の方へ</h2>
   <p>
     掲載内容に関して権利者の方からご連絡をいただいた場合、内容を確認のうえ速やかに対応します。
-    <a href="/contact"><span data-lang="ja">お問い合わせ</span><span data-lang="en">Contact</span></a>よりご連絡ください。
+    <a href="/contact"><span data-tr="ja">お問い合わせ</span><span data-tr="en">Contact</span></a>よりご連絡ください。
   </p>
 
   <h2>5. 禁止事項</h2>
@@ -176,13 +181,13 @@
   <footer>
     <p>制定日: 2026年8月22日</p>
     <p>
-      <a href="/">トップ</a> ｜ <a href="/about"><span data-lang="ja">このサイトについて</span><span data-lang="en">About</span></a> ｜
-      <a href="/privacy-policy">プライバシーポリシー</a> ｜ <a href="/contact"><span data-lang="ja">お問い合わせ</span><span data-lang="en">Contact</span></a>
+      <a href="/">トップ</a> ｜ <a href="/about"><span data-tr="ja">このサイトについて</span><span data-tr="en">About</span></a> ｜
+      <a href="/privacy-policy">プライバシーポリシー</a> ｜ <a href="/contact"><span data-tr="ja">お問い合わせ</span><span data-tr="en">Contact</span></a>
     </p>
   </footer>
 
 </div>
-<div data-lang="en">
+<div data-tr="en">
 
   <h2>1. About this service</h2>
   <p>
@@ -267,24 +272,26 @@
 </div>
 </main>
 <script>
-  /* 言語ボタン。選択は localStorage に残すので、
-     つくるページ・みんなの9つ側の切り替えとも共有される。 */
+  /* 言語ボタン。index.html の applyLang と同じ考え方で、
+     aria-pressed でいまどちらなのかを示す。
+     選択は localStorage に残すので、つくるページ側とも共有される。 */
   (function(){
-    var bar = document.querySelector('.langbar');
-    if (!bar) return;
+    var opts = document.querySelectorAll('.langopt');
+    if (!opts.length) return;
+    var titles = document.getElementById('langTitles');
     function paint(){
       var cur = document.documentElement.lang;
-      bar.querySelectorAll('button').forEach(function(b){
-        b.setAttribute('aria-pressed', String(b.dataset.set === cur));
+      opts.forEach(function(b){
+        b.setAttribute('aria-pressed', String(b.dataset.lang === cur));
       });
-      document.title = document.documentElement.lang === 'en'
-        ? bar.dataset.titleEn : bar.dataset.titleJa;
+      if (titles) document.title = cur === 'en' ? titles.dataset.en : titles.dataset.ja;
     }
-    bar.addEventListener('click', function(e){
-      var b = e.target.closest('button'); if (!b) return;
-      document.documentElement.lang = b.dataset.set;
-      try { localStorage.setItem('lang', b.dataset.set); } catch(err){}
-      paint();
+    opts.forEach(function(b){
+      b.addEventListener('click', function(){
+        document.documentElement.lang = b.dataset.lang;
+        try { localStorage.setItem('lang', b.dataset.lang); } catch(e){}
+        paint();
+      });
     });
     paint();
   })();

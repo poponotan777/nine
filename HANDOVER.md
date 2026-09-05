@@ -216,7 +216,16 @@ CDモードの内部名は `cd` ではなく **`album`**。
 触らずに済ませる判断をした。
 
 仕組みは `<html lang>` によるCSSの出し分け。
-`html[lang="ja"] [data-lang="en"]{display:none}` の1行で切り替わる。
+`html[lang="ja"] [data-tr="en"]{display:none}` の1行で切り替わる。
+
+**本文の出し分けは `data-tr`。`data-lang` ではない。**
+言語ボタン（`.langopt`）が `data-lang` を使っているため、
+本文側も `data-lang` にすると**英語表示のときに「日本語」ボタン自体が消える**。
+実際に一度踏んだ。
+
+ボタンは `.head-meta` > `.langsw` > `.langopt` で、
+つくるページ・みんなの9つと同じマークアップとCSSを使っている。
+片方を直したらもう片方も直すこと。
 言語の判定スクリプトは **`<head>` に置く**。`<body>` の描画前に確定させないと、
 日本語が一瞬見えてから英語に入れ替わる。
 記憶先は `localStorage` の `'lang'` で、つくるページ・みんなの9つと同じキー。
