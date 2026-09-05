@@ -459,7 +459,7 @@ function serveCard(card, res) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="google-adsense-account" content="ca-pub-7498884122648069">
+<meta name="google-adsense-account" content="ca-pub-7335055001091712">
 <link rel="icon" href="/icon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="/icon-180.png">
 <title>${esc(title)} | MY NINE LOVES</title>
