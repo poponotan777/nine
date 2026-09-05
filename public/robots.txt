@@ -9,7 +9,14 @@ Disallow: /healthz
 # ここを Disallow にすると、SNSのクローラーが規約に従って
 # 画像を取りに来なくなり、リンクを貼ってもサムネイルが出ない。
 # （X や Facebook は robots.txt を守る。Discord は見ないので表示される）
+#
+# ★このファイルを編集するときは、上の2行を絶対に消さないこと。
+#   実際に踏んだ事故で、Xでサムネイルが出なくなった原因がこれ。
+#   変更したら必ず X の Card Validator か、実際にポストして表示を確認する。
 Allow: /og/
 Allow: /img
+
+# 広告配信の認証用。クローラーに拾わせる必要がある
+Allow: /ads.txt
 
 Sitemap: https://mynineloves.com/sitemap.xml

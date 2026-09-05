@@ -138,11 +138,16 @@
 
   /* 左右のレール */
   .rail{display:none}
-  /* 120×600のバナーに合わせた幅。実寸に合わせると余白が出ない */
-  @media (min-width:1100px){
+  /* レールは160×600（ワイドスカイスクレイパー）に合わせた幅。
+     アドセンスは120px幅の在庫がほとんど無いため、120pxから広げた。
+
+     閾値の決め方は index.html と同じ。画面幅 ≥ 2×(オフセット+幅)×zoom。
+     こちらはオフセットが400pxと広いので 2×(400+160)×1.10 = 1232px 必要。
+     もとの1100pxは120pxのときでも1144px必要で、実はすでに溢れていた。 */
+  @media (min-width:1280px){
     /* ページ全体の高さを持つ列にして、中身を sticky で追従させる。
        ヘッダーの下（100px）が頭打ちになり、上に戻すとそこで止まる */
-    .rail{position:absolute;top:var(--rail-start,360px);bottom:0;width:120px;display:block;
+    .rail{position:absolute;top:var(--rail-start,360px);bottom:0;width:160px;display:block;
       font-size:9px;color:var(--muted);text-align:center;
       letter-spacing:.16em;font-family:var(--mono);pointer-events:none}
     .rail > *{pointer-events:auto}

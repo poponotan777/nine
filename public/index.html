@@ -304,18 +304,24 @@
   /* 左右のレール。本文（最大560px）の脇に、余白の中央へ置く。
      広告が入っていない側は枠ごと消える（loadAdsが display を切り替える）。 */
   .rail{display:none}
-  /* レールは120×600のバナーに合わせている。
-     枠を170pxにしていたときは左右に25pxずつ余白が出て中途半端だった。
-     幅を実寸に合わせたぶん、必要な画面幅も狭くなり、
-     1040px以上のノートPCでも左右が出るようになる。 */
-  @media (min-width:1040px){
+  /* レールは160×600（ワイドスカイスクレイパー）に合わせている。
+     以前は120×600のアフィリエイトバナー用に120pxだったが、
+     アドセンスは120px幅の在庫がほとんど無く、空欄か極端な安値になる。
+
+     閾値の決め方（変えるときは必ず計算し直すこと）:
+       body に zoom が掛かるので body幅 B = 画面幅 / zoom。
+       レールの外端 = B/2 + オフセット + 幅 で、これが B 以下でないと
+       横スクロールバーが出る。式にすると 画面幅 ≥ 2×(オフセット+幅)×zoom。
+       160px・オフセット300px・zoom1.10 なら 1012px 必要。
+       1040pxだと余裕が28pxしかなく、スクロールバーの分で溢れるため1100pxにした。 */
+  @media (min-width:1100px){
     /* レールはページ全体の高さを持つ「列」にしておく。
        中身を sticky にすると、ヘッダーの下（100px）で頭打ちになり、
        そこから下はスクロールに追従する。列の外には出ない。
        画面に張り付かせる position:fixed だと、
        ページ最上部でヘッダーに重なってしまう。 */
     .rail{
-      display:block;position:absolute;top:var(--rail-start,360px);bottom:0;width:120px;
+      display:block;position:absolute;top:var(--rail-start,360px);bottom:0;width:160px;
       font-size:9px;color:var(--muted);text-align:center;
       letter-spacing:.16em;font-family:var(--mono);
       pointer-events:none;                 /* 本文の操作を邪魔しない */
