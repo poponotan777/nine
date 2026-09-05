@@ -57,25 +57,59 @@
 </style>
 <!-- アドセンスの所有権確認。公開して問題ない番号（HTMLに出るもの）。消さないこと。 -->
 <meta name="google-adsense-account" content="ca-pub-7335055001091712">
+<script>
+  /* 言語の決定。つくるページと同じ localStorage の 'lang' を見る。
+     保存が無ければブラウザの設定から推定する。
+     <head> で実行して <html lang> を先に確定させないと、
+     日本語が一瞬見えてから英語に入れ替わる。 */
+  (function(){
+    var v = null;
+    try { v = localStorage.getItem('lang'); } catch(e){}
+    if (v !== 'ja' && v !== 'en') {
+      v = /^ja/i.test(navigator.language || '') ? 'ja' : 'en';
+    }
+    document.documentElement.lang = v;
+  })();
+</script>
+<style>
+  /* 表示していない側の言語は消す。JSが無効でも日本語だけは出る */
+  html[lang="ja"] [data-lang="en"]{display:none}
+  html[lang="en"] [data-lang="ja"]{display:none}
+  .langbar{display:flex;justify-content:flex-end;gap:8px;
+    max-width:760px;margin:0 auto;padding:10px 20px 0}
+  .langbar button{
+    border:1px solid var(--line);background:var(--panel);color:var(--muted);
+    font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+    padding:5px 12px;border-radius:999px;cursor:pointer;
+  }
+  .langbar button[aria-pressed="true"]{
+    background:var(--obi);border-color:var(--obi-deep);color:#2A2622;
+  }
+</style>
 </head>
 <body>
 
 <header>
   <div class="obi-tab">MY NINE LOVES</div>
-  <div class="head-text"><h1>利用規約</h1></div>
+  <div class="head-text"><span data-lang="ja"><h1>利用規約</h1></span><span data-lang="en"><h1>Terms of Service</h1></span></div>
 </header>
 
 <nav class="tabs">
-  <a href="/" class="tab">つくる</a>
-  <a href="/trends" class="tab">みんなの9つ</a>
-  <a href="/about" class="tab">このサイトについて</a>
-  <a href="/terms" class="tab on">利用規約</a>
-  <a href="/privacy-policy" class="tab">プライバシー</a>
-  <a href="/contact" class="tab">お問い合わせ</a>
+  <a href="/" class="tab"><span data-lang="ja">つくる</span><span data-lang="en">Create</span></a>
+  <a href="/trends" class="tab"><span data-lang="ja">みんなの9つ</span><span data-lang="en">Everyone's Nine</span></a>
+  <a href="/about" class="tab"><span data-lang="ja">このサイトについて</span><span data-lang="en">About</span></a>
+  <a href="/terms" class="tab on"><span data-lang="ja">利用規約</span><span data-lang="en">Terms</span></a>
+  <a href="/privacy-policy" class="tab"><span data-lang="ja">プライバシー</span><span data-lang="en">Privacy</span></a>
+  <a href="/contact" class="tab"><span data-lang="ja">お問い合わせ</span><span data-lang="en">Contact</span></a>
 </nav>
 
 
 <main>
+<div class="langbar" data-title-ja="利用規約 | MY NINE LOVES" data-title-en="Terms of Service | MY NINE LOVES">
+  <button type="button" data-set="ja">日本語</button>
+  <button type="button" data-set="en">English</button>
+</div>
+<div data-lang="ja">
 
   <h2>1. このサービスについて</h2>
   <p>
@@ -97,8 +131,8 @@
     商品リンクには <code>rel="sponsored"</code> を付与し、広告であることを明示しています。
   </p>
   <p>
-    広告は、作品を選ぶ画面の詳細部分およびランキングページに限定して掲載しています。
-    作成した画像の共有ページには広告を掲載しません。
+    広告は、作品を選ぶ画面の詳細部分、ランキングページ、および作成した画像の共有ページに
+    限定して掲載しています。利用規約・プライバシーポリシー等のページには掲載しません。
   </p>
 
   <h2>3. 画像および著作物の扱い</h2>
@@ -119,7 +153,7 @@
   <h2>4. 権利者の方へ</h2>
   <p>
     掲載内容に関して権利者の方からご連絡をいただいた場合、内容を確認のうえ速やかに対応します。
-    <a href="/contact">お問い合わせ</a>よりご連絡ください。
+    <a href="/contact"><span data-lang="ja">お問い合わせ</span><span data-lang="en">Contact</span></a>よりご連絡ください。
   </p>
 
   <h2>5. 禁止事項</h2>
@@ -142,11 +176,118 @@
   <footer>
     <p>制定日: 2026年8月22日</p>
     <p>
-      <a href="/">トップ</a> ｜ <a href="/about">このサイトについて</a> ｜
-      <a href="/privacy-policy">プライバシーポリシー</a> ｜ <a href="/contact">お問い合わせ</a>
+      <a href="/">トップ</a> ｜ <a href="/about"><span data-lang="ja">このサイトについて</span><span data-lang="en">About</span></a> ｜
+      <a href="/privacy-policy">プライバシーポリシー</a> ｜ <a href="/contact"><span data-lang="ja">お問い合わせ</span><span data-lang="en">Contact</span></a>
     </p>
   </footer>
 
+</div>
+<div data-lang="en">
+
+  <h2>1. About this service</h2>
+  <p>
+    MY NINE LOVES ("this service") is a tool that turns nine works you choose into a
+    single card image. It is run by an individual on a non-commercial basis, but it
+    uses advertising and affiliate programs as described below.
+  </p>
+
+  <h2>2. Advertising and affiliate programs</h2>
+  <div class="box">
+    <p style="margin:0">
+      <strong>This service participates in affiliate programs.</strong>
+      If you purchase a product through a product link or banner advertisement shown
+      on this service, the operator may receive a referral fee.
+    </p>
+  </div>
+  <p>
+    The programs used include Rakuten Affiliate, Amazon Associates, A8.net and
+    ValueCommerce. Product links carry <code>rel="sponsored"</code> so that they are
+    identifiable as advertising.
+  </p>
+  <p>
+    Advertising is limited to the detail area of the selection screen, the rankings
+    page, and the share page for a created card. It is not shown on the terms of
+    service, privacy policy or similar pages.
+  </p>
+
+  <h2>3. Images and copyrighted works</h2>
+  <p>
+    Cover art, jackets, posters and photographs displayed by this service are
+    retrieved from each provider's API at the time of viewing. This service does not
+    copy, store or redistribute them. Copyright in each remains with its respective
+    rights holder.
+  </p>
+  <p>
+    Photographs originating from Wikimedia Commons are provided under licences such as
+    CC BY-SA. This service displays the photographer's name and the licence name both
+    on screen and in the exported image.
+  </p>
+  <p>
+    Images you upload yourself are processed only within your own device. They are
+    never transmitted to or stored on this service's servers, and for that reason they
+    do not appear on the share page.
+  </p>
+
+  <h2>4. For rights holders</h2>
+  <p>
+    If you are a rights holder and contact us regarding any content shown here, we
+    will review it and respond promptly. Please get in touch via
+    <a href="/contact">Contact</a>.
+  </p>
+
+  <h2>5. Prohibited conduct</h2>
+  <ul>
+    <li>Interfering with the operation of this service, such as excessive automated access</li>
+    <li>Uploading images to which you do not hold the rights</li>
+    <li>Use for purposes that violate the law or public order and morals</li>
+  </ul>
+
+  <h2>6. Disclaimer</h2>
+  <p>
+    The operator makes no warranty as to the accuracy or completeness of the
+    information displayed by this service. Features may stop without notice due to
+    changes in external API specifications or the discontinuation of those services.
+    The operator accepts no liability for damages arising from use of this service.
+  </p>
+
+  <h2>7. Changes to these terms</h2>
+  <p>
+    These terms may be changed without notice. Revised terms take effect when they are
+    posted on this page.
+  </p>
+
+  <footer>
+    <p>Established: 22 August 2026</p>
+    <p>
+      <a href="/">Home</a> ｜ <a href="/about">About</a> ｜
+      <a href="/privacy-policy">Privacy Policy</a> ｜ <a href="/contact">Contact</a>
+    </p>
+  </footer>
+
+</div>
 </main>
+<script>
+  /* 言語ボタン。選択は localStorage に残すので、
+     つくるページ・みんなの9つ側の切り替えとも共有される。 */
+  (function(){
+    var bar = document.querySelector('.langbar');
+    if (!bar) return;
+    function paint(){
+      var cur = document.documentElement.lang;
+      bar.querySelectorAll('button').forEach(function(b){
+        b.setAttribute('aria-pressed', String(b.dataset.set === cur));
+      });
+      document.title = document.documentElement.lang === 'en'
+        ? bar.dataset.titleEn : bar.dataset.titleJa;
+    }
+    bar.addEventListener('click', function(e){
+      var b = e.target.closest('button'); if (!b) return;
+      document.documentElement.lang = b.dataset.set;
+      try { localStorage.setItem('lang', b.dataset.set); } catch(err){}
+      paint();
+    });
+    paint();
+  })();
+</script>
 </body>
 </html>

@@ -50,25 +50,59 @@
 </style>
 <!-- アドセンスの所有権確認。公開して問題ない番号（HTMLに出るもの）。消さないこと。 -->
 <meta name="google-adsense-account" content="ca-pub-7335055001091712">
+<script>
+  /* 言語の決定。つくるページと同じ localStorage の 'lang' を見る。
+     保存が無ければブラウザの設定から推定する。
+     <head> で実行して <html lang> を先に確定させないと、
+     日本語が一瞬見えてから英語に入れ替わる。 */
+  (function(){
+    var v = null;
+    try { v = localStorage.getItem('lang'); } catch(e){}
+    if (v !== 'ja' && v !== 'en') {
+      v = /^ja/i.test(navigator.language || '') ? 'ja' : 'en';
+    }
+    document.documentElement.lang = v;
+  })();
+</script>
+<style>
+  /* 表示していない側の言語は消す。JSが無効でも日本語だけは出る */
+  html[lang="ja"] [data-lang="en"]{display:none}
+  html[lang="en"] [data-lang="ja"]{display:none}
+  .langbar{display:flex;justify-content:flex-end;gap:8px;
+    max-width:760px;margin:0 auto;padding:10px 20px 0}
+  .langbar button{
+    border:1px solid var(--line);background:var(--panel);color:var(--muted);
+    font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+    padding:5px 12px;border-radius:999px;cursor:pointer;
+  }
+  .langbar button[aria-pressed="true"]{
+    background:var(--obi);border-color:var(--obi-deep);color:#2A2622;
+  }
+</style>
 </head>
 <body>
 
 <header>
   <div class="obi-tab">MY NINE LOVES</div>
-  <div class="head-text"><h1>プライバシーポリシー</h1></div>
+  <div class="head-text"><span data-lang="ja"><h1>プライバシーポリシー</h1></span><span data-lang="en"><h1>Privacy Policy</h1></span></div>
 </header>
 
 <nav class="tabs">
-  <a href="/" class="tab">つくる</a>
-  <a href="/trends" class="tab">みんなの9つ</a>
-  <a href="/about" class="tab">このサイトについて</a>
-  <a href="/terms" class="tab">利用規約</a>
-  <a href="/privacy-policy" class="tab on">プライバシー</a>
-  <a href="/contact" class="tab">お問い合わせ</a>
+  <a href="/" class="tab"><span data-lang="ja">つくる</span><span data-lang="en">Create</span></a>
+  <a href="/trends" class="tab"><span data-lang="ja">みんなの9つ</span><span data-lang="en">Everyone's Nine</span></a>
+  <a href="/about" class="tab"><span data-lang="ja">このサイトについて</span><span data-lang="en">About</span></a>
+  <a href="/terms" class="tab"><span data-lang="ja">利用規約</span><span data-lang="en">Terms</span></a>
+  <a href="/privacy-policy" class="tab on"><span data-lang="ja">プライバシー</span><span data-lang="en">Privacy</span></a>
+  <a href="/contact" class="tab"><span data-lang="ja">お問い合わせ</span><span data-lang="en">Contact</span></a>
 </nav>
 
 
 <main>
+<div class="langbar" data-title-ja="プライバシーポリシー | MY NINE LOVES" data-title-en="Privacy Policy | MY NINE LOVES">
+  <button type="button" data-set="ja">日本語</button>
+  <button type="button" data-set="en">English</button>
+</div>
+<div data-lang="ja">
 
   <h2>基本的な考え方</h2>
   <p>
@@ -171,7 +205,7 @@
   <h2>データの保存期間</h2>
   <p>
     閲覧もいいねもされないまま90日が経過したデータは、自動的に削除されます。
-    それ以前の削除をご希望の場合は<a href="/contact">お問い合わせ</a>ください。
+    それ以前の削除をご希望の場合は<a href="/contact"><span data-lang="ja">お問い合わせ</span><span data-lang="en">Contact</span></a>ください。
   </p>
 
   <h2>第三者への提供</h2>
@@ -182,7 +216,7 @@
 
   <h2>お問い合わせ</h2>
   <p>
-    本ポリシーに関するご質問は、<a href="/contact">お問い合わせ</a>よりご連絡ください。
+    本ポリシーに関するご質問は、<a href="/contact"><span data-lang="ja">お問い合わせ</span><span data-lang="en">Contact</span></a>よりご連絡ください。
     ご入力いただいた内容はGoogleフォームを通じて運営者に届き、
     返信のためにのみ使用します。
   </p>
@@ -193,12 +227,174 @@
   <footer>
     <p>制定日: 2026年8月26日<br>最終改定日: 2026年9月5日</p>
     <p>
-      <a href="/">トップ</a> ｜ <a href="/about">このサイトについて</a> ｜
-      <a href="/terms">利用規約</a> ｜ <a href="/contact">お問い合わせ</a>
+      <a href="/">トップ</a> ｜ <a href="/about"><span data-lang="ja">このサイトについて</span><span data-lang="en">About</span></a> ｜
+      <a href="/terms"><span data-lang="ja">利用規約</span><span data-lang="en">Terms</span></a> ｜ <a href="/contact"><span data-lang="ja">お問い合わせ</span><span data-lang="en">Contact</span></a>
     </p>
     <p>© 2026 MY NINE LOVES</p>
   </footer>
 
+</div>
+<div data-lang="en">
+
+  <h2>Our approach</h2>
+  <p>
+    MY NINE LOVES ("this service") is built on the principle of collecting as little
+    personally identifiable information as possible. No account is required, and we
+    never ask for your name, address, telephone number or email address.
+  </p>
+
+  <h2>Information we collect</h2>
+  <table>
+    <tr><th>What</th><th>Purpose and handling</th></tr>
+    <tr>
+      <td>The nine works you choose</td>
+      <td>Used to compile rankings and to populate the Everyone's Nine listing. Only the title and the provider's ID are stored.</td>
+    </tr>
+    <tr>
+      <td>Title and name</td>
+      <td>Stored so they can be displayed on the card you created. We do not ask for your real name.</td>
+    </tr>
+    <tr>
+      <td>X account name (optional)</td>
+      <td>Used to group together the cards you have made. Entirely optional.</td>
+    </tr>
+    <tr>
+      <td>Age (optional)</td>
+      <td>Used only to compile rankings by age group. <strong>We convert it to a year of birth rather than storing an age</strong>, and we do not link it to any other information.</td>
+    </tr>
+    <tr>
+      <td>Language setting</td>
+      <td>Used to compile rankings by language. It may be inferred from your browser settings.</td>
+    </tr>
+    <tr>
+      <td>IP address</td>
+      <td><strong>Not stored as-is.</strong> To prevent repeated posting and abuse, it is converted into an irreversible form (a hash) and held only temporarily.</td>
+    </tr>
+  </table>
+
+  <h2>Images you upload</h2>
+  <div class="box">
+    <p style="margin:0">
+      Images you add yourself are <strong>processed only inside the browser on your own
+      device.</strong> They are never transmitted to or stored on this service's
+      servers, and for that reason they do not appear on the share page either.
+    </p>
+  </div>
+
+  <h2>Analytics</h2>
+  <p>
+    This service may use Google Analytics to understand how it is being used. Google
+    Analytics uses cookies to collect traffic data. That data is collected anonymously
+    and does not identify individuals.
+  </p>
+  <p>
+    If you would prefer not to be included, you can install the
+    <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener">Google Analytics Opt-out Browser Add-on</a>
+    or disable cookies in your browser settings.
+  </p>
+
+  <h2>Advertising and affiliate programs</h2>
+  <p>
+    This service participates in affiliate programs including Rakuten Affiliate, Amazon
+    Associates, A8.net and ValueCommerce. These programs may use cookies to optimise ad
+    delivery.
+  </p>
+  <p>
+    If you purchase a product through one of these links, the operator may receive a
+    referral fee. Product links are marked to indicate that they are advertising.
+  </p>
+
+  <h2>About Google AdSense</h2>
+  <p>
+    This service may use Google AdSense, a third-party advertising service. Third-party
+    vendors, including Google, use cookies to serve ads based on your prior visits to
+    this service and to other websites.
+  </p>
+  <p>
+    You may opt out of personalised advertising through
+    <a href="https://www.google.com/settings/ads" target="_blank" rel="noopener">Google Ads Settings</a>.
+    You can also visit
+    <a href="https://www.aboutads.info/choices/" target="_blank" rel="noopener">www.aboutads.info</a>
+    to opt out of the cookies that third-party vendors use for personalised advertising.
+  </p>
+  <p>
+    Cookies do not collect information that identifies you personally. If you do not
+    wish cookies to be used, you can disable them in your browser settings. If you visit
+    from the European Economic Area (EEA), the United Kingdom or Switzerland, Google's
+    consent management tool may ask for your consent to the use of advertising cookies.
+  </p>
+
+  <h2>Communication with external services</h2>
+  <p>
+    To search for works and display images, this service's server queries the services
+    listed below. Information is never sent to them directly from your browser.
+  </p>
+  <ul>
+    <li>AniList (manga, anime, characters)</li>
+    <li>TMDB (films, people)</li>
+    <li>Apple Music / iTunes (music)</li>
+    <li>Rakuten Books and Rakuten Kobo (books)</li>
+    <li>Wikidata / Wikimedia Commons / Wikipedia (people)</li>
+  </ul>
+
+  <h2>Retention period</h2>
+  <p>
+    Data that has been neither viewed nor liked for 90 days is deleted automatically.
+    If you would like something deleted sooner, please <a href="/contact">contact us</a>.
+  </p>
+
+  <h2>Disclosure to third parties</h2>
+  <p>
+    Except where required by law, we do not provide the information we collect to third
+    parties. This service does not sell information.
+  </p>
+
+  <h2>Contact</h2>
+  <p>
+    For questions about this policy, please get in touch via <a href="/contact">Contact</a>.
+    What you submit reaches the operator through a Google Form and is used only to reply
+    to you.
+  </p>
+
+  <h2>Revisions</h2>
+  <p>
+    This policy may be changed without notice. Revised content takes effect when it is
+    posted on this page.
+  </p>
+
+  <footer>
+    <p>Established: 26 August 2026<br>Last revised: 5 September 2026</p>
+    <p>
+      <a href="/">Home</a> ｜ <a href="/about">About</a> ｜
+      <a href="/terms">Terms of Service</a> ｜ <a href="/contact">Contact</a>
+    </p>
+    <p>© 2026 MY NINE LOVES</p>
+  </footer>
+
+</div>
 </main>
+<script>
+  /* 言語ボタン。選択は localStorage に残すので、
+     つくるページ・みんなの9つ側の切り替えとも共有される。 */
+  (function(){
+    var bar = document.querySelector('.langbar');
+    if (!bar) return;
+    function paint(){
+      var cur = document.documentElement.lang;
+      bar.querySelectorAll('button').forEach(function(b){
+        b.setAttribute('aria-pressed', String(b.dataset.set === cur));
+      });
+      document.title = document.documentElement.lang === 'en'
+        ? bar.dataset.titleEn : bar.dataset.titleJa;
+    }
+    bar.addEventListener('click', function(e){
+      var b = e.target.closest('button'); if (!b) return;
+      document.documentElement.lang = b.dataset.set;
+      try { localStorage.setItem('lang', b.dataset.set); } catch(err){}
+      paint();
+    });
+    paint();
+  })();
+</script>
 </body>
 </html>

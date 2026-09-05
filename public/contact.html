@@ -51,25 +51,59 @@
 </style>
 <!-- アドセンスの所有権確認。公開して問題ない番号（HTMLに出るもの）。消さないこと。 -->
 <meta name="google-adsense-account" content="ca-pub-7335055001091712">
+<script>
+  /* 言語の決定。つくるページと同じ localStorage の 'lang' を見る。
+     保存が無ければブラウザの設定から推定する。
+     <head> で実行して <html lang> を先に確定させないと、
+     日本語が一瞬見えてから英語に入れ替わる。 */
+  (function(){
+    var v = null;
+    try { v = localStorage.getItem('lang'); } catch(e){}
+    if (v !== 'ja' && v !== 'en') {
+      v = /^ja/i.test(navigator.language || '') ? 'ja' : 'en';
+    }
+    document.documentElement.lang = v;
+  })();
+</script>
+<style>
+  /* 表示していない側の言語は消す。JSが無効でも日本語だけは出る */
+  html[lang="ja"] [data-lang="en"]{display:none}
+  html[lang="en"] [data-lang="ja"]{display:none}
+  .langbar{display:flex;justify-content:flex-end;gap:8px;
+    max-width:760px;margin:0 auto;padding:10px 20px 0}
+  .langbar button{
+    border:1px solid var(--line);background:var(--panel);color:var(--muted);
+    font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+    padding:5px 12px;border-radius:999px;cursor:pointer;
+  }
+  .langbar button[aria-pressed="true"]{
+    background:var(--obi);border-color:var(--obi-deep);color:#2A2622;
+  }
+</style>
 </head>
 <body>
 
 <header>
   <div class="obi-tab">MY NINE LOVES</div>
-  <div class="head-text"><h1>お問い合わせ</h1></div>
+  <div class="head-text"><span data-lang="ja"><h1>お問い合わせ</h1></span><span data-lang="en"><h1>Contact</h1></span></div>
 </header>
 
 <nav class="tabs">
-  <a href="/" class="tab">つくる</a>
-  <a href="/trends" class="tab">みんなの9つ</a>
-  <a href="/about" class="tab">このサイトについて</a>
-  <a href="/terms" class="tab">利用規約</a>
-  <a href="/privacy-policy" class="tab">プライバシー</a>
-  <a href="/contact" class="tab on">お問い合わせ</a>
+  <a href="/" class="tab"><span data-lang="ja">つくる</span><span data-lang="en">Create</span></a>
+  <a href="/trends" class="tab"><span data-lang="ja">みんなの9つ</span><span data-lang="en">Everyone's Nine</span></a>
+  <a href="/about" class="tab"><span data-lang="ja">このサイトについて</span><span data-lang="en">About</span></a>
+  <a href="/terms" class="tab"><span data-lang="ja">利用規約</span><span data-lang="en">Terms</span></a>
+  <a href="/privacy-policy" class="tab"><span data-lang="ja">プライバシー</span><span data-lang="en">Privacy</span></a>
+  <a href="/contact" class="tab on"><span data-lang="ja">お問い合わせ</span><span data-lang="en">Contact</span></a>
 </nav>
 
 
 <main>
+<div class="langbar" data-title-ja="お問い合わせ | MY NINE LOVES" data-title-en="Contact | MY NINE LOVES">
+  <button type="button" data-set="ja">日本語</button>
+  <button type="button" data-set="en">English</button>
+</div>
+<div data-lang="ja">
 
   <h2>権利者の方へ</h2>
   <p>
@@ -123,12 +157,101 @@
 
   <footer>
     <p>
-      <a href="/">トップ</a> ｜ <a href="/about">このサイトについて</a> ｜
-      <a href="/terms">利用規約</a> ｜ <a href="/privacy-policy">プライバシーポリシー</a>
+      <a href="/">トップ</a> ｜ <a href="/about"><span data-lang="ja">このサイトについて</span><span data-lang="en">About</span></a> ｜
+      <a href="/terms"><span data-lang="ja">利用規約</span><span data-lang="en">Terms</span></a> ｜ <a href="/privacy-policy">プライバシーポリシー</a>
     </p>
     <p>© 2026 MY NINE LOVES</p>
   </footer>
 
+</div>
+<div data-lang="en">
+
+  <h2>For rights holders</h2>
+  <p>
+    If you are a rights holder and contact us about any cover art, jacket, poster or
+    photograph shown here, we will review the matter and respond promptly. Requests for
+    removal will be handled as quickly as possible.
+  </p>
+  <p>
+    It helps if you can tell us the URL of the page concerned and which part of it you
+    are referring to.
+  </p>
+
+  <h2>How to reach us</h2>
+  <div class="box">
+    <p style="margin:0 0 12px;font-size:13px">
+      Please use the form below. It includes a field for your email address, and we
+      will reply to you there.
+    </p>
+    <p style="margin:0">
+      <a class="cta" href="https://docs.google.com/forms/d/e/1FAIpQLSdQGf4oE_BVkSdw95iJ3JamdRP8RTYfM0dZTDWDygXTGltHqg/viewform"
+         target="_blank" rel="noopener">Open the contact form</a>
+    </p>
+  </div>
+  <p style="font-size:13px;color:var(--muted)">
+    This service is run by one person, so a reply may take some time. If your enquiry is
+    urgent, please indicate this in the "type" field of the form.
+  </p>
+  <p style="font-size:13px;color:var(--muted)">
+    Messages on X (<a href="https://x.com/POPONOTAN_neet" target="_blank" rel="noopener">@POPONOTAN_neet</a>)
+    are also read, but please use the form above for formal enquiries so that nothing
+    is missed.
+  </p>
+
+  <h2>Other enquiries</h2>
+  <p>The following are also welcome at the address above.</p>
+  <ul>
+    <li>Bug reports and features that are not working</li>
+    <li>Errors in work data, such as an incorrect title or a mismatched image</li>
+    <li>Feature requests</li>
+    <li>Press, republication and other enquiries</li>
+  </ul>
+
+  <h2>Deleting your data</h2>
+  <p>
+    If you would like something you created to be deleted, please let us know at the
+    address above. Telling us the URL from when you created it (one beginning with
+    <code>/c/</code>) makes it much easier to identify.
+  </p>
+  <p>
+    Note that data which has been neither viewed nor liked for 90 days is deleted
+    automatically.
+  </p>
+
+  <p style="margin-top:26px"><a class="cta" href="/">Choose your nine</a></p>
+
+  <footer>
+    <p>
+      <a href="/">Home</a> ｜ <a href="/about">About</a> ｜
+      <a href="/terms">Terms of Service</a> ｜ <a href="/privacy-policy">Privacy Policy</a>
+    </p>
+    <p>© 2026 MY NINE LOVES</p>
+  </footer>
+
+</div>
 </main>
+<script>
+  /* 言語ボタン。選択は localStorage に残すので、
+     つくるページ・みんなの9つ側の切り替えとも共有される。 */
+  (function(){
+    var bar = document.querySelector('.langbar');
+    if (!bar) return;
+    function paint(){
+      var cur = document.documentElement.lang;
+      bar.querySelectorAll('button').forEach(function(b){
+        b.setAttribute('aria-pressed', String(b.dataset.set === cur));
+      });
+      document.title = document.documentElement.lang === 'en'
+        ? bar.dataset.titleEn : bar.dataset.titleJa;
+    }
+    bar.addEventListener('click', function(e){
+      var b = e.target.closest('button'); if (!b) return;
+      document.documentElement.lang = b.dataset.set;
+      try { localStorage.setItem('lang', b.dataset.set); } catch(err){}
+      paint();
+    });
+    paint();
+  })();
+</script>
 </body>
 </html>

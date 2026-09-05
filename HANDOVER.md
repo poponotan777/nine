@@ -84,10 +84,10 @@ nine-server/
 └── public/
     ├── index.html     エディタ本体（UI・多言語・canvas書き出し）
     ├── trends.html    みんなの9つ / ランキング / カードの拡大表示
-    ├── about.html     このサイトについて
-    ├── terms.html     利用規約
-    ├── privacy.html   プライバシーポリシー
-    ├── contact.html   お問い合わせ
+    ├── about.html     このサイトについて（日英併記）
+    ├── terms.html     利用規約（日英併記）
+    ├── privacy.html   プライバシーポリシー（日英併記）
+    ├── contact.html   お問い合わせ（日英併記）
     ├── robots.txt     クローラー向け。**/og/ と /img の Allow を消さないこと**
     ├── ads.txt        アドセンスの認証（1行）。無いと配信が絞られる
     ├── sitemap.xml    固定ページのみ
@@ -207,6 +207,23 @@ CDモードの内部名は `cd` ではなく **`album`**。
 `item_stats` は積み上げなので、一度混ざった数字は取り消せない。
 
 画面側の関数名は `recordCard`（`index.html`）。サーバー側とは別物。
+
+### 規約類は1ファイルに日英を両方入れている
+
+`/en/terms` のような別URLにはしていない。
+ルーティングと `sitemap.xml` と `robots.txt` を触る必要が出るためで、
+**`robots.txt` は `/og/` の Allow を壊すとXのサムネイルが消える**箇所なので、
+触らずに済ませる判断をした。
+
+仕組みは `<html lang>` によるCSSの出し分け。
+`html[lang="ja"] [data-lang="en"]{display:none}` の1行で切り替わる。
+言語の判定スクリプトは **`<head>` に置く**。`<body>` の描画前に確定させないと、
+日本語が一瞬見えてから英語に入れ替わる。
+記憶先は `localStorage` の `'lang'` で、つくるページ・みんなの9つと同じキー。
+**JSが無効でも `<html lang="ja">` のままなので日本語版が出る。**
+
+文言を足すときは**両方の言語に足すこと。** 片方だけ足すと、
+言語を切り替えたときにその段落が消えたように見える。
 
 ### 生まれた年をそのまま聞き、そのまま保存する
 
@@ -362,7 +379,7 @@ node tools/make-og-site.js
 | アドセンスのサイト審査 | メタタグ（`ca-pub-7335055001091712`）は全ページと `/c/:id` に配置済み。アドセンス画面で「確認」→「審査をリクエスト」が未 |
 | アドセンス通過後の設定 | `ADSENSE_JSON` に `rail` `rail2` `bar` の3つを書くだけ。**審査に通るまで設定しない** |
 | 広告枠の残り | `character_inflow2` が空 |
-| 英語版の規約類 | about / terms / privacy / contact が日本語のみ |
+
 
 ### 設計判断が必要
 

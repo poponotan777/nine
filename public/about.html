@@ -84,28 +84,62 @@
 </style>
 <!-- アドセンスの所有権確認。公開して問題ない番号（HTMLに出るもの）。消さないこと。 -->
 <meta name="google-adsense-account" content="ca-pub-7335055001091712">
+<script>
+  /* 言語の決定。つくるページと同じ localStorage の 'lang' を見る。
+     保存が無ければブラウザの設定から推定する。
+     <head> で実行して <html lang> を先に確定させないと、
+     日本語が一瞬見えてから英語に入れ替わる。 */
+  (function(){
+    var v = null;
+    try { v = localStorage.getItem('lang'); } catch(e){}
+    if (v !== 'ja' && v !== 'en') {
+      v = /^ja/i.test(navigator.language || '') ? 'ja' : 'en';
+    }
+    document.documentElement.lang = v;
+  })();
+</script>
+<style>
+  /* 表示していない側の言語は消す。JSが無効でも日本語だけは出る */
+  html[lang="ja"] [data-lang="en"]{display:none}
+  html[lang="en"] [data-lang="ja"]{display:none}
+  .langbar{display:flex;justify-content:flex-end;gap:8px;
+    max-width:760px;margin:0 auto;padding:10px 20px 0}
+  .langbar button{
+    border:1px solid var(--line);background:var(--panel);color:var(--muted);
+    font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+    padding:5px 12px;border-radius:999px;cursor:pointer;
+  }
+  .langbar button[aria-pressed="true"]{
+    background:var(--obi);border-color:var(--obi-deep);color:#2A2622;
+  }
+</style>
 </head>
 <body>
 
 <header>
   <div class="obi-tab">MY NINE LOVES</div>
   <div class="head-text">
-    <h1>このサイトについて</h1>
-    <p>9つ選んで、1枚の画像にする</p>
+    <span data-lang="ja"><h1>このサイトについて</h1></span><span data-lang="en"><h1>About</h1></span>
+    <span data-lang="ja"><p>9つ選んで、1枚の画像にする</p></span><span data-lang="en"><p>Pick nine. Get one image.</p></span>
   </div>
 </header>
 
 <nav class="tabs">
-  <a href="/" class="tab">つくる</a>
-  <a href="/trends" class="tab">みんなの9つ</a>
-  <a href="/about" class="tab on">このサイトについて</a>
-  <a href="/terms" class="tab">利用規約</a>
-  <a href="/privacy-policy" class="tab">プライバシー</a>
-  <a href="/contact" class="tab">お問い合わせ</a>
+  <a href="/" class="tab"><span data-lang="ja">つくる</span><span data-lang="en">Create</span></a>
+  <a href="/trends" class="tab"><span data-lang="ja">みんなの9つ</span><span data-lang="en">Everyone's Nine</span></a>
+  <a href="/about" class="tab on"><span data-lang="ja">このサイトについて</span><span data-lang="en">About</span></a>
+  <a href="/terms" class="tab"><span data-lang="ja">利用規約</span><span data-lang="en">Terms</span></a>
+  <a href="/privacy-policy" class="tab"><span data-lang="ja">プライバシー</span><span data-lang="en">Privacy</span></a>
+  <a href="/contact" class="tab"><span data-lang="ja">お問い合わせ</span><span data-lang="en">Contact</span></a>
 </nav>
 
 
 <main>
+<div class="langbar" data-title-ja="このサイトについて | MY NINE LOVES" data-title-en="About | MY NINE LOVES">
+  <button type="button" data-set="ja">日本語</button>
+  <button type="button" data-set="en">English</button>
+</div>
+<div data-lang="ja">
 
   <h2>できること</h2>
   <p>
@@ -132,7 +166,7 @@
     「カードのURLでシェア」を押すと、そのときの9つが保存されて
     <code>/c/</code> で始まるURLが発行されます。
     <strong>このURLを控えておかないと、あとから開くことはできません。</strong>
-    同時に「<a href="/trends">みんなの9つ</a>」の一覧とランキングにも並びます。
+    同時に「<a href="/trends"><span data-lang="ja">みんなの9つ</span><span data-lang="en">Everyone's Nine</span></a>」の一覧とランキングにも並びます。
   </p>
   <p>
     自分で追加した画像は端末の中だけで処理しているため、
@@ -141,7 +175,7 @@
   </p>
   <p class="note">
     閲覧もいいねもされないまま90日が過ぎたものは自動的に削除されます。
-    それ以前の削除をご希望の場合は<a href="/contact">お問い合わせ</a>ください。
+    それ以前の削除をご希望の場合は<a href="/contact"><span data-lang="ja">お問い合わせ</span><span data-lang="en">Contact</span></a>ください。
   </p>
 
   <h2>データの出典</h2>
@@ -195,31 +229,168 @@
   </p>
   <p>
     掲載内容について権利者の方からご連絡をいただいた場合は、確認のうえ速やかに対応します。
-    <a href="/contact">お問い合わせ</a>からご連絡ください。
+    <a href="/contact"><span data-lang="ja">お問い合わせ</span><span data-lang="en">Contact</span></a>からご連絡ください。
   </p>
 
-  <!-- 本文を読み終えた位置に1つだけ。規約類と共有ページには置かない方針 -->
+  <!-- 本文を読み終えた位置に1つだけ。規約類には置かない方針 -->
   <div id="adAbout" class="pr-block" hidden></div>
 
   <footer>
     <p>
       開発者: <a href="https://x.com/POPONOTAN_neet" target="_blank" rel="noopener me">@POPONOTAN_neet</a><br>
       <a href="/">トップ</a> ｜ <a href="/privacy-policy">プライバシーポリシー</a> ｜
-      <a href="/terms">利用規約</a> ｜ <a href="/contact">お問い合わせ</a>
+      <a href="/terms"><span data-lang="ja">利用規約</span><span data-lang="en">Terms</span></a> ｜ <a href="/contact"><span data-lang="ja">お問い合わせ</span><span data-lang="en">Contact</span></a>
     </p>
     <p>© 2026 MY NINE LOVES</p>
   </footer>
 
+</div>
+<div data-lang="en">
+
+  <h2>What you can do</h2>
+  <p>
+    Pick nine favourites — albums, manga, anime, films, public figures or characters —
+    and they become a single card image. You can search by the title of a work or by the
+    name of its author or artist. Your choices are saved separately for each category,
+    so switching between them does not clear what you have picked.
+  </p>
+  <p><a class="cta" href="/">Choose your nine</a></p>
+
+  <h2>How many have been made</h2>
+  <div class="counter">
+    <div><span class="n" id="totalEn">–</span><span class="k">TOTAL</span></div>
+    <div><span class="n" id="todayEn">–</span><span class="k">LAST 24H</span></div>
+    <div><span class="n" id="kindsEn">–</span><span class="k">CATEGORIES</span></div>
+  </div>
+  <p class="note" id="breakdownEn"></p>
+
+  <h2>Where your nine are kept</h2>
+  <p>
+    There is no account registration. Work in progress stays
+    <strong>only inside your own browser.</strong> It does not carry over if you change
+    device or browser, and it disappears if you clear your browsing history.
+  </p>
+  <p>
+    When you press "Share by card URL", the nine you have at that moment are saved and a
+    URL beginning with <code>/c/</code> is issued.
+    <strong>If you do not keep a note of that URL, you will not be able to open it
+    again.</strong> At the same time the card joins the
+    <a href="/trends">Everyone's Nine</a> listing and the rankings.
+  </p>
+  <p>
+    Because images you add yourself are processed only on your device,
+    <strong>that square will be empty</strong> on the share page. It is still included
+    in the file you get from "Save as a 3×3 image".
+  </p>
+  <p class="note">
+    Anything that has been neither viewed nor liked for 90 days is deleted
+    automatically. If you would like something deleted sooner, please
+    <a href="/contact">contact us</a>.
+  </p>
+
+  <h2>Data sources</h2>
+  <table>
+    <tr><th>Category</th><th>Provider</th></tr>
+    <tr><td>Albums</td><td>Apple Music / iTunes Search API</td></tr>
+    <tr><td>Manga, anime, characters</td><td><a href="https://anilist.co" target="_blank" rel="noopener">AniList</a></td></tr>
+    <tr><td>Books</td><td><a href="https://webservice.rakuten.co.jp/" target="_blank" rel="noopener">Rakuten Books / Rakuten Kobo</a></td></tr>
+    <tr><td>Films</td><td><a href="https://www.themoviedb.org" target="_blank" rel="noopener">TMDB</a></td></tr>
+    <tr><td>Public figures</td><td><a href="https://www.wikidata.org" target="_blank" rel="noopener">Wikidata</a> / Wikimedia Commons / TMDB / Wikipedia</td></tr>
+  </table>
+  <p class="note">
+    <a href="https://webservice.rakuten.co.jp/" target="_blank" rel="noopener">Supported by Rakuten Web Service</a><br>
+    This service is not endorsed or certified by TMDB. Images originating from Wikimedia
+    Commons are provided under CC BY-SA. Rights in each cover, poster and photograph
+    remain with their respective holders.
+  </p>
+
+  <h2>Notes on how it is built</h2>
+  <p>This is a personal project. A few decisions that needed thought:</p>
+  <ul>
+    <li>
+      <strong>Choosing a cover-image API</strong> — the National Diet Library Search
+      cover API closed in March 2026 and the openBD API is no longer offered, so the
+      design uses work-level databases rather than starting from an ISBN.
+    </li>
+    <li>
+      <strong>Putting our own server in between</strong> — calling external APIs
+      straight from the browser would expose the API keys, and a canvas that has drawn
+      an external image becomes tainted so the picture cannot be exported. Routing
+      everything through our own server solves both of those and rate limiting at once.
+    </li>
+    <li>
+      <strong>Inconsistent spellings</strong> — full-width and half-width characters,
+      hiragana and katakana, interpuncts and long-vowel marks are all normalised, and a
+      converted form is searched again only when the first attempt returns little.
+      Results are ordered by how much their character pairs overlap (the Dice
+      coefficient). Converting phonetic readings into kanji is out of scope, as that
+      needs a morphological dictionary.
+    </li>
+    <li>
+      <strong>Searching for people</strong> — a Wikipedia full-text search does not
+      distinguish people from anything else, so organisations and titles get mixed in.
+      Results are restricted to entries whose Wikidata classification (P31) is human
+      (Q5).
+    </li>
+    <li>
+      <strong>Why Twitter/X is not used</strong> — it moved to usage-based pricing in
+      February 2026 and the free tier was withdrawn, and rights in profile images belong
+      to the individuals themselves. For those two reasons it was not adopted.
+    </li>
+  </ul>
+
+  <h2>Rights</h2>
+  <p>
+    This service is run on a non-commercial basis and exists to introduce works to
+    people. Images are fetched from each provider as needed and are not stored or
+    redistributed here.
+  </p>
+  <p>
+    If you are a rights holder and contact us about anything shown here, we will review
+    it and respond promptly. Please get in touch via <a href="/contact">Contact</a>.
+  </p>
+
+  <footer>
+    <p>
+      Developer: <a href="https://x.com/POPONOTAN_neet" target="_blank" rel="noopener me">@POPONOTAN_neet</a><br>
+      <a href="/">Home</a> ｜ <a href="/privacy-policy">Privacy Policy</a> ｜
+      <a href="/terms">Terms of Service</a> ｜ <a href="/contact">Contact</a>
+    </p>
+    <p>© 2026 MY NINE LOVES</p>
+  </footer>
+
+</div>
 </main>
 
 <script>
-  const LABEL = { cd:'CD', manga:'漫画', anime:'アニメ', movie:'映画', person:'有名人', character:'キャラ' };
+  const LABEL = {
+    ja: { cd:'CD', manga:'漫画', anime:'アニメ', movie:'映画', person:'有名人', character:'キャラ' },
+    en: { cd:'Albums', manga:'Manga', anime:'Anime', movie:'Films', person:'People', character:'Characters' },
+  };
+  const PAGE_LANG = document.documentElement.lang === 'en' ? 'en' : 'ja';
+
+  /* innerHTML で入れた <script> はブラウザが実行しない（HTML5の仕様）。
+     アドセンスは <script> で動くので、作り直して入れ替える。
+     index.html / trends.html にある runAdScripts と同じもの。 */
+  const adScriptSrc = new Set();
+  function runAdScripts(el){
+    el.querySelectorAll('script').forEach(old => {
+      const src = old.getAttribute('src');
+      if (src && adScriptSrc.has(src)) { old.remove(); return; }
+      if (src) adScriptSrc.add(src);
+      const s = document.createElement('script');
+      for (const a of old.attributes) s.setAttribute(a.name, a.value);
+      s.textContent = old.textContent;
+      old.replaceWith(s);
+    });
+  }
 
   // このページ用の広告。種類の指定が無いので common に落ちる
-  fetch('/x/ads?kind=about&lang=ja')
+  fetch('/x/ads?kind=about&lang=' + PAGE_LANG)
     .then(r => r.json())
     .then(a => {
       const box = document.getElementById('adAbout');
+      if (!box) return;
       const html = (a.inflow || '') + (a.inflow2 || '');
       if (!html) return;
       box.innerHTML = '<div class="pr-label">PR</div><div class="pr-row">'
@@ -227,23 +398,60 @@
         + (a.inflow2 ? `<div>${a.inflow2}</div>` : '')
         + '</div>';
       box.hidden = false;
+      runAdScripts(box);
     })
     .catch(() => {});
+
   fetch('/x/stats')
     .then(r => r.json())
     .then(s => {
-      const fmt = n => n.toLocaleString('ja-JP');
-      document.getElementById('total').textContent = fmt(s.total);
-      document.getElementById('today').textContent = fmt(s.today);
       const kinds = Object.keys(s.byType || {});
-      document.getElementById('kinds').textContent = kinds.length;
-      document.getElementById('breakdown').textContent = kinds.length
-        ? '内訳: ' + kinds.map(k => `${LABEL[k] || k} ${fmt(s.byType[k])}`).join(' ・ ')
-        : 'まだ1枚も作られていません。最初の1枚を作ってみてください。';
+      // 日本語版と英語版の両方に書き込む。表示されていない側は隠れているだけで、
+      // 言語を切り替えたときに数字が空のままにならないようにする。
+      const put = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      [['ja',''], ['en','En']].forEach(([lg, suffix]) => {
+        const fmt = n => n.toLocaleString(lg === 'en' ? 'en-US' : 'ja-JP');
+        put('total' + suffix, fmt(s.total));
+        put('today' + suffix, fmt(s.today));
+        put('kinds' + suffix, kinds.length);
+        const label = kinds.map(k => `${LABEL[lg][k] || k} ${fmt(s.byType[k])}`).join(lg === 'en' ? ' · ' : ' ・ ');
+        put('breakdown' + suffix, kinds.length
+          ? (lg === 'en' ? 'Breakdown: ' : '内訳: ') + label
+          : (lg === 'en'
+              ? 'No cards have been made yet. Be the first.'
+              : 'まだ1枚も作られていません。最初の1枚を作ってみてください。'));
+      });
     })
     .catch(() => {
-      document.getElementById('breakdown').textContent = '集計を読み込めませんでした。';
+      const m = { breakdown: '集計を読み込めませんでした。',
+                  breakdownEn: 'Could not load the totals.' };
+      Object.entries(m).forEach(([id, t]) => {
+        const el = document.getElementById(id); if (el) el.textContent = t;
+      });
     });
+</script>
+<script>
+  /* 言語ボタン。選択は localStorage に残すので、
+     つくるページ・みんなの9つ側の切り替えとも共有される。 */
+  (function(){
+    var bar = document.querySelector('.langbar');
+    if (!bar) return;
+    function paint(){
+      var cur = document.documentElement.lang;
+      bar.querySelectorAll('button').forEach(function(b){
+        b.setAttribute('aria-pressed', String(b.dataset.set === cur));
+      });
+      document.title = document.documentElement.lang === 'en'
+        ? bar.dataset.titleEn : bar.dataset.titleJa;
+    }
+    bar.addEventListener('click', function(e){
+      var b = e.target.closest('button'); if (!b) return;
+      document.documentElement.lang = b.dataset.set;
+      try { localStorage.setItem('lang', b.dataset.set); } catch(err){}
+      paint();
+    });
+    paint();
+  })();
 </script>
 </body>
 </html>
