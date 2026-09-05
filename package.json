@@ -1,7 +1,7 @@
 {
   "name": "my-nine",
   "version": "1.0.0",
-  "description": "好きなCD・漫画・アニメ・映画・有名人・キャラクターを9つ選んで1枚の画像にするツール",
+  "description": "好きなCD・漫画・書籍・アニメ・映画・有名人・キャラクターを9つ選んで1枚の画像にするツール",
   "private": true,
   "main": "server.js",
   "scripts": {
@@ -9,7 +9,6 @@
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.60",
-    "jsdom": "^30.0.1",
     "pg": "^8.13.1"
   },
   "engines": {

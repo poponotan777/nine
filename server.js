@@ -1,14 +1,29 @@
 /**
- * MY NINE — サーバー（Node 18+ / 依存パッケージなし）
+ * MY NINE — サーバー（Node 22.5 以上）
  *
+ *   npm install                             → pg と @napi-rs/canvas が入る
  *   node server.js                          → http://localhost:3000
  *   TMDB_API_KEY=xxxx node server.js        → 映画モードも有効になる
  *
+ * ------------------------------------------------------------------
+ * APIのパスは必ず /x/ で始める。/api/ は使ってはいけない。
+ *
+ * Render が /api/ を予約パスとして横取りするため、
+ * /api/* にすると本番だけ全部404になる（ローカルでは再現しない）。
+ * 過去に実際に踏んでいる。戻さないこと。
+ * ------------------------------------------------------------------
+ *
  * 役割:
- *   1. /api/search   種別ごとに外部APIを代理で叩く
- *   2. /api/suggest  入力補完（軽いエンドポイントのみを使う）
- *   3. /api/related  関連作品（シリーズ・続編・同アーティスト）
- *   4. /img          許可ホストの画像だけを同一オリジンで中継（canvas汚染の回避）
+ *   1. /x/search    種別ごとに外部APIを代理で叩く
+ *   2. /x/suggest   入力補完（軽いエンドポイントのみを使う）
+ *   3. /x/related   関連作品（シリーズ・続編・同アーティスト）
+ *   4. /x/cards     カードの保存と一覧。9つ揃っていないものは受け付けない
+ *   5. /x/top       作品ランキング（item_stats から読む）
+ *   6. /x/like      いいね（端末ごとに1カード1回）
+ *   7. /img         許可ホストの画像だけを同一オリジンで中継（canvas汚染の回避）
+ *   8. /c/:id       共有ページ。OGPタグ入りのHTMLをここで組み立てる
+ *   9. /og/:id.png  共有用のサムネイル（1200×630）
+ *  10. /healthz     死活監視用。DBには触れない
  */
 
 const http = require('http');
@@ -612,8 +627,14 @@ const server = http.createServer(async (req, res) => {
       const body = await readBody(req);
       if (!TYPES.has(body.type)) return send(res, 400, { error: '種別が不正です' });
 
+      /* 9つ揃っていないものは受け付けない。
+         画面側でもボタンを無効にしているが、そこだけだと
+         /x/cards に直接POSTすれば虫食いのカードを保存できてしまう。
+         item_stats は積み上げなので、一度混ざった数字は取り消せない。 */
       const items = Array.isArray(body.items) ? body.items.slice(0, 9) : [];
-      if (!items.filter(Boolean).length) return send(res, 400, { error: '中身がありません' });
+      if (items.filter(Boolean).length !== 9) {
+        return send(res, 400, { error: '9つすべて選んでください' });
+      }
 
       // アップロード画像はサーバーに保存しない。共有ページにも出さない。
       // API由来のものだけ、画像の「URL」を控える（画像そのものは持たない）
