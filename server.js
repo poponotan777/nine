@@ -488,6 +488,11 @@ function serveCard(card, res) {
 <html lang="ja">
 <head>
 <meta charset="utf-8">
+<!-- このページは「みんなの9つ」の詳細から iframe で読み込まれる。
+     base が無いと、ナビもフッターも枠の中で開いてしまい、外に出られない。
+     _top にすると、iframe の外（親のウィンドウ）で開く。
+     単体で開いたときは _self と同じ動きなので、実害は無い。 -->
+<base target="_top">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="google-adsense-account" content="ca-pub-7335055001091712">
 <!-- 丸ゴシック。つくるページと同じ見た目にするため。
@@ -517,7 +522,7 @@ function serveCard(card, res) {
     --muted:#5F6858;--obi:#FFC61A;--obi-deep:#E09600;--pop:#E03A5F;
     --head:#25302A;--head-text:#F2F6EC;--shadow:0 2px 0 rgba(200,208,187,.8);--r:12px;
     --mincho:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","ヒラギノ丸ゴ ProN","Yu Gothic","Noto Sans JP",sans-serif;
-    --gothic:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","ヒラギノ丸ゴ ProN","Yu Gothic","Noto Sans JP",system-ui,sans-serif;
+    --gothic:"Hiragino Maru Gothic ProN","ヒラギノ丸ゴ ProN","Hiragino Sans","Yu Gothic Medium","Yu Gothic","Meiryo","Noto Sans JP",system-ui,sans-serif;
     --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
   }
   *{box-sizing:border-box}
@@ -535,9 +540,12 @@ function serveCard(card, res) {
   .tab{padding:13px 18px;font-size:13px;color:var(--muted);text-decoration:none;white-space:nowrap}
   .tab:hover{color:var(--text);background:var(--panel-2)}
   main{max-width:560px;margin:0 auto;padding:26px 20px}
-  .meta{display:flex;gap:14px;align-items:baseline;font-size:12px;color:var(--muted);
+  .meta{display:flex;gap:14px;align-items:center;font-size:12px;color:var(--muted);
     margin-bottom:16px;flex-wrap:wrap}
   .meta .kind{color:var(--pop);font-weight:700}
+  /* Xへのリンク。サイト内の /u/ と並ぶので、外に出ることが分かるように囲む */
+  .meta .xlink{border:1px solid var(--line);border-radius:999px;
+    padding:3px 10px;font-size:11px;text-decoration:none}
   .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px}
   .cell{position:relative;aspect-ratio:${KIND_RATIO[card.type] || '1/1'};
     background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
@@ -634,7 +642,8 @@ ${railHtml(shareAds.rail, 'r')}${railHtml(shareAds.railLeft, 'l')}
 <main>
   <div class="meta">
     <span class="kind">${esc(kind)}</span>
-    ${card.handle ? `<a href="/u/${esc(card.handle)}">@${esc(card.handle)}</a>` : ''}
+    ${card.handle ? `<a href="/u/${esc(card.handle)}">@${esc(card.handle)}</a>
+    <a class="xlink" href="https://x.com/${esc(card.handle)}" target="_blank" rel="noopener">Xで見る</a>` : ''}
     <span>${Number(card.views) || 0} view ・ ${Number(card.likes) || 0} ♥</span>
   </div>
   <div class="grid">${cells.join('')}</div>
