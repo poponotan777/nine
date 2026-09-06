@@ -14,8 +14,8 @@
     --text:#1B1F19; --muted:#5F6858; --obi:#FFC61A; --obi-deep:#E09600;
     --pop:#E03A5F; --head:#25302A; --head-text:#F2F6EC;
     --shadow:0 2px 0 rgba(200,208,187,.8); --r:12px;
-    --mincho:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;
-    --gothic:"Hiragino Sans","Yu Gothic","Noto Sans JP",system-ui,sans-serif;
+    --mincho: "M PLUS Rounded 1c","Hiragino Maru Gothic ProN","ヒラギノ丸ゴ ProN","Yu Gothic","Noto Sans JP",sans-serif;
+    --gothic: "M PLUS Rounded 1c","Hiragino Maru Gothic ProN","ヒラギノ丸ゴ ProN","Yu Gothic","Noto Sans JP",system-ui,sans-serif;
     --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
   }
   *{box-sizing:border-box}
@@ -109,6 +109,12 @@
   .langopt[aria-pressed=true]{background:var(--obi);color:#2A2622;font-weight:700}
   @media (max-width:420px){ .head-meta{padding:12px 12px} }
 </style>
+<!-- 丸ゴシック。明朝の硬さを消して、やわらかい印象にするため。
+     preconnect を先に置くと、CSSの取得が1往復ぶん早くなる。
+     display=swap にしてあるので、読み込み前でも文字は表示される（消えない）。 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
 

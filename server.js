@@ -490,6 +490,11 @@ function serveCard(card, res) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="google-adsense-account" content="ca-pub-7335055001091712">
+<!-- 丸ゴシック。つくるページと同じ見た目にするため。
+     display=swap なので、読み込み前でも文字は消えない。 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet">
 <link rel="icon" href="/icon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="/icon-180.png">
 <title>${esc(title)} | MY NINE LOVES</title>
@@ -511,8 +516,8 @@ function serveCard(card, res) {
     --ink:#EFF2E8;--panel:#FFF;--panel-2:#E4E9DA;--line:#C8D0BB;--text:#1B1F19;
     --muted:#5F6858;--obi:#FFC61A;--obi-deep:#E09600;--pop:#E03A5F;
     --head:#25302A;--head-text:#F2F6EC;--shadow:0 2px 0 rgba(200,208,187,.8);--r:12px;
-    --mincho:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;
-    --gothic:"Hiragino Sans","Yu Gothic","Noto Sans JP",system-ui,sans-serif;
+    --mincho:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","ヒラギノ丸ゴ ProN","Yu Gothic","Noto Sans JP",sans-serif;
+    --gothic:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","ヒラギノ丸ゴ ProN","Yu Gothic","Noto Sans JP",system-ui,sans-serif;
     --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
   }
   *{box-sizing:border-box}

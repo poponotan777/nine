@@ -16,8 +16,16 @@ const { createCanvas, loadImage, GlobalFonts } = require('@napi-rs/canvas');
 const FONT_DIR = path.join(__dirname, 'fonts');
 let fontsReady = false;
 try {
-  GlobalFonts.registerFromPath(path.join(FONT_DIR, 'NotoSansJP-Bold.otf'), 'NineBold');
-  GlobalFonts.registerFromPath(path.join(FONT_DIR, 'NotoSansJP-Regular.otf'), 'NineText');
+  // 丸ゴシック。サイト側と同じ書体にして、カード画像だけ硬い印象になるのを避ける。
+  // 読めなければ Noto に落ちる（どちらも同梱してある）。
+  try {
+    GlobalFonts.registerFromPath(path.join(FONT_DIR, 'MPLUSRounded1c-Bold.ttf'), 'NineBold');
+    GlobalFonts.registerFromPath(path.join(FONT_DIR, 'MPLUSRounded1c-Regular.ttf'), 'NineText');
+  } catch (e) {
+    console.warn('丸ゴシックを読めないので Noto を使います:', e.message);
+    GlobalFonts.registerFromPath(path.join(FONT_DIR, 'NotoSansJP-Bold.otf'), 'NineBold');
+    GlobalFonts.registerFromPath(path.join(FONT_DIR, 'NotoSansJP-Regular.otf'), 'NineText');
+  }
   fontsReady = true;
 } catch (e) {
   console.warn('フォントを読み込めませんでした:', e.message);
