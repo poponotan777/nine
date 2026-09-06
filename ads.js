@@ -60,9 +60,9 @@ function pick(v) {
 
 /** アドセンス。
  *  もとは置き場所だけを見ていた（全ページ共通）。
- *  「有名人ページの本文内だけアドセンスを出す」といった指定ができるよう、
+ *  「キャラのページの本文内だけアドセンスを出す」といった指定ができるよう、
  *  ページ名つきのキーを先に探すようにした。
- *    person_inflow_ja → person_inflow → inflow_ja → inflow
+ *    character_inflow_ja → character_inflow → inflow_ja → inflow
  *  ページ名を書かなければ、これまでどおり全ページ共通で効く。 */
 function adsenseSlot(kind, place, lang) {
   for (const k of [`${kind}_${place}_${lang}`, `${kind}_${place}`,

@@ -35,7 +35,7 @@ const { adsFor, hasAds } = require('./ads');
 const ogimage = require('./ogimage');
 
 const PORT = process.env.PORT || 3000;
-const TYPES = new Set(['album', 'manga', 'anime', 'movie', 'person', 'character', 'book']);
+const TYPES = new Set(['album', 'manga', 'anime', 'movie', 'character', 'book']);
 
 /* ------------------------------------------------------------------ *
  * キャッシュ（メモリ上・TTL付き・LRU）
@@ -396,11 +396,11 @@ function readBody(req, limit = 64 * 1024) {
  * ------------------------------------------------------------------ */
 const KIND_LABEL = {
   album:'CD', manga:'漫画', book:'書籍', anime:'アニメ',
-  movie:'映画', person:'有名人', character:'キャラクター',
+  movie:'映画', character:'キャラクター',
 };
 const KIND_RATIO = {
   album:'1/1', manga:'460/654', book:'2/3', anime:'460/654',
-  movie:'2/3', person:'3/4', character:'460/654',
+  movie:'2/3', character:'460/654',
 };
 
 const esc = t => String(t == null ? '' : t)
@@ -763,7 +763,7 @@ const server = http.createServer(async (req, res) => {
         };
       });
 
-      // SNSハンドル（@なし・英数字と_のみ）。有名人ページの紐づけに使う
+      // SNSハンドル（@なし・英数字と_のみ）。作った人のページ（/u/）の紐づけに使う
       const handle = String(body.handle || '').replace(/^@/, '').slice(0, 30);
 
       // 言語。指定が無ければブラウザの Accept-Language から推定する

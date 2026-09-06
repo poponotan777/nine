@@ -7,7 +7,6 @@
  *  manga     AniList GraphQL (MANGA)                    不要
  *  anime     AniList GraphQL (ANIME)                    不要
  *  movie     TMDB                                       TMDB_API_KEY
- *  person    Wikidata + TMDB人物 + Wikipedia               TMDBは任意
  *
  * 正規化した戻り値:
  *   { id, source, title, sub, img, relatedId, relatedCount, relationLabel? }
@@ -23,8 +22,6 @@ const IMG_HOSTS = [
   /^is\d-ssl\.mzstatic\.com$/,
   /^a\d\.mzstatic\.com$/,
   /^image\.tmdb\.org$/,
-  /^upload\.wikimedia\.org$/,
-  /^commons\.wikimedia\.org$/,
   /^yt\d\.ggpht\.com$/,
   /^yt\d\.googleusercontent\.com$/,
   /^i\.ytimg\.com$/,
@@ -39,8 +36,8 @@ const proxied = url => (url ? '/img?u=' + encodeURIComponent(url) : '');
 
 /* 言語。'ja' か 'en'。各APIに渡す値をここで一元管理する */
 const LANG = {
-  ja: { tmdb:'ja-JP', wiki:'ja', itunes:'JP', wikiHost:'ja.wikipedia.org' },
-  en: { tmdb:'en-US', wiki:'en', itunes:'US', wikiHost:'en.wikipedia.org' },
+  ja: { tmdb:'ja-JP', itunes:'JP' },
+  en: { tmdb:'en-US', itunes:'US' },
 };
 const langOf = l => LANG[l] || LANG.ja;
 
@@ -158,8 +155,6 @@ function makeQueue(intervalMs) {
 }
 const q = {
   anilist: makeQueue(700), itunes: makeQueue(350), tmdb: makeQueue(120),
-  wiki: makeQueue(1200),      // Wikidata / Wikipedia。429を避けるため広めに
-  commons: makeQueue(1200),   // 画像クレジット。別キューにして本体を邪魔しない
   rakuten: makeQueue(1100),   // 楽天は1秒1リクエストが目安
   jikan: makeQueue(1200),     // AniListの代替。1秒3回・1分60回なので広めに
   kitsu: makeQueue(600),      // さらにその代替
@@ -193,7 +188,7 @@ async function getJSON(url, opts = {}, retry = true) {
 /* ================================================================== *
  * AniList（漫画・アニメ）
  * ================================================================== */
-const ANILIST = 'https://graphql.anilist.co';
+const ANILIST = process.env.ANILIST_URL || 'https://graphql.anilist.co';
 
 const MEDIA = `
   id type
@@ -503,42 +498,6 @@ function shapeMovie(m) {
 }
 
 const DEPT = { Acting: '俳優', Directing: '監督', Writing: '脚本', Production: 'プロデューサー', Sound: '音楽', Camera: '撮影' };
-function shapePerson(p) {
-  return {
-    id: 'tmdb-' + p.id, source: 'tmdb',
-    title: p.name || '',
-    sub: DEPT[p.known_for_department] || (p.known_for?.[0]?.title ? '映画・TV' : ''),
-    img: p.profile_path ? proxied('https://image.tmdb.org/t/p/w500' + p.profile_path) : '',
-    relatedId: null, relatedCount: 0,
-    _alts: [p.original_name, ...(p.also_known_as || [])].filter(Boolean),
-  };
-}
-
-/* ================================================================== *
- * Wikipedia（有名人。Wikidataで拾いきれないときの受け皿）
- * ================================================================== */
-const wikiURL = params => {
-  const u = new URL('https://ja.wikipedia.org/w/api.php');
-  Object.entries({ format: 'json', formatversion: 2, ...params }).forEach(([k, v]) => u.searchParams.set(k, v));
-  return u.toString();
-};
-
-async function searchWiki(term) {
-  const json = await q.wiki(() => getJSON(wikiURL({
-    action: 'query', generator: 'search', gsrsearch: term, gsrlimit: 20, gsrnamespace: 0,
-    prop: 'pageimages|pageterms', piprop: 'thumbnail', pithumbsize: 500, wbptterms: 'description',
-  })));
-  return (json.query?.pages || [])
-    .filter(p => p.thumbnail?.source)
-    .map(p => ({
-      id: 'wiki-' + p.pageid, source: 'wikipedia',
-      title: p.title.replace(/\s*\(.+?\)$/, ''),
-      sub: (p.terms?.description?.[0] || '').slice(0, 24),
-      img: proxied(p.thumbnail.source),
-      relatedId: null, relatedCount: 0,
-      _alts: [p.title],
-    }));
-}
 
 /* ================================================================== *
  * 公開インターフェース
@@ -583,28 +542,6 @@ async function search(type, rawQuery, lang = 'ja') {
       books = mergeBy(x => bookKey(x.title), books, kobo);
     }
     return rank(books, term).slice(0, 24);
-  }
-
-  if (type === 'person') {
-    // Wikidataを主軸に、俳優・声優はTMDBで補う。
-    // 同じ人物は名前で1つにまとめる（先に来たソースを優先）
-    const [wd, tmdb] = await Promise.all([
-      fanout(term, v => wikidataPeople(v, lang), { enough: 3, max: 2 }).catch(() => []),
-      TMDB_KEY
-        ? q.tmdb(() => getJSON(tmdbURL('/search/person', { query: term, include_adult: 'false' }, lang)))
-            .then(j => (j.results || []).map(shapePerson).filter(x => x.img))
-            .catch(() => [])
-        : [],
-    ]);
-
-    let merged = mergeBy(x => key(x.title) || x.id, wd, tmdb);
-
-    // 薄いときだけ、Wikipedia全文検索で拾い直す
-    if (merged.length < 4) {
-      const wiki = await searchWiki(term).catch(() => []);
-      merged = mergeBy(x => key(x.title) || x.id, merged, wiki);
-    }
-    return rank(merged, term).slice(0, 24);
   }
 
   throw Object.assign(new Error('未対応の種別です'), { status: 400 });
@@ -673,27 +610,6 @@ async function suggest(type, rawQuery) {
     return dedupe(rank(got, term)).map(({ label, sub }) => ({ label, sub }));
   }
 
-  if (type === 'person') {
-    // opensearch は前方一致なので、当たらなければ全文検索に切り替える
-    const got = await fanout(term, async v => {
-      const json = await q.wiki(() => getJSON(wikiURL({ action: 'opensearch', search: v, limit: 8, namespace: 0 })));
-      return (json[1] || []).map((label, i) => ({
-        id: label, source: 'wiki',
-        label: label.replace(/\s*\(.+?\)$/, ''),
-        sub: (json[2]?.[i] || '').slice(0, 20),
-        title: label,
-      }));
-    }, { enough: 4, max: 2 });
-
-    if (got.length < 3 && TMDB_KEY) {
-      const j = await q.tmdb(() => getJSON(tmdbURL('/search/person', { query: term }))).catch(() => null);
-      (j?.results || []).slice(0, 6).forEach(p => got.push({
-        id: 'tmdb-' + p.id, source: 'tmdb', label: p.name,
-        sub: DEPT[p.known_for_department] || '', title: p.name,
-      }));
-    }
-    return dedupe(rank(got, term)).map(({ label, sub }) => ({ label, sub }));
-  }
   return [];
 }
 
@@ -849,80 +765,6 @@ async function works(type, id, extra = {}) {
       .map(m => { const s = shapeMovie(m); delete s._alts; return s; });
   }
   return [];
-}
-
-/* ================================================================== *
- * Wikidata（人物）
- *
- * Wikipediaの全文検索は「人物かどうか」を見ないため、
- * 団体名・楽曲名・地名が同列に混ざってしまう。
- * Wikidataなら P31（分類）= Q5（ヒト）で厳密に絞り込める。
- * さらに別名（芸名・本名・ローマ字表記）が登録されているので表記ゆれにも強い。
- * ================================================================== */
-const wdURL = params => {
-  const u = new URL('https://www.wikidata.org/w/api.php');
-  Object.entries({ format: 'json', ...params }).forEach(([k, v]) => u.searchParams.set(k, v));
-  return u.toString();
-};
-
-const claimValues = (ent, prop) =>
-  ((ent.claims || {})[prop] || []).map(c => c.mainsnak?.datavalue?.value).filter(Boolean);
-
-const commonsImage = file =>
-  'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(file) + '?width=500';
-
-/**
- * Commonsの画像クレジットを引く（CC BY-SA の著作者表示義務に対応するため）
- * imageinfo の extmetadata から、著作者名とライセンス名を取り出す。
- * 失敗しても検索自体は止めない。
- */
-const COMMONS = 'https://commons.wikimedia.org/w/api.php';
-
-function stripTags(html) {
-  return String(html || '')
-    .replace(/<[^>]*>/g, '')
-    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"').replace(/&#0?39;/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-async function commonsCredits(files) {
-  const list = [...new Set(files.filter(Boolean))].slice(0, 10);
-  if (!list.length) return {};
-  try {
-  return await fetchCredits(list);
-  } catch (err) {
-    console.warn('クレジット取得に失敗（検索は継続）:', err.message);
-    return {};
-  }
-}
-
-async function fetchCredits(list) {
-  const u = new URL(COMMONS);
-  Object.entries({
-    action: 'query', format: 'json', formatversion: 2,
-    prop: 'imageinfo', iiprop: 'extmetadata',
-    iiextmetadatafilter: 'Artist|LicenseShortName|LicenseUrl|Credit',
-    titles: list.map(f => 'File:' + f).join('|'),
-  }).forEach(([k, v]) => u.searchParams.set(k, v));
-
-  const json = await q.commons(() => getJSON(u.toString())).catch(() => null);
-  const out = {};
-  (json?.query?.pages || []).forEach(p => {
-    const m = p.imageinfo?.[0]?.extmetadata || {};
-    const file = String(p.title || '').replace(/^File:/, '');
-    const author = stripTags(m.Artist?.value) || stripTags(m.Credit?.value);
-    const license = stripTags(m.LicenseShortName?.value);
-    if (author || license) {
-      out[decodeURIComponent(file).replace(/_/g, ' ')] = {
-        author: (author || '不明').slice(0, 60),
-        license: license || '',
-        licenseUrl: m.LicenseUrl?.value || '',
-      };
-    }
-  });
-  return out;
 }
 
 /* ================================================================== *
@@ -1097,66 +939,28 @@ async function searchKobo(term, field = 'title') {
   }
 }
 
-async function wikidataPeople(term, lang = 'ja') {
-  const L = langOf(lang).wiki;
-  const found = await q.wiki(() => getJSON(wdURL({
-    action: 'wbsearchentities', search: term, language: L, uselang: L,
-    type: 'item', limit: 20,
-  })));
-  const ids = (found.search || []).map(x => x.id);
-  if (!ids.length) return [];
-
-  const got = await q.wiki(() => getJSON(wdURL({
-    action: 'wbgetentities', ids: ids.join('|'),
-    props: 'claims|labels|descriptions|aliases', languages: `${L}|en`,
-  })));
-  const entities = Object.values(got.entities || {});
-
-  // ヒトだけ残し、画像があるものに限る
-  const people = entities.filter(e =>
-    claimValues(e, 'P31').some(v => v.id === 'Q5') && claimValues(e, 'P18').length
-  );
-  if (!people.length) return [];
-
-  // 職業（P106）のラベルをまとめて引く
-  const occIds = [...new Set(people.map(e => claimValues(e, 'P106')[0]?.id).filter(Boolean))];
-  let occLabels = {};
-  if (occIds.length) {
-    const lab = await q.wiki(() => getJSON(wdURL({
-      action: 'wbgetentities', ids: occIds.slice(0, 50).join('|'),
-      props: 'labels', languages: 'ja|en',
-    }))).catch(() => null);
-    Object.entries(lab?.entities || {}).forEach(([id, e]) => {
-      occLabels[id] = e.labels?.ja?.value || e.labels?.en?.value || '';
-    });
-  }
-
-  // 著作者表示のためクレジットをまとめて取得
-  const credits = await commonsCredits(people.map(e => claimValues(e, 'P18')[0])).catch(() => ({}));
-
-  return people.map(e => {
-    const name = e.labels?.ja?.value || e.labels?.en?.value || '';
-    const occ = occLabels[claimValues(e, 'P106')[0]?.id] || '';
-    const aliases = [...(e.aliases?.ja || []), ...(e.aliases?.en || [])].map(a => a.value);
-    const file = claimValues(e, 'P18')[0];
-    const cr = credits[String(file || '').replace(/_/g, ' ')];
-    return {
-      id: 'wd-' + e.id, source: 'wikidata',
-      title: name,
-      sub: (occ || e.descriptions?.ja?.value || '').slice(0, 24),
-      img: proxied(commonsImage(file)),
-      relatedId: null, relatedCount: 0,
-      // CC BY-SA の著作者表示に使う
-      credit: cr ? { author: cr.author, license: cr.license } : null,
-      _alts: [e.labels?.en?.value, ...aliases].filter(Boolean),
-    };
-  }).filter(x => x.title);
-}
-
 /* ================================================================== *
  * AniList（キャラクター）
  * 漫画・アニメ・ゲーム原作のキャラクターを横断で引ける。キー不要。
  * ================================================================== */
+/* 作品名からキャラクターを引く。
+   キャラ名で1件も当たらなかったときに使う。
+   「鬼滅の刃」のように作品名で検索したとき、
+   その作品に出てくるキャラクターが並ぶようにするため。
+
+   media を1件だけ取り、そこに紐づくキャラクターを
+   出番の多い順（ROLE）で返す。ROLE 順にすると主人公が先に来る。 */
+const Q_CHARS_BY_MEDIA = `query ($s: String) {
+  Page(perPage: 1) { media(search: $s, sort: SEARCH_MATCH, isAdult: false) {
+    title { native romaji }
+    characters(perPage: 25, sort: ROLE) { nodes {
+      id
+      name { native full alternative }
+      image { large }
+    } }
+  } }
+}`;
+
 const Q_CHARACTERS = `query ($s: String) {
   Page(perPage: 18) { characters(search: $s, sort: SEARCH_MATCH) {
     id
@@ -1179,6 +983,23 @@ function shapeCharacter(c, lang = 'ja') {
   };
 }
 
+/* 作品名で引いたときの整形。
+   キャラ名で引いた場合と違い、作品名は media 側から取れるので、
+   ぶら下がる全キャラに同じ作品名を入れる。 */
+function shapeCharsOfMedia(media, lang = 'ja') {
+  const en = lang === 'en';
+  const from = media?.title;
+  const sub = from ? (en ? (from.romaji || from.native) : (from.native || from.romaji)) || '' : '';
+  return (media?.characters?.nodes || []).map(c => ({
+    id: c.id, source: 'anilist',
+    title: (en ? (c.name?.full || c.name?.native) : (c.name?.native || c.name?.full)) || '',
+    sub,
+    img: proxied(c.image?.large || ''),
+    relatedId: null, relatedCount: 0,
+    _alts: [c.name?.full, c.name?.native, ...(c.name?.alternative || [])].filter(Boolean),
+  })).filter(x => x.img && x.title);
+}
+
 async function searchCharacters(term, lang = 'ja') {
   return fanout(term, async v => {
     if (Date.now() >= anilistDownUntil) {
@@ -1187,6 +1008,21 @@ async function searchCharacters(term, lang = 'ja') {
         const got = (data.Page?.characters || [])
           .map(c => shapeCharacter(c, lang)).filter(x => x.img && x.title);
         if (got.length) return got;
+      } catch (e) {
+        if (isAniListDown(e)) anilistDownUntil = Date.now() + ANILIST_COOLDOWN;
+        else throw e;
+      }
+
+      /* キャラ名で当たらなかったときは、作品名として引き直す。
+         「鬼滅の刃」と入れた人はキャラ一覧が見たいはずで、
+         「該当なし」で終わらせると探しようがない。
+         キャラ名を優先するのは、名前が作品名と同じ場合
+         （ドラえもん、ポケモンなど）にキャラを出したいため。 */
+      try {
+        const byMedia = await anilist(Q_CHARS_BY_MEDIA, { s: v });
+        const media = byMedia.Page?.media?.[0];
+        const chars = shapeCharsOfMedia(media, lang);
+        if (chars.length) return chars;
       } catch (e) {
         if (isAniListDown(e)) anilistDownUntil = Date.now() + ANILIST_COOLDOWN;
         else throw e;
@@ -1276,7 +1112,7 @@ function buyLinks(type, item) {
     album: 'popular', cd: 'popular',
     book: 'stripbooks', manga: 'stripbooks',
     movie: 'dvd', anime: 'dvd',
-    character: null, person: null,
+    character: null,
   };
   if (CATEGORY[type] !== undefined && CATEGORY[type] !== null) {
     const url = amazonSearch(q, CATEGORY[type]);
