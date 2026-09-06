@@ -44,6 +44,12 @@
     font-family:var(--mono);font-size:11px;letter-spacing:.18em;
     padding:14px 10px;writing-mode:vertical-rl;
   }
+  /* 帯の高さは min-height で固定する。
+     中身の行数（副題の有無、枚数表示の有無）で決めると、
+     どれか1ページの中身を変えるたびに帯の高さが変わってしまう。
+     左右とも縦中央に置くので、行数が違っても見た目は揃う。 */
+  header{min-height:92px}
+  .head-text{display:flex;flex-direction:column;justify-content:center}
   .head-text{padding:18px 16px}
   .head-text h1{
     font-family:var(--mincho);font-weight:700;
@@ -135,8 +141,7 @@
     <p data-tr="ja">9つ選んで、1枚の画像にする</p><p data-tr="en">Pick nine. Get one image.</p>
   </div>
 <div class="head-meta">
-    <span class="made"><strong id="madeCount">–</strong> <span data-tr="ja">枚つくられました</span><span data-tr="en">made so far</span></span>
-    <div class="langsw" role="group" aria-label="Language">
+        <div class="langsw" role="group" aria-label="Language">
       <button type="button" class="langopt" data-lang="ja">日本語</button>
       <button type="button" class="langopt" data-lang="en">English</button>
     </div>
@@ -422,12 +427,6 @@
     .then(r => r.json())
     .then(s => {
       const kinds = Object.keys(s.byType || {});
-      // ヘッダー右の「枚つくられました」。つくるページと揃えるために置いている
-      const made = document.getElementById('madeCount');
-      if (made && typeof s.total === 'number') {
-        made.textContent = s.total.toLocaleString(
-          document.documentElement.lang === 'en' ? 'en-US' : 'ja-JP');
-      }
       // 日本語版と英語版の両方に書き込む。表示されていない側は隠れているだけで、
       // 言語を切り替えたときに数字が空のままにならないようにする。
       const put = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };

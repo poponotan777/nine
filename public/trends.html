@@ -58,6 +58,12 @@
   header{display:flex;background:var(--head);color:var(--head-text);align-items:stretch}
   .obi-tab{background:var(--obi);color:#2A2622;font-family:var(--mono);font-size:11px;
            letter-spacing:.18em;padding:14px 10px;writing-mode:vertical-rl}
+  /* 帯の高さは min-height で固定する。
+     中身の行数（副題の有無、枚数表示の有無）で決めると、
+     どれか1ページの中身を変えるたびに帯の高さが変わってしまう。
+     左右とも縦中央に置くので、行数が違っても見た目は揃う。 */
+  header{min-height:92px}
+  .head-text{display:flex;flex-direction:column;justify-content:center}
   .head-text{padding:18px 16px}
   .head-text h1{font-family:var(--mincho);font-weight:700;font-size:23px;margin:0 0 4px;letter-spacing:.04em}
   .head-text p{margin:0;font-size:12px;color:#A9B6A2;letter-spacing:.04em}
