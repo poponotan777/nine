@@ -253,6 +253,24 @@ CDモードの内部名は `cd` ではなく **`album`**。
 `header` は `align-items:stretch` のままにすること。
 縦帯（`.obi-tab`）が min-height まで伸びなくなる。
 
+**揃わない原因は CSS の数値ではなく、次の2つだった（実測して判明）。**
+
+1. **`body{zoom}` が規約類に無かった。**
+   つくるページとみんなの9つには
+   `@media (min-width:1024px){ body{zoom:1.10} }` と `1600px で 1.15` が掛かっている。
+   規約類には無く、PCで見たときだけ1割小さく描かれていた。
+   `font-size:23px` を揃えても、zoom が違えば見た目は揃わない。
+
+2. **`body{line-height:1.9}` がヘッダーにも継承されていた。**
+   規約類は本文を読みやすくするため body に 1.9 を掛けている。
+   これが `h1` と副題にも効き、行が高くなっていた。
+   `.head-text{line-height:normal}` で戻したうえで、
+   `h1` に `1.34`、副題に `1.36` を明示して本家と一致させた。
+
+**見た目が揃わないときは、CSSの値を見比べるだけでは足りない。**
+`zoom` と、body からの継承（line-height、font-family）を必ず疑うこと。
+実際にブラウザで `getBoundingClientRect().height` を測るのが確実。
+
 **枚数の文言の切り替え方はページによって違う。**
 `index.html` と `trends.html` は `applyLang()` がJSで書き換える方式なので、
 `data-tr` の span を置いても**両方の言語が同時に出てしまう**（一度踏んだ）。

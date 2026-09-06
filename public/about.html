@@ -48,14 +48,23 @@
      中身の行数（副題の有無、枚数表示の有無）で決めると、
      どれか1ページの中身を変えるたびに帯の高さが変わってしまう。
      左右とも縦中央に置くので、行数が違っても見た目は揃う。 */
+  /* PCでは全体を1割ほど拡大する。スマホは等倍のまま。
+     つくるページ・みんなの9つと同じ指定。
+     ここが無いと、CSSの数値を揃えてもヘッダーの見た目が1割小さくなり、
+     ページを移動したとき文字の大きさと帯の高さが変わる。 */
+  @media (min-width:1024px){ body{zoom:1.10} }
+  @media (min-width:1600px){ body{zoom:1.15} }
   header{min-height:92px}
   .head-text{display:flex;flex-direction:column;justify-content:center}
   .head-text{padding:18px 16px}
+  /* body の line-height:1.9 がヘッダーにも継承され、
+     つくるページより行が高くなるので、ここだけ戻す */
+  .head-text{line-height:normal}
   .head-text h1{
     font-family:var(--mincho);font-weight:700;
     font-size:23px;letter-spacing:.04em;margin:0 0 4px;
-  }
-  .head-text p{margin:0;font-size:12px;color:#A9B6A2;letter-spacing:.04em}
+  ;line-height:1.34}
+  .head-text p{margin:0;font-size:12px;color:#A9B6A2;letter-spacing:.04em;line-height:1.36}
 
   .tabs{display:flex;background:var(--panel);border-bottom:1px solid var(--line);overflow-x:auto}
   .tab{padding:13px 18px;font-size:13px;color:var(--muted);text-decoration:none;
