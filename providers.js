@@ -735,6 +735,13 @@ async function creators(type, rawQuery) {
 
 /** その人物の作品一覧 */
 async function works(type, id, extra = {}) {
+  /* キャラは「登場作品の名前」で引く。書籍が著者名で引くのと同じ形で、
+     idではなく文字列を受け取る（extra.author に作品名が入る）。 */
+  if (type === 'character') {
+    const work = String(extra.author || '').slice(0, 60);
+    if (!work) return [];
+    return charactersOfWork(work, extra.lang || 'ja');
+  }
   if (type === 'book') {
     const author = String(extra.author || '').slice(0, 60);
     if (!author) return [];
@@ -1025,29 +1032,6 @@ async function searchCharacters(term, lang = 'ja') {
         if (isAniListDown(e)) anilistDownUntil = Date.now() + ANILIST_COOLDOWN;
         else throw e;
       }
-
-      /* キャラ名で当たらなかったときは、作品名として引き直す。
-         「鬼滅の刃」と入れた人はキャラ一覧が見たいはずで、
-         「該当なし」で終わらせると探しようがない。
-         キャラ名を優先するのは、名前が作品名と同じ場合
-         （ドラえもん、ポケモンなど）にキャラを出したいため。
-
-         ここは「当たれば嬉しい」追加機能なので、何があっても投げない。
-         投げると、この下の Jikan での再挑戦に進めず、
-         **もともと動いていたキャラ検索まで道連れで失敗する**。
-
-         **冷却期間（anilistDownUntil）にも入れない。**
-         クエリの書き方が誤っていても「AniListが停止中」と判定され、
-         10分間キャラ検索が丸ごと止まる、という壊れ方をした。
-         AniListの生死は、上のキャラ名検索の結果だけで判断する。 */
-      try {
-        const byMedia = await anilist(Q_CHARS_BY_MEDIA, { s: v });
-        const media = byMedia.Page?.media?.[0];
-        const chars = shapeCharsOfMedia(media, lang);
-        if (chars.length) return chars;
-      } catch (e) {
-        console.warn('作品名でのキャラ検索に失敗（キャラ名の検索は継続）:', e.message);
-      }
     }
     // キャラクターの画像を持つ代替はJikanだけ。詰まっているときは空で返す
     if (Date.now() < jikanDownUntil) return [];
@@ -1058,6 +1042,16 @@ async function searchCharacters(term, lang = 'ja') {
       throw e;
     }
   });
+}
+
+/* 作品名を指定して、その作品のキャラクターを返す。
+   キャラ名の検索とは別の入り口にしてある（画面の「登場作品で探す」）。
+   キャラ名で0件だったら作品名として引き直す、という推測はしない。
+   推測が絡むと、失敗したときにどちらが原因か分からなくなる。 */
+async function charactersOfWork(term, lang = 'ja') {
+  if (Date.now() < anilistDownUntil) return [];
+  const data = await anilist(Q_CHARS_BY_MEDIA, { s: term });
+  return shapeCharsOfMedia(data.Page?.media?.[0], lang);
 }
 
 /* ================================================================== *

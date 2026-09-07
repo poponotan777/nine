@@ -1004,13 +1004,18 @@ const server = http.createServer(async (req, res) => {
       const type   = url.searchParams.get('type') || '';
       const id     = url.searchParams.get('id') || '';
       const author = (url.searchParams.get('author') || '').slice(0, 60);
+      const wlang  = url.searchParams.get('lang') === 'en' ? 'en' : 'ja';
       if (!TYPES.has(type)) return send(res, 400, { error: '種別が不正です' });
-      if (type !== 'book' && !/^\d+$/.test(id)) return send(res, 400, { error: 'idが不正です' });
-      if (type === 'book' && !author) return send(res, 400, { error: '著者名が必要です' });
+      // 書籍は著者名、キャラは登場作品の名前。どちらもidではなく文字列で引く
+      const byName = (type === 'book' || type === 'character');
+      if (!byName && !/^\d+$/.test(id)) return send(res, 400, { error: 'idが不正です' });
+      if (byName && !author) {
+        return send(res, 400, { error: type === 'character' ? '作品名が必要です' : '著者名が必要です' });
+      }
 
-      const key = `works:${type}:${id}:${P.cacheKey(author).toLowerCase()}`;
+      const key = `works:${type}:${id}:${wlang}:${P.cacheKey(author).toLowerCase()}`;
       const fetchFresh = async () => {
-        const r = (await P.works(type, id, { author }))
+        const r = (await P.works(type, id, { author, lang: wlang }))
           .map(it => ({ ...it, links: P.buyLinks(type, it) }));
         cacheSet2(key, r, TTL.search);
         return r;

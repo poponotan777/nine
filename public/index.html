@@ -737,6 +737,8 @@
       'st.slow':'検索中…（外部のデータベースに問い合わせています。数秒かかることがあります）',
       'st.building':'画像を作っています…',
       'st.none':'見つかりませんでした。別の言葉で試してください。',
+      'st.noneWork':'その作品が見つかりませんでした。正式なタイトルで試してください。',
+      'st.workHint':'作品名を入れると、その作品のキャラクターが並びます。',
       'st.failed':'検索に失敗しました。画像を直接アップロードすることもできます。',
       'st.willApply':'「決定」で反映されます',
       'st.creatorHint':'名前を入れて検索すると、その人の作品一覧が出ます。',
@@ -791,6 +793,8 @@
       'st.slow':'Searching\u2026 (asking an external database; this can take a few seconds)',
       'st.building':'Building the image\u2026',
       'st.none':'Nothing found. Try different words.',
+      'st.noneWork':'That series was not found. Try its official title.',
+      'st.workHint':'Enter a series title to list its characters.',
       'st.failed':'Search failed. You can also upload an image directly.',
       'st.willApply':'Press Done to apply',
       'st.creatorHint':'Search a name to see everything they made.',
@@ -886,9 +890,11 @@
 
   // 「作者で探す」のラベル。持たない種類では出さない
   const BY_LABEL_JA = { cd:'アーティストで探す', manga:'作者で探す', book:'著者で探す',
-                        anime:'制作・監督で探す', movie:'監督・出演者で探す' };
+                        anime:'制作・監督で探す', movie:'監督・出演者で探す',
+                        character:'登場作品で探す' };
   const BY_LABEL_EN = { cd:'By artist', manga:'By author', book:'By author',
-                        anime:'By studio', movie:'By director / cast' };
+                        anime:'By studio', movie:'By director / cast',
+                        character:'By series' };
   const BY_LABEL = new Proxy({}, { get: (_, k) =>
     (LANG === 'en' ? BY_LABEL_EN : BY_LABEL_JA)[k] });
 
@@ -1113,11 +1119,25 @@
     const hasCreator = !!BY_LABEL[S.mode];
     $('findBy').style.display = hasCreator ? 'flex' : 'none';
     $('byCreator').textContent = BY_LABEL[S.mode] || '作者で探す';
+    // キャラのときは左が「作品名」ではなく「キャラ名」。
+    // 右が「登場作品で探す」なので、左をそのままにすると意味が逆に見える。
+    const byWork = $('findBy').querySelector('[data-by="work"]');
+    if (byWork) {
+      byWork.textContent = S.mode === 'character'
+        ? (LANG === 'en' ? 'By name' : 'キャラ名で探す')
+        : t('by.work');
+    }
 
     if (mode === 'creator'){
-      $('q').placeholder = LANG === 'en' ? 'Search a name'
-        : (BY_LABEL[S.mode] || '').replace('で探す', '名');
-      setStatus(t('st.creatorHint'));
+      if (S.mode === 'character'){
+        // キャラだけは「人物」ではなく作品名を入れてもらう
+        $('q').placeholder = LANG === 'en' ? 'Series title' : '作品名';
+        setStatus(t('st.workHint'));
+      } else {
+        $('q').placeholder = LANG === 'en' ? 'Search a name'
+          : (BY_LABEL[S.mode] || '').replace('で探す', '名');
+        setStatus(t('st.creatorHint'));
+      }
     } else {
       $('q').placeholder = C().ph;
       setStatus(C().hint);
@@ -1269,6 +1289,8 @@
   }
 
   async function runSearch(){
+    // キャラの「登場作品で探す」は、人物の候補を挟まず作品名で直接キャラを出す
+    if (findBy === 'creator' && S.mode === 'character') return runCharsOfWork();
     if (findBy === 'creator') return runCreatorSearch();
     const q = $('q').value.trim();
     const type = API_TYPE[S.mode];
@@ -1305,6 +1327,25 @@
     } catch(err){
       setStatus('関連を取得できませんでした。（' + err.message + '）', true);
     }
+  }
+
+  /** 作品名を入れて、その作品のキャラクターを並べる */
+  async function runCharsOfWork(){
+    const q = $('q').value.trim();
+    if (!q) return;
+    $('results').innerHTML = ''; $('people').innerHTML = '';
+    $('back').style.display = 'none';
+    setStatus(t('st.searching'));
+    const slowTimer = setTimeout(() => setStatus(t('st.slow')), 1200);
+    try{
+      const list = await api(`/x/works?type=character&id=0&author=${encodeURIComponent(q)}&lang=${LANG}`);
+      if (!list.length) return setStatus(t('st.noneWork'));
+      lastSearch = list;
+      paintResults(list);
+      setStatus(t('st.tap'));
+    } catch(err){
+      setStatus(t('st.error'));
+    } finally { clearTimeout(slowTimer); }
   }
 
   $('back').addEventListener('click', () => {
@@ -1988,6 +2029,13 @@
       el.innerHTML = t(el.dataset.i18n);
     });
     $('hint').innerHTML = t('grid.hint');
+    // 左タブは data-i18n で「作品名で探す」に戻るので、キャラのときは上書きし直す
+    {
+      const byWork = $('findBy') && $('findBy').querySelector('[data-by="work"]');
+      if (byWork && S.mode === 'character') {
+        byWork.textContent = LANG === 'en' ? 'By name' : 'キャラ名で探す';
+      }
+    }
     $('handleHint').textContent = t('handle.hint');
     $('outNote').textContent = t('out.note');
     $('ageTitle').textContent = t('age.title');

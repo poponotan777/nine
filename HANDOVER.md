@@ -245,40 +245,31 @@ Wikidata / Wikimedia Commons / Wikipedia は有名人専用の出典だったの
 `ADSENSE_JSON` の `person_inflow` は `character_inflow` に移した。
 「購入リンクを持たない種類で枠が空くのを埋める」という目的が同じため。
 
-### キャラ検索は作品名でも引ける
+### キャラは「キャラ名」と「登場作品」で入力欄を分けている
 
-キャラ名で0件のとき、**作品名として引き直す**（`Q_CHARS_BY_MEDIA`）。
-「鬼滅の刃」と入れたらその作品のキャラが並ぶ。並び順は ROLE なので主人公が先。
+漫画の「作品名 / 作者」と同じタブの仕組み（`findBy`）に乗せてある。
 
-キャラ名を先に試すのは、ドラえもんやポケモンのように
-**キャラ名と作品名が同じ**ときにキャラを出したいため。順番を入れ替えないこと。
-キャラ名で当たった場合は作品名の検索は走らない（通信は増えない）。
+- **キャラ名で探す** … `/x/search?type=character`（もとからある経路。触らない）
+- **登場作品で探す** … `/x/works?type=character&author={作品名}`
 
-**この追加でキャラ検索を二度まるごと壊した。** AniListのスキーマの決まりごと:
+**「キャラ名で0件なら作品名として引き直す」という推測はしない。**
+最初それで作ったが、失敗したときにどちらが原因か分からなくなるうえ、
+追加した側のエラーが本来のキャラ検索を巻き込んで全滅させた。
+入力欄を分けたのは、利用者に分かりやすいだけでなく、
+**壊れたときに切り分けられるようにするため。**
 
-- `Media.characters` の `sort` は **配列**（`[CharacterSort]`）。単体で書くとエラー。
+`works()` はキャラのとき、idではなく文字列（作品名）を受け取る。
+書籍が著者名で引くのと同じ形。`extra.author` に作品名が入る。
+
+AniListのクエリ（`Q_CHARS_BY_MEDIA`）の決まりごと:
+- `sort` は **配列**（`[CharacterSort]`）。単体で書くとエラー。
 - `CharacterSort` は公開スキーマだと
-  `FAVOURITES` `FAVOURITES_DESC` `ID` `ID_DESC` `ROLE` `ROLE_DESC` `SEARCH_MATCH` の**7つ**。
-  `RELEVANCE` を足したら壊れた。**確実なもの以外は書かないこと。**
-  なお公開スキーマは古く、`Q_SEARCH` が使っている `StaffSort: RELEVANCE` は
+  `FAVOURITES` `FAVOURITES_DESC` `ID` `ID_DESC` `ROLE` `ROLE_DESC` `SEARCH_MATCH` の7つ。
+  **確実なもの以外は書かない。** `RELEVANCE` を足して壊した。
+  なお公開スキーマは古く、`Q_SEARCH` の `StaffSort: RELEVANCE` は
   載っていないのに本番では動く。**スキーマは参考程度で、鵜呑みにしない。**
 - `characters` の `perPage` は **上限25**。
-- 役どころは `node` ではなく **`edges` 側**。`edges { role node { … } }` で取る。
-
-さらに壊れ方を悪化させていたのが次の2点。
-
-1. エラーを `throw` していたため、下にある Jikan での再挑戦に進めず、
-   **もともと動いていたキャラ名の検索まで道連れ**になっていた。
-2. `isAniListDown(e)` で **10分間の冷却に入れていた**。
-   クエリの書き方の誤りは「AniListの停止」ではないのに停止扱いになり、
-   **1回目は時間をかけて失敗、2回目以降は即失敗**という症状になった。
-
-いまは投げず、冷却にも入れず、警告をログに出して先へ進む。
-**あとから足す「当たれば嬉しい」機能は、失敗しても既存の経路を止めないこと。
-外部APIの停止判定に混ぜないこと。**
-
-クエリを直したら、スキーマと突き合わせて確かめること。
-スキーマは `https://github.com/TehNut/AniLinker/raw/refs/heads/master/schema.graphql` で読める。
+- 役どころは `node` ではなく **`edges` 側**。`edges { role node { … } }`。
 
 ### 書体は丸ゴシック（M PLUS Rounded 1c）
 
