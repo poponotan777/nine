@@ -948,15 +948,22 @@ async function searchKobo(term, field = 'title') {
    「鬼滅の刃」のように作品名で検索したとき、
    その作品に出てくるキャラクターが並ぶようにするため。
 
-   media を1件だけ取り、そこに紐づくキャラクターを
-   出番の多い順（ROLE）で返す。ROLE 順にすると主人公が先に来る。 */
+   sort は **配列** で渡すこと（`[CharacterSort]` 型）。
+   `sort: ROLE` と単体で書くとGraphQLがエラーを返し、
+   それが外まで抜けてキャラ検索そのものが失敗する。一度これで壊した。
+
+   役どころ（主人公か脇役か）は node ではなく edge 側にあるので、
+   edges を経由して role と node を一緒に取る。 */
 const Q_CHARS_BY_MEDIA = `query ($s: String) {
   Page(perPage: 1) { media(search: $s, sort: SEARCH_MATCH, isAdult: false) {
     title { native romaji }
-    characters(perPage: 25, sort: ROLE) { nodes {
-      id
-      name { native full alternative }
-      image { large }
+    characters(perPage: 25, sort: [ROLE, RELEVANCE]) { edges {
+      role
+      node {
+        id
+        name { native full alternative }
+        image { large }
+      }
     } }
   } }
 }`;
@@ -990,14 +997,18 @@ function shapeCharsOfMedia(media, lang = 'ja') {
   const en = lang === 'en';
   const from = media?.title;
   const sub = from ? (en ? (from.romaji || from.native) : (from.native || from.romaji)) || '' : '';
-  return (media?.characters?.nodes || []).map(c => ({
-    id: c.id, source: 'anilist',
-    title: (en ? (c.name?.full || c.name?.native) : (c.name?.native || c.name?.full)) || '',
-    sub,
-    img: proxied(c.image?.large || ''),
-    relatedId: null, relatedCount: 0,
-    _alts: [c.name?.full, c.name?.native, ...(c.name?.alternative || [])].filter(Boolean),
-  })).filter(x => x.img && x.title);
+  return (media?.characters?.edges || []).map(e => {
+    const c = e?.node;
+    if (!c) return null;
+    return {
+      id: c.id, source: 'anilist',
+      title: (en ? (c.name?.full || c.name?.native) : (c.name?.native || c.name?.full)) || '',
+      sub,
+      img: proxied(c.image?.large || ''),
+      relatedId: null, relatedCount: 0,
+      _alts: [c.name?.full, c.name?.native, ...(c.name?.alternative || [])].filter(Boolean),
+    };
+  }).filter(x => x && x.img && x.title);
 }
 
 async function searchCharacters(term, lang = 'ja') {
@@ -1017,7 +1028,12 @@ async function searchCharacters(term, lang = 'ja') {
          「鬼滅の刃」と入れた人はキャラ一覧が見たいはずで、
          「該当なし」で終わらせると探しようがない。
          キャラ名を優先するのは、名前が作品名と同じ場合
-         （ドラえもん、ポケモンなど）にキャラを出したいため。 */
+         （ドラえもん、ポケモンなど）にキャラを出したいため。
+
+         ここは「当たれば嬉しい」追加機能なので、失敗しても投げない。
+         投げると、この下の Jikan での再挑戦に進めず、
+         **もともと動いていたキャラ検索まで道連れで失敗する**。
+         実際にクエリの書き方を誤って、キャラ検索が全滅した。 */
       try {
         const byMedia = await anilist(Q_CHARS_BY_MEDIA, { s: v });
         const media = byMedia.Page?.media?.[0];
@@ -1025,7 +1041,7 @@ async function searchCharacters(term, lang = 'ja') {
         if (chars.length) return chars;
       } catch (e) {
         if (isAniListDown(e)) anilistDownUntil = Date.now() + ANILIST_COOLDOWN;
-        else throw e;
+        else console.warn('作品名でのキャラ検索に失敗（キャラ名の検索は継続）:', e.message);
       }
     }
     // キャラクターの画像を持つ代替はJikanだけ。詰まっているときは空で返す
