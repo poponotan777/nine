@@ -35,7 +35,7 @@ const { adsFor, hasAds } = require('./ads');
 const ogimage = require('./ogimage');
 
 const PORT = process.env.PORT || 3000;
-const TYPES = new Set(['album', 'manga', 'anime', 'movie', 'character', 'book']);
+const TYPES = new Set(['album', 'manga', 'anime', 'movie', 'person', 'character', 'book']);
 
 /* ------------------------------------------------------------------ *
  * キャッシュ（メモリ上・TTL付き・LRU）
@@ -396,11 +396,11 @@ function readBody(req, limit = 64 * 1024) {
  * ------------------------------------------------------------------ */
 const KIND_LABEL = {
   album:'CD', manga:'漫画', book:'書籍', anime:'アニメ',
-  movie:'映画', character:'キャラクター',
+  movie:'映画', person:'有名人', character:'キャラクター',
 };
 const KIND_RATIO = {
   album:'1/1', manga:'460/654', book:'2/3', anime:'460/654',
-  movie:'2/3', character:'460/654',
+  movie:'2/3', person:'3/4', character:'460/654',
 };
 
 const esc = t => String(t == null ? '' : t)
@@ -763,7 +763,7 @@ const server = http.createServer(async (req, res) => {
         };
       });
 
-      // SNSハンドル（@なし・英数字と_のみ）。作った人のページ（/u/）の紐づけに使う
+      // SNSハンドル（@なし・英数字と_のみ）。有名人ページの紐づけに使う
       const handle = String(body.handle || '').replace(/^@/, '').slice(0, 30);
 
       // 言語。指定が無ければブラウザの Accept-Language から推定する
@@ -971,13 +971,7 @@ const server = http.createServer(async (req, res) => {
         return send(res, 429, { error: 'リクエストが多すぎます。少し待ってください。' });
       }
       const items = await once(key, fetchFresh);
-      /* 0件のとき、「その語が無い」のか「外部サービスが止まっている」のか
-         区別できないと、利用者は入力を疑って何度もやり直すことになる。
-         AniListは過去に何度もAPI全体を止めており、そのとき代替のJikanに切り替わるが、
-         Jikanはキャラ名をローマ字でしか持たないため日本語で引くと0件になる。
-         状況を伝えて、ローマ字を試してもらう。 */
-      const outage = (!items.length && kind === 'search') ? P.outageNote(type) : null;
-      return send(res, 200, { items, outage: outage || undefined });
+      return send(res, 200, { items });
     }
 
     if (url.pathname === '/x/creators') {
@@ -1010,18 +1004,13 @@ const server = http.createServer(async (req, res) => {
       const type   = url.searchParams.get('type') || '';
       const id     = url.searchParams.get('id') || '';
       const author = (url.searchParams.get('author') || '').slice(0, 60);
-      const wlang  = url.searchParams.get('lang') === 'en' ? 'en' : 'ja';
       if (!TYPES.has(type)) return send(res, 400, { error: '種別が不正です' });
-      // 書籍は著者名、キャラは登場作品の名前。どちらもidではなく文字列で引く
-      const byName = (type === 'book' || type === 'character');
-      if (!byName && !/^\d+$/.test(id)) return send(res, 400, { error: 'idが不正です' });
-      if (byName && !author) {
-        return send(res, 400, { error: type === 'character' ? '作品名が必要です' : '著者名が必要です' });
-      }
+      if (type !== 'book' && !/^\d+$/.test(id)) return send(res, 400, { error: 'idが不正です' });
+      if (type === 'book' && !author) return send(res, 400, { error: '著者名が必要です' });
 
-      const key = `works:${type}:${id}:${wlang}:${P.cacheKey(author).toLowerCase()}`;
+      const key = `works:${type}:${id}:${P.cacheKey(author).toLowerCase()}`;
       const fetchFresh = async () => {
-        const r = (await P.works(type, id, { author, lang: wlang }))
+        const r = (await P.works(type, id, { author }))
           .map(it => ({ ...it, links: P.buyLinks(type, it) }));
         cacheSet2(key, r, TTL.search);
         return r;

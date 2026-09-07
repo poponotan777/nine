@@ -7,7 +7,7 @@
 <link rel="icon" href="/icon-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="/icon-180.png">
 <title>MY NINE LOVES — 9枚で自分を紹介する</title>
-<meta name="description" content="好きなCD・漫画・書籍・アニメ・映画・キャラクターを9つ選ぶと、1枚のカード画像になります。登録不要・無料。">
+<meta name="description" content="好きなCD・漫画・書籍・アニメ・映画・有名人・キャラクターを9つ選ぶと、1枚のカード画像になります。登録不要・無料。">
 <link rel="canonical" href="https://mynineloves.com/">
 <!-- SNSに貼られたときの見え方。無いとリンクが素っ気なくなり、拡散が鈍る -->
 <meta property="og:type" content="website">
@@ -509,6 +509,7 @@
       <button type="button" data-mode="book" aria-pressed="false">書籍</button>
       <button type="button" data-mode="anime" aria-pressed="false">アニメ</button>
       <button type="button" data-mode="movie" aria-pressed="false">映画</button>
+      <button type="button" data-mode="person" aria-pressed="false">有名人</button>
       <button type="button" data-mode="character" aria-pressed="false">キャラ</button>
     </div>
   </div>
@@ -737,10 +738,6 @@
       'st.slow':'検索中…（外部のデータベースに問い合わせています。数秒かかることがあります）',
       'st.building':'画像を作っています…',
       'st.none':'見つかりませんでした。別の言葉で試してください。',
-      'st.outage':'いま作品データの提供元が停止しています。'
-        + '復旧までは日本語で探せません。ローマ字（例: Naruto）でお試しください。',
-      'st.noneWork':'その作品が見つかりませんでした。正式なタイトルで試してください。',
-      'st.workHint':'作品名を入れると、その作品のキャラクターが並びます。',
       'st.failed':'検索に失敗しました。画像を直接アップロードすることもできます。',
       'st.willApply':'「決定」で反映されます',
       'st.creatorHint':'名前を入れて検索すると、その人の作品一覧が出ます。',
@@ -795,10 +792,6 @@
       'st.slow':'Searching\u2026 (asking an external database; this can take a few seconds)',
       'st.building':'Building the image\u2026',
       'st.none':'Nothing found. Try different words.',
-      'st.outage':'The data provider is down right now. '
-        + 'Please try again later.',
-      'st.noneWork':'That series was not found. Try its official title.',
-      'st.workHint':'Enter a series title to list its characters.',
       'st.failed':'Search failed. You can also upload an image directly.',
       'st.willApply':'Press Done to apply',
       'st.creatorHint':'Search a name to see everything they made.',
@@ -840,6 +833,9 @@
     movie: {h1:'9本で自分を紹介する', sub:'好きな映画を9本選んで、1枚の画像にする',
            title:'を構成する9本', unit:'本目', f1:'作品名', f2:'公開年', grid:'SELECT NINE FILMS',
            ph:'映画のタイトルで検索', hint:'邦題・原題どちらでも探せます。'},
+    person: {h1:'9人で自分を紹介する', sub:'好きな有名人を9人選んで、1枚の画像にする',
+           title:'を構成する9人', unit:'人目', f1:'名前', f2:'肩書き', grid:'SELECT NINE PEOPLE',
+           ph:'名前で検索', hint:'俳優・音楽家・芸人・作家など、事典に載っている人物を探せます。'},
     book: {h1:'9冊で自分を紹介する', sub:'好きな本を9冊選んで、1枚の画像にする',
            title:'を構成する9冊', unit:'冊目', f1:'書名', f2:'著者', grid:'SELECT NINE BOOKS',
            ph:'書名で検索', hint:'小説・実用書・新書などを探せます。同じ作品の別の版は「関連」からどうぞ。'},
@@ -863,6 +859,9 @@
     movie: {h1:'Nine films I love', sub:'Pick nine films and turn them into one image',
          title:'Nine films I love', unit:'', f1:'Title', f2:'Year', grid:'SELECT NINE FILMS',
          ph:'Search a film', hint:'Original or localised titles both work.'},
+    person: {h1:'Nine people I love', sub:'Pick nine people and turn them into one image',
+         title:'Nine people I love', unit:'', f1:'Name', f2:'Known for', grid:'SELECT NINE PEOPLE',
+         ph:'Search a name', hint:'Actors, musicians, comedians, writers.'},
     character: {h1:'Nine characters I love', sub:'Pick nine characters and turn them into one image',
          title:'Nine characters I love', unit:'', f1:'Character', f2:'From', grid:'SELECT NINE CHARACTERS',
          ph:'Search a character', hint:'Characters from manga, anime and games.'},
@@ -878,16 +877,12 @@
   /* ===== 検索 =====
      通信先はすべて自前サーバー。外部APIのURLもキーもここには出てこない。
      画像は /img?u=... の同一オリジン経由で来るので、canvasが汚染されない。 */
-  const API_TYPE = { cd:'album', manga:'manga', book:'book', anime:'anime', movie:'movie', character:'character' };
-
-  // 直前の検索で外部サービスが止まっていたか。0件の理由を伝えるのに使う
-  let lastOutage = null;
+  const API_TYPE = { cd:'album', manga:'manga', book:'book', anime:'anime', movie:'movie', person:'person', character:'character' };
 
   async function api(path){
     const r = await fetch(path);
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || `サーバーが ${r.status} を返しました`);
-    lastOutage = j.outage || null;
     return j.items || [];
   }
   const searchItems  = (type, q) => api(`/x/search?type=${type}&lang=${LANG}&q=${encodeURIComponent(q)}`);
@@ -896,22 +891,20 @@
   const creatorItems = (type, q) => api(`/x/creators?type=${type}&q=${encodeURIComponent(q)}`);
   const workItems    = (type, id) => api(`/x/works?type=${type}&id=${id}`);
 
-  // 「作者で探す」のラベル。持たない種類では出さない
+  // 「作者で探す」のラベル。有名人モードには人名検索しかないので出さない
   const BY_LABEL_JA = { cd:'アーティストで探す', manga:'作者で探す', book:'著者で探す',
-                        anime:'制作・監督で探す', movie:'監督・出演者で探す',
-                        character:'登場作品で探す' };
+                        anime:'制作・監督で探す', movie:'監督・出演者で探す' };
   const BY_LABEL_EN = { cd:'By artist', manga:'By author', book:'By author',
-                        anime:'By studio', movie:'By director / cast',
-                        character:'By series' };
+                        anime:'By studio', movie:'By director / cast' };
   const BY_LABEL = new Proxy({}, { get: (_, k) =>
     (LANG === 'en' ? BY_LABEL_EN : BY_LABEL_JA)[k] });
 
   /* 種別ごとの画像の縦横比（横 ÷ 縦）
      CDジャケットは正方形、漫画・アニメ・映画のポスターは2:3、
      人物写真は3:4が最も切れが少ない。 */
-  const RATIO = { cd:1, manga:460/654, book:2/3, anime:460/654, movie:2/3, character:460/654 };
+  const RATIO = { cd:1, manga:460/654, book:2/3, anime:460/654, movie:2/3, person:3/4, character:460/654 };
   // contain = 絶対に見切れない（余白が出る） / cover = 枠を埋める（端が切れる）
-  const FIT   = { cd:'cover', manga:'contain', book:'contain', anime:'contain', movie:'contain', character:'contain' };
+  const FIT   = { cd:'cover', manga:'contain', book:'contain', anime:'contain', movie:'contain', person:'cover', character:'contain' };
 
   function applyRatio(){
     document.documentElement.style.setProperty('--ratio', String(RATIO[S.mode] || 1));
@@ -1127,25 +1120,11 @@
     const hasCreator = !!BY_LABEL[S.mode];
     $('findBy').style.display = hasCreator ? 'flex' : 'none';
     $('byCreator').textContent = BY_LABEL[S.mode] || '作者で探す';
-    // キャラのときは左が「作品名」ではなく「キャラ名」。
-    // 右が「登場作品で探す」なので、左をそのままにすると意味が逆に見える。
-    const byWork = $('findBy').querySelector('[data-by="work"]');
-    if (byWork) {
-      byWork.textContent = S.mode === 'character'
-        ? (LANG === 'en' ? 'By name' : 'キャラ名で探す')
-        : t('by.work');
-    }
 
     if (mode === 'creator'){
-      if (S.mode === 'character'){
-        // キャラだけは「人物」ではなく作品名を入れてもらう
-        $('q').placeholder = LANG === 'en' ? 'Series title' : '作品名';
-        setStatus(t('st.workHint'));
-      } else {
-        $('q').placeholder = LANG === 'en' ? 'Search a name'
-          : (BY_LABEL[S.mode] || '').replace('で探す', '名');
-        setStatus(t('st.creatorHint'));
-      }
+      $('q').placeholder = LANG === 'en' ? 'Search a name'
+        : (BY_LABEL[S.mode] || '').replace('で探す', '名');
+      setStatus(t('st.creatorHint'));
     } else {
       $('q').placeholder = C().ph;
       setStatus(C().hint);
@@ -1253,7 +1232,7 @@
     const slowTimer = setTimeout(() => setStatus(t('st.slow')), 1200);
     try{
       const list = await creatorItems(API_TYPE[S.mode], q);
-      if (!list.length) return setStatus(t(lastOutage ? 'st.outage' : 'st.none'));
+      if (!list.length) return setStatus(t('st.none'));
       lastPeople = list;
       paintPeople(list);
       setStatus(t('st.creatorTap'));
@@ -1279,26 +1258,24 @@
   }
 
   /** その人の作品一覧を表示する */
-  async function showWorks(creator){
-    setStatus(`「${creator.title}」の作品を読み込み中…`);
+  async function showWorks(person){
+    setStatus(`「${person.title}」の作品を読み込み中…`);
     try{
       const list = S.mode === 'book'
-        ? await api(`/x/works?type=book&id=0&author=${encodeURIComponent(creator.authorName || creator.title)}`)
-        : await workItems(API_TYPE[S.mode], creator.id);
+        ? await api(`/x/works?type=book&id=0&author=${encodeURIComponent(person.authorName || person.title)}`)
+        : await workItems(API_TYPE[S.mode], person.id);
       if (!list.length){ setStatus('作品が見つかりませんでした。'); return; }
       $('people').innerHTML = '';
       lastSearch = list;
       paintResults(list);
       $('back').style.display = 'block';
-      setStatus(`「${creator.title}」の作品。タップして選んでください。`);
+      setStatus(`「${person.title}」の作品。タップして選んでください。`);
     } catch(err){
       setStatus('作品一覧を取得できませんでした。（' + err.message + '）', true);
     }
   }
 
   async function runSearch(){
-    // キャラの「登場作品で探す」は、人物の候補を挟まず作品名で直接キャラを出す
-    if (findBy === 'creator' && S.mode === 'character') return runCharsOfWork();
     if (findBy === 'creator') return runCreatorSearch();
     const q = $('q').value.trim();
     const type = API_TYPE[S.mode];
@@ -1311,7 +1288,7 @@
     const slowTimer = setTimeout(() => setStatus(t('st.slow')), 1200);
     try{
       const list = await searchItems(type, q);
-      if (!list.length) return setStatus(t(lastOutage ? 'st.outage' : 'st.none'));
+      if (!list.length) return setStatus(t('st.none'));
       lastSearch = list;
       paintResults(list);
       setStatus(list.some(x => x.relatedCount)
@@ -1335,25 +1312,6 @@
     } catch(err){
       setStatus('関連を取得できませんでした。（' + err.message + '）', true);
     }
-  }
-
-  /** 作品名を入れて、その作品のキャラクターを並べる */
-  async function runCharsOfWork(){
-    const q = $('q').value.trim();
-    if (!q) return;
-    $('results').innerHTML = ''; $('people').innerHTML = '';
-    $('back').style.display = 'none';
-    setStatus(t('st.searching'));
-    const slowTimer = setTimeout(() => setStatus(t('st.slow')), 1200);
-    try{
-      const list = await api(`/x/works?type=character&id=0&author=${encodeURIComponent(q)}&lang=${LANG}`);
-      if (!list.length) return setStatus(t('st.noneWork'));
-      lastSearch = list;
-      paintResults(list);
-      setStatus(t('st.tap'));
-    } catch(err){
-      setStatus(t('st.error'));
-    } finally { clearTimeout(slowTimer); }
   }
 
   $('back').addEventListener('click', () => {
@@ -1733,12 +1691,12 @@
   const TAG = {
     cd:'私を構成する9枚', manga:'私を構成する9冊', book:'私を構成する9冊',
     anime:'私を構成する9作', movie:'私を構成する9本',
-    character:'私を構成する9キャラ',
+    person:'私を構成する9人', character:'私を構成する9キャラ',
   };
   const TAG_EN = {
     cd:'MyNineAlbums', manga:'MyNineManga', book:'MyNineBooks',
     anime:'MyNineAnime', movie:'MyNineFilms',
-    character:'MyNineCharacters',
+    person:'MyNinePeople', character:'MyNineCharacters',
   };
   /** 「太郎」＋「を構成する9枚」→「太郎を構成する9枚」
       名前が空なら「私を構成する9枚」にする */
@@ -2037,13 +1995,6 @@
       el.innerHTML = t(el.dataset.i18n);
     });
     $('hint').innerHTML = t('grid.hint');
-    // 左タブは data-i18n で「作品名で探す」に戻るので、キャラのときは上書きし直す
-    {
-      const byWork = $('findBy') && $('findBy').querySelector('[data-by="work"]');
-      if (byWork && S.mode === 'character') {
-        byWork.textContent = LANG === 'en' ? 'By name' : 'キャラ名で探す';
-      }
-    }
     $('handleHint').textContent = t('handle.hint');
     $('outNote').textContent = t('out.note');
     $('ageTitle').textContent = t('age.title');
@@ -2066,9 +2017,9 @@
     // 種類ボタンの表示名
     const KIND = LANG === 'en'
       ? { cd:'Albums', manga:'Manga', book:'Books', anime:'Anime',
-          movie:'Films', character:'Chars' }
+          movie:'Films', person:'People', character:'Chars' }
       : { cd:'CD', manga:'漫画', book:'書籍', anime:'アニメ',
-          movie:'映画', character:'キャラ' };
+          movie:'映画', person:'有名人', character:'キャラ' };
     document.querySelectorAll('[data-mode]').forEach(b => {
       b.textContent = KIND[b.dataset.mode] || b.textContent;
       // 書籍は日本の楽天ブックスに依存しているため、英語では出さない
