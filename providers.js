@@ -948,16 +948,18 @@ async function searchKobo(term, field = 'title') {
    「鬼滅の刃」のように作品名で検索したとき、
    その作品に出てくるキャラクターが並ぶようにするため。
 
-   sort は **配列** で渡すこと（`[CharacterSort]` 型）。
-   `sort: ROLE` と単体で書くとGraphQLがエラーを返し、
-   それが外まで抜けてキャラ検索そのものが失敗する。一度これで壊した。
-
-   役どころ（主人公か脇役か）は node ではなく edge 側にあるので、
-   edges を経由して role と node を一緒に取る。 */
+   スキーマの決まりごと（勝手に足すと全体が止まる。二度踏んだ）:
+   - `sort` は **配列**（`[CharacterSort]`）。単体で書くとエラー。
+   - `CharacterSort` は公開スキーマだと
+     FAVOURITES / FAVOURITES_DESC / ID / ID_DESC / ROLE / ROLE_DESC / SEARCH_MATCH の7つ。
+     **確実なもの以外を足さない。** `RELEVANCE` を足して壊した。
+   - `perPage` の上限は **25**。超えるとエラー。
+   - 役どころ（主人公か脇役か）は node ではなく edge 側にあるので、
+     edges を経由して role と node を一緒に取る。 */
 const Q_CHARS_BY_MEDIA = `query ($s: String) {
   Page(perPage: 1) { media(search: $s, sort: SEARCH_MATCH, isAdult: false) {
     title { native romaji }
-    characters(perPage: 25, sort: [ROLE, RELEVANCE]) { edges {
+    characters(perPage: 25, sort: [ROLE]) { edges {
       role
       node {
         id
@@ -1030,18 +1032,21 @@ async function searchCharacters(term, lang = 'ja') {
          キャラ名を優先するのは、名前が作品名と同じ場合
          （ドラえもん、ポケモンなど）にキャラを出したいため。
 
-         ここは「当たれば嬉しい」追加機能なので、失敗しても投げない。
+         ここは「当たれば嬉しい」追加機能なので、何があっても投げない。
          投げると、この下の Jikan での再挑戦に進めず、
          **もともと動いていたキャラ検索まで道連れで失敗する**。
-         実際にクエリの書き方を誤って、キャラ検索が全滅した。 */
+
+         **冷却期間（anilistDownUntil）にも入れない。**
+         クエリの書き方が誤っていても「AniListが停止中」と判定され、
+         10分間キャラ検索が丸ごと止まる、という壊れ方をした。
+         AniListの生死は、上のキャラ名検索の結果だけで判断する。 */
       try {
         const byMedia = await anilist(Q_CHARS_BY_MEDIA, { s: v });
         const media = byMedia.Page?.media?.[0];
         const chars = shapeCharsOfMedia(media, lang);
         if (chars.length) return chars;
       } catch (e) {
-        if (isAniListDown(e)) anilistDownUntil = Date.now() + ANILIST_COOLDOWN;
-        else console.warn('作品名でのキャラ検索に失敗（キャラ名の検索は継続）:', e.message);
+        console.warn('作品名でのキャラ検索に失敗（キャラ名の検索は継続）:', e.message);
       }
     }
     // キャラクターの画像を持つ代替はJikanだけ。詰まっているときは空で返す

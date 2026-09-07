@@ -254,16 +254,31 @@ Wikidata / Wikimedia Commons / Wikipedia は有名人専用の出典だったの
 **キャラ名と作品名が同じ**ときにキャラを出したいため。順番を入れ替えないこと。
 キャラ名で当たった場合は作品名の検索は走らない（通信は増えない）。
 
-**この追加でキャラ検索を一度まるごと壊した。** 原因は2つ。
+**この追加でキャラ検索を二度まるごと壊した。** AniListのスキーマの決まりごと:
 
-1. `Media.characters` の `sort` は **配列**（`[CharacterSort]`）。
-   `sort: ROLE` と単体で書くとGraphQLがエラーを返す。`sort: [ROLE, RELEVANCE]` が正しい。
-   役どころは `node` ではなく **`edges` 側**にあるので、`edges { role node { … } }` で取る。
-2. そのエラーを `throw` していたため、**下にある Jikan での再挑戦に進めず、
-   もともと動いていたキャラ名の検索まで道連れで失敗していた。**
+- `Media.characters` の `sort` は **配列**（`[CharacterSort]`）。単体で書くとエラー。
+- `CharacterSort` は公開スキーマだと
+  `FAVOURITES` `FAVOURITES_DESC` `ID` `ID_DESC` `ROLE` `ROLE_DESC` `SEARCH_MATCH` の**7つ**。
+  `RELEVANCE` を足したら壊れた。**確実なもの以外は書かないこと。**
+  なお公開スキーマは古く、`Q_SEARCH` が使っている `StaffSort: RELEVANCE` は
+  載っていないのに本番では動く。**スキーマは参考程度で、鵜呑みにしない。**
+- `characters` の `perPage` は **上限25**。
+- 役どころは `node` ではなく **`edges` 側**。`edges { role node { … } }` で取る。
 
-いまは失敗しても投げず、警告をログに出して先へ進む。
-**あとから足す「当たれば嬉しい」機能は、失敗しても既存の経路を止めないこと。**
+さらに壊れ方を悪化させていたのが次の2点。
+
+1. エラーを `throw` していたため、下にある Jikan での再挑戦に進めず、
+   **もともと動いていたキャラ名の検索まで道連れ**になっていた。
+2. `isAniListDown(e)` で **10分間の冷却に入れていた**。
+   クエリの書き方の誤りは「AniListの停止」ではないのに停止扱いになり、
+   **1回目は時間をかけて失敗、2回目以降は即失敗**という症状になった。
+
+いまは投げず、冷却にも入れず、警告をログに出して先へ進む。
+**あとから足す「当たれば嬉しい」機能は、失敗しても既存の経路を止めないこと。
+外部APIの停止判定に混ぜないこと。**
+
+クエリを直したら、スキーマと突き合わせて確かめること。
+スキーマは `https://github.com/TehNut/AniLinker/raw/refs/heads/master/schema.graphql` で読める。
 
 ### 書体は丸ゴシック（M PLUS Rounded 1c）
 
