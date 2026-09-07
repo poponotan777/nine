@@ -737,6 +737,8 @@
       'st.slow':'検索中…（外部のデータベースに問い合わせています。数秒かかることがあります）',
       'st.building':'画像を作っています…',
       'st.none':'見つかりませんでした。別の言葉で試してください。',
+      'st.outage':'いま作品データの提供元が停止しています。'
+        + '復旧までは日本語で探せません。ローマ字（例: Naruto）でお試しください。',
       'st.noneWork':'その作品が見つかりませんでした。正式なタイトルで試してください。',
       'st.workHint':'作品名を入れると、その作品のキャラクターが並びます。',
       'st.failed':'検索に失敗しました。画像を直接アップロードすることもできます。',
@@ -793,6 +795,8 @@
       'st.slow':'Searching\u2026 (asking an external database; this can take a few seconds)',
       'st.building':'Building the image\u2026',
       'st.none':'Nothing found. Try different words.',
+      'st.outage':'The data provider is down right now. '
+        + 'Please try again later.',
       'st.noneWork':'That series was not found. Try its official title.',
       'st.workHint':'Enter a series title to list its characters.',
       'st.failed':'Search failed. You can also upload an image directly.',
@@ -876,10 +880,14 @@
      画像は /img?u=... の同一オリジン経由で来るので、canvasが汚染されない。 */
   const API_TYPE = { cd:'album', manga:'manga', book:'book', anime:'anime', movie:'movie', character:'character' };
 
+  // 直前の検索で外部サービスが止まっていたか。0件の理由を伝えるのに使う
+  let lastOutage = null;
+
   async function api(path){
     const r = await fetch(path);
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || `サーバーが ${r.status} を返しました`);
+    lastOutage = j.outage || null;
     return j.items || [];
   }
   const searchItems  = (type, q) => api(`/x/search?type=${type}&lang=${LANG}&q=${encodeURIComponent(q)}`);
@@ -1245,7 +1253,7 @@
     const slowTimer = setTimeout(() => setStatus(t('st.slow')), 1200);
     try{
       const list = await creatorItems(API_TYPE[S.mode], q);
-      if (!list.length) return setStatus(t('st.none'));
+      if (!list.length) return setStatus(t(lastOutage ? 'st.outage' : 'st.none'));
       lastPeople = list;
       paintPeople(list);
       setStatus(t('st.creatorTap'));
@@ -1303,7 +1311,7 @@
     const slowTimer = setTimeout(() => setStatus(t('st.slow')), 1200);
     try{
       const list = await searchItems(type, q);
-      if (!list.length) return setStatus(t('st.none'));
+      if (!list.length) return setStatus(t(lastOutage ? 'st.outage' : 'st.none'));
       lastSearch = list;
       paintResults(list);
       setStatus(list.some(x => x.relatedCount)

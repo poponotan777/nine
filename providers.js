@@ -237,7 +237,7 @@ async function anilist(query, variables) {
  * Jikanはキー不要。1秒3回・1分60回の制限があるので間隔を空けて呼ぶ。
  * 日本語の題名も `title_japanese` で取れる。
  * ------------------------------------------------------------------ */
-const JIKAN = 'https://api.jikan.moe/v4';
+const JIKAN = process.env.JIKAN_URL || 'https://api.jikan.moe/v4';
 
 /** AniListが止まっているかどうか。403を1度でも見たら一定時間は使わない */
 let anilistDownUntil = 0;
@@ -1153,8 +1153,17 @@ function buyLinks(type, item) {
   return out;
 }
 
+/** いま外部サービスが止まっているか（画面の文言を変えるために使う） */
+function outageNote(type) {
+  if (Date.now() < anilistDownUntil
+      && (type === 'character' || type === 'manga' || type === 'anime')) {
+    return 'anilist';
+  }
+  return null;
+}
+
 module.exports = {
-  search, suggest, related, creators, works, buyLinks, IMG_HOSTS,
+  search, suggest, related, creators, works, buyLinks, IMG_HOSTS, outageNote,
   hasRakuten: () => !!(RAKUTEN_ID && RAKUTEN_KEY),
   hasTMDB: () => !!TMDB_KEY,
   cacheKey: normalize,   // キャッシュキーの正規化に使う（server.js）

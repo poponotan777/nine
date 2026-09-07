@@ -971,7 +971,13 @@ const server = http.createServer(async (req, res) => {
         return send(res, 429, { error: 'リクエストが多すぎます。少し待ってください。' });
       }
       const items = await once(key, fetchFresh);
-      return send(res, 200, { items });
+      /* 0件のとき、「その語が無い」のか「外部サービスが止まっている」のか
+         区別できないと、利用者は入力を疑って何度もやり直すことになる。
+         AniListは過去に何度もAPI全体を止めており、そのとき代替のJikanに切り替わるが、
+         Jikanはキャラ名をローマ字でしか持たないため日本語で引くと0件になる。
+         状況を伝えて、ローマ字を試してもらう。 */
+      const outage = (!items.length && kind === 'search') ? P.outageNote(type) : null;
+      return send(res, 200, { items, outage: outage || undefined });
     }
 
     if (url.pathname === '/x/creators') {
