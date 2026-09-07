@@ -404,7 +404,6 @@
       <button type="button" data-type="manga" aria-pressed="false">漫画</button>
       <button type="button" data-type="anime" aria-pressed="false">アニメ</button>
       <button type="button" data-type="movie" aria-pressed="false">映画</button>
-      <button type="button" data-type="person" aria-pressed="false">有名人</button>
       <button type="button" data-type="character" aria-pressed="false">キャラ</button>
     </div>
   </div>
@@ -511,12 +510,12 @@
   const $ = id => document.getElementById(id);
   // 保存されている種別名は 'album'。'cd' は画面側の呼び名なので両方を引けるようにする
   const LABEL_JA = { album:'CD', cd:'CD', manga:'漫画', book:'書籍', anime:'アニメ',
-                     movie:'映画', person:'有名人', character:'キャラ' };
+                     movie:'映画', character:'キャラ' };
   const LABEL = new Proxy({}, { get: (_, k) => T().kinds[k] || LABEL_JA[k] });
   // 共有時に必ず付く共通タグ。種類別タグは補助なので、ここでは共通タグを追う
   const TAG = { '':'MyNineLoves', album:'MyNineLoves', cd:'MyNineLoves', manga:'MyNineLoves', book:'MyNineLoves',
                 anime:'MyNineLoves', movie:'MyNineLoves',
-                person:'MyNineLoves', character:'MyNineLoves' };
+                character:'MyNineLoves' };
 
   let LANG = 'ja';
   try { LANG = localStorage.getItem('lang') === 'en' ? 'en' : 'ja'; } catch(e){}
@@ -549,7 +548,7 @@
       pageLimit:'ここまでが表示できる範囲です。種類やならびを変えると、別の9つが見られます。',
       pr:'PR（アフィリエイトリンク）', user:'作った人を見る',
       kinds:{ '':'すべて', album:'CD', cd:'CD', book:'書籍', manga:'漫画', anime:'アニメ',
-              movie:'映画', person:'有名人', character:'キャラ' },
+              movie:'映画', character:'キャラ' },
     },
     en: {
       h1:'Everyone\u2019s nine', sub:'See what other people picked', make:'Make', about:'About',
@@ -576,7 +575,7 @@
       pageLimit:'That is as far as this list goes. Try another kind or order.',
       pr:'PR (affiliate link)', user:'See the creator',
       kinds:{ '':'All', album:'Albums', cd:'Albums', book:'Books', manga:'Manga', anime:'Anime',
-              movie:'Films', person:'People', character:'Chars' },
+              movie:'Films', character:'Chars' },
     },
   };
   const T = () => I18N[LANG];
@@ -805,7 +804,7 @@
 
   /* ---------- 作品ランキング ---------- */
   const RATIO = { album:'1/1', cd:'1/1', manga:'.7', book:'.67', anime:'.7',
-                  movie:'.67', person:'.75', character:'.7' };
+                  movie:'.67', character:'.7' };
 
   /** いま何のランキングを見ているかを1行で説明する。
       「すべての年代」と「同年代」と「2020年代」は、

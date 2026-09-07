@@ -49,7 +49,7 @@ x.fillText('1枚の画像に。', OBI + 58, 300);
 x.fillStyle = C.muted;
 x.font = '22px NineRegular';
 x.fillText('CD・漫画・書籍・アニメ・映画', OBI + 60, 356);
-x.fillText('有名人・キャラクター　登録不要・無料', OBI + 60, 392);
+x.fillText('キャラクター　登録不要・無料', OBI + 60, 392);
 
 // 3×3のマスを右側に置く（何を作るツールかが一目で分かる）
 const cell = 112, gap = 12;

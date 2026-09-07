@@ -42,7 +42,7 @@ const COLOR = {
 /** 種類ごとの縦横比（画面側と揃える） */
 const RATIO = {
   album: 1, manga: 460 / 654, book: 2 / 3, anime: 460 / 654,
-  movie: 2 / 3, person: 3 / 4, character: 460 / 654,
+  movie: 2 / 3, character: 460 / 654,
 };
 
 function clip(ctx, s, max) {

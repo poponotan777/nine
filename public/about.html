@@ -7,7 +7,7 @@
 <link rel="icon" href="/icon-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="/icon-180.png">
 <title>このサイトについて | MY NINE LOVES</title>
-<meta name="description" content="好きなCD・漫画・アニメ・映画・有名人・キャラクターを9つ選んで、1枚の画像にするツールです。">
+<meta name="description" content="好きなCD・漫画・アニメ・映画・キャラクターを9つ選んで、1枚の画像にするツールです。">
 <style>
   :root{
     --ink:#EFF2E8;
@@ -179,7 +179,7 @@
 
   <h2>できること</h2>
   <p>
-    好きなCD・漫画・アニメ・映画・有名人・キャラクターを9つ選ぶと、1枚のカード画像になります。
+    好きなCD・漫画・アニメ・映画・キャラクターを9つ選ぶと、1枚のカード画像になります。
     作品名からでも、作者やアーティストの名前からでも探せます。
     選んだ内容は種類ごとに保存されるので、切り替えても消えません。
   </p>
@@ -221,13 +221,11 @@
     <tr><td>漫画・アニメ・キャラクター</td><td><a href="https://anilist.co" target="_blank" rel="noopener">AniList</a></td></tr>
     <tr><td>書籍</td><td><a href="https://webservice.rakuten.co.jp/" target="_blank" rel="noopener">楽天ブックス・楽天Kobo</a></td></tr>
     <tr><td>映画</td><td><a href="https://www.themoviedb.org" target="_blank" rel="noopener">TMDB</a></td></tr>
-    <tr><td>有名人</td><td><a href="https://www.wikidata.org" target="_blank" rel="noopener">Wikidata</a> / Wikimedia Commons / TMDB / Wikipedia</td></tr>
   </table>
   <p class="note">
     <a href="https://webservice.rakuten.co.jp/" target="_blank" rel="noopener">Supported by 楽天ウェブサービス</a><br>
     本サービスはTMDBの公認を受けたものではありません。
-    Wikimedia Commons由来の画像はCC BY-SAで提供されています。
-    各作品の表紙・ポスター・写真の権利は、それぞれの権利者に帰属します。
+    各作品の表紙・ポスターの権利は、それぞれの権利者に帰属します。
   </p>
 
   <h2>技術的な話</h2>
@@ -247,10 +245,6 @@
       結果が少ないときだけ変換した語で再検索します。
       並べ替えは2文字ずつの重なり具合（Dice係数）で採点。
       よみがなから漢字への変換は形態素辞書が必要なため対象外としています。
-    </li>
-    <li>
-      <strong>人物検索</strong> — Wikipediaの全文検索は人物かどうかを判定しないため、
-      団体名や作品名が混ざります。Wikidataで分類（P31）がヒト（Q5）の項目に限定しています。
     </li>
     <li>
       <strong>Twitter/Xを使わない理由</strong> — 2026年2月に従量課金へ移行し無料枠が廃止されたこと、
@@ -285,7 +279,7 @@
 
   <h2>What you can do</h2>
   <p>
-    Pick nine favourites — albums, manga, anime, films, public figures or characters —
+    Pick nine favourites — albums, manga, anime, films or characters —
     and they become a single card image. You can search by the title of a work or by the
     name of its author or artist. Your choices are saved separately for each category,
     so switching between them does not clear what you have picked.
@@ -331,12 +325,10 @@
     <tr><td>Manga, anime, characters</td><td><a href="https://anilist.co" target="_blank" rel="noopener">AniList</a></td></tr>
     <tr><td>Books</td><td><a href="https://webservice.rakuten.co.jp/" target="_blank" rel="noopener">Rakuten Books / Rakuten Kobo</a></td></tr>
     <tr><td>Films</td><td><a href="https://www.themoviedb.org" target="_blank" rel="noopener">TMDB</a></td></tr>
-    <tr><td>Public figures</td><td><a href="https://www.wikidata.org" target="_blank" rel="noopener">Wikidata</a> / Wikimedia Commons / TMDB / Wikipedia</td></tr>
   </table>
   <p class="note">
     <a href="https://webservice.rakuten.co.jp/" target="_blank" rel="noopener">Supported by Rakuten Web Service</a><br>
-    This service is not endorsed or certified by TMDB. Images originating from Wikimedia
-    Commons are provided under CC BY-SA. Rights in each cover, poster and photograph
+    This service is not endorsed or certified by TMDB. Rights in each cover and poster
     remain with their respective holders.
   </p>
 
@@ -361,12 +353,6 @@
       Results are ordered by how much their character pairs overlap (the Dice
       coefficient). Converting phonetic readings into kanji is out of scope, as that
       needs a morphological dictionary.
-    </li>
-    <li>
-      <strong>Searching for people</strong> — a Wikipedia full-text search does not
-      distinguish people from anything else, so organisations and titles get mixed in.
-      Results are restricted to entries whose Wikidata classification (P31) is human
-      (Q5).
     </li>
     <li>
       <strong>Why Twitter/X is not used</strong> — it moved to usage-based pricing in
@@ -400,8 +386,8 @@
 
 <script>
   const LABEL = {
-    ja: { cd:'CD', manga:'漫画', anime:'アニメ', movie:'映画', person:'有名人', character:'キャラ' },
-    en: { cd:'Albums', manga:'Manga', anime:'Anime', movie:'Films', person:'People', character:'Characters' },
+    ja: { cd:'CD', manga:'漫画', anime:'アニメ', movie:'映画', character:'キャラ' },
+    en: { cd:'Albums', manga:'Manga', anime:'Anime', movie:'Films', character:'Characters' },
   };
   const PAGE_LANG = document.documentElement.lang === 'en' ? 'en' : 'ja';
 

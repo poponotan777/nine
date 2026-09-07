@@ -255,7 +255,7 @@ TMDBには配信情報がありますが、データ元がJustWatchのため、
 `/trends` では一覧の6件目の位置に1つだけ挟まります。
 枠線で囲わず区切り線だけにしてあるため、記事内広告のように馴染みます。
 
-種類は `book` `manga` `cd` `anime` `movie` `person` `character` `trends`。
+種類は `book` `manga` `cd` `anime` `movie` `character` `trends`。
 `common_rail` のように `common` を使うと、指定の無い種類に適用されます。
 
 ```
@@ -274,7 +274,7 @@ TMDBには配信情報がありますが、データ元がJustWatchのため、
 | アニメ | ABEMAプレミアム、DMM TV |
 | 映画 | U-NEXT、DMM TV、ゲオ宅配レンタル |
 | `/trends` | TSUTAYA DISCAS、ゲオ宅配レンタル |
-| 有名人・キャラ | 該当商材が無い。空のままでよい |
+| キャラ | 該当商材が無い。空のままでよい |
 
 **置かないほうがよいもの**: 楽器教材、格安SIM、TikTok事務所、
 その他サイトの文脈と無関係な案件。数字が出ないうえ、体験を汚します。
